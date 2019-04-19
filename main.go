@@ -1,18 +1,22 @@
 package main
 
 import (
-  "github.com/go-gl/glfw/v3.2/glfw"
+  "github.com/remogatto/egl/platform"
   "golang.org/x/mobile/gl"
   "runtime"
 )
 
 type controlCh struct {
+  eglState chan *platform.EGLState
+  exitUserApp chan struct{}
   exit     chan struct{}
   draw     chan struct{}
 }
 
 func newControlCh() *controlCh {
   return &controlCh{
+    eglState: make(chan *platform.EGLState),
+    exitUserApp: make(chan struct{}),
     exit:     make(chan struct {}),
     draw:     make(chan struct {}),
   }
@@ -23,25 +27,12 @@ func init() {
 }
 
 func main() {
-  if err := glfw.Init(); err != nil {
-    panic(err)
-  }
-  defer glfw.Terminate()
-
-  glfw.WindowHint(glfw.ClientAPI, glfw.OpenGLESAPI)
-  glfw.WindowHint(glfw.ContextCreationAPI, glfw.NativeContextAPI)
-
-  window, err := glfw.CreateWindow(640, 480, "Testing", nil, nil)
-  if err != nil {
-    panic(err)
-  }
-
-  window.MakeContextCurrent()
   glctx, worker := gl.NewContext()
   ctrl := newControlCh()
+  initEGL(ctrl, 800, 600)
 
   workAvailable := worker.WorkAvailable()
-  go userAppCode(glctx, ctrl, window)
+  go userAppCode(glctx, ctrl)
   for {
     select {
     case <-workAvailable:
@@ -54,23 +45,19 @@ func main() {
   }
 }
 
-func userAppCode(glctx gl.Context, ctrl *controlCh, window *glfw.Window) {
+func userAppCode(glctx gl.Context, ctrl *controlCh) {
   var state renderState
-  if err := state.init(window, glctx); err != nil {
+  if err := state.init(glctx); err != nil {
     panic(err)
   }
 
-  var exit = false
-
-  window.SetKeyCallback(func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
-    if key == glfw.KeyEscape {
-      exit = true
-    }
-  })
-
-  for !exit {
+  Outer: for {
     state.scene.Render(glctx)
-    glfw.WaitEvents()
+    select {
+    case <-ctrl.draw: break
+    case <-ctrl.exitUserApp:
+      break Outer
+    }
   }
   ctrl.exit<- struct{}{}
 }
@@ -81,9 +68,7 @@ type renderState struct {
   scene *Scene
 }
 
-func (state *renderState) init(window *glfw.Window, glctx gl.Context) error {
-  //width, height := window.GetSize()
-
+func (state *renderState) init(glctx gl.Context) error {
   state.scene = NewScene(glctx)
 
   if err := state.scene.AttachTextureFromFile("Kerker.png", glctx); err != nil {
