@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/flyx/mobile/gl"
 	"github.com/go-gl/mathgl/mgl32"
-	"golang.org/x/mobile/gl"
 	"image"
 	"image/png"
 	"log"
@@ -184,12 +184,12 @@ func NewScene(glctx gl.Context) *Scene {
 
 	glctx.UseProgram(scene.Program)
 	scene.attrPos = glctx.GetAttribLocation(scene.Program, "pos")
-	scene.attrColor = glctx.GetAttribLocation(scene.Program,"color")
+	scene.attrColor = glctx.GetAttribLocation(scene.Program, "color")
 	scene.attrTexIn = glctx.GetAttribLocation(scene.Program, "texIn")
 
-	scene.uniformTexture = glctx.GetUniformLocation(scene.Program,"texture")
-	scene.uniformModel = glctx.GetUniformLocation(scene.Program,"model")
-	scene.uniformProjectionView =glctx.GetUniformLocation(scene.Program, "projection_view")
+	scene.uniformTexture = glctx.GetUniformLocation(scene.Program, "texture")
+	scene.uniformModel = glctx.GetUniformLocation(scene.Program, "model")
+	scene.uniformProjectionView = glctx.GetUniformLocation(scene.Program, "projection_view")
 
 	glctx.EnableVertexAttribArray(scene.attrPos)
 	glctx.EnableVertexAttribArray(scene.attrColor)
@@ -246,7 +246,7 @@ func (s *Scene) AttachTextureFromBuffer(buffer []byte, width, height int, glctx 
 func (s *Scene) Render(glctx gl.Context) {
 	glctx.UseProgram(s.Program)
 	glctx.BindBuffer(gl.ARRAY_BUFFER, s.Vertices.Buffer)
-	glctx.VertexAttribPointer(s.attrPos, 4, gl.FLOAT, false, SizeOfFloat*6,0)
+	glctx.VertexAttribPointer(s.attrPos, 4, gl.FLOAT, false, SizeOfFloat*6, 0)
 	glctx.VertexAttribPointer(s.attrTexIn, 2, gl.FLOAT, false, 6*SizeOfFloat, 4*SizeOfFloat)
 	//glctx.VertexAttribPointer(c.attrColor, 4, gl.FLOAT, false, SizeOfFloat*8, SizeOfFloat*4)
 
