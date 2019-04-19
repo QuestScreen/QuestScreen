@@ -1,7 +1,7 @@
 package main
 
 import (
-  "github.com/flyx/glfw/v3.2/glfw"
+  "github.com/go-gl/glfw/v3.2/glfw"
   "golang.org/x/mobile/gl"
   "runtime"
 )
@@ -29,6 +29,7 @@ func main() {
   defer glfw.Terminate()
 
   glfw.WindowHint(glfw.ClientAPI, glfw.OpenGLESAPI)
+  glfw.WindowHint(glfw.ContextCreationAPI, glfw.NativeContextAPI)
 
   window, err := glfw.CreateWindow(640, 480, "Testing", nil, nil)
   if err != nil {

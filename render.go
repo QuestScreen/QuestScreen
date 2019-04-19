@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/go-gl/mathgl/mgl32"
-  "golang.org/x/mobile/gl"
+	"golang.org/x/mobile/gl"
 	"image"
 	"image/png"
 	"log"
