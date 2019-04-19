@@ -5,11 +5,9 @@ package main
 */
 import "C"
 import (
-	gl "github.com/remogatto/opengles2"
 	"github.com/flyx/egl"
 	"github.com/flyx/egl/platform"
 	"runtime"
-	"fmt"
 )
 
 type controlCh struct {
@@ -34,27 +32,26 @@ func main() {
 
 	var state renderState
 	if err := state.init(eglState); err != nil {
-		fmt.Println("panic during init!")
 		panic(err)
 	}
 
 	go userAppCode(ctrl)
-	fmt.Println("main loop")
 	Outer: for {
 		state.scene.Render()
+		egl.SwapBuffers(eglState.Display, eglState.Surface)
 		select {
 		case <-ctrl.draw: break
 		case <-ctrl.exit:
+			egl.DestroySurface(eglState.Display, eglState.Surface)
+			egl.DestroyContext(eglState.Display, eglState.Context)
+			egl.Terminate(eglState.Display)
 			break Outer
 		}
 	}
-	fmt.Println("/main loop")
 }
 
 func userAppCode(ctrl *controlCh) {
-	fmt.Println("userAppCode init")
 	// TODO
-	fmt.Println("/userAppCode main loop")
 }
 
 // A render state includes information about the 3d world and the EGL
@@ -64,21 +61,13 @@ type renderState struct {
 }
 
 func (state *renderState) init(eglState *platform.EGLState) error {
-	fmt.Println("init()")
-	defer fmt.Println("/init()")
-
 	if ok := egl.MakeCurrent(eglState.Display, eglState.Surface, eglState.Surface, eglState.Context); !ok {
 		return egl.NewError(egl.GetError())
 	}
 
-	fmt.Println("Vendor: %s", gl.GetString(gl.VENDOR))
-	fmt.Println("Renderer: %s", gl.GetString(gl.RENDERER))
-	fmt.Println("Version: %s", gl.GetString(gl.VERSION))
-
 	state.scene = NewScene()
 
 	if err := state.scene.AttachTextureFromFile("Kerker.png"); err != nil {
-		fmt.Println("could not attach texture file")
 		return err
 	}
 

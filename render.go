@@ -7,7 +7,6 @@ import (
 	"image/png"
 	"log"
 	"os"
-	"fmt"
 )
 
 const (
@@ -42,8 +41,6 @@ func (b *BufferFloat) Data() []float32 {
 }
 
 func NewBufferByte(data []byte) *BufferByte {
-	fmt.Println("NewBufferByte()")
-	defer fmt.Println("/NewBufferByte()")
 	b := new(BufferByte)
 	b.data = data
 	gl.GenBuffers(1, &b.buffer)
@@ -53,8 +50,6 @@ func NewBufferByte(data []byte) *BufferByte {
 }
 
 func NewBufferFloat(data []float32) *BufferFloat {
-	fmt.Println("NewBufferFloat()")
-	defer fmt.Println("/NewBufferFloat()")
 	b := new(BufferFloat)
 	b.data = data
 	gl.GenBuffers(1, &b.buffer)
@@ -130,10 +125,9 @@ type Scene struct {
 }
 
 func NewScene() *Scene {
-	fmt.Println("NewScene()")
-	defer fmt.Println("/NewScene()")
 	scene := new(Scene)
 	scene.model = mgl32.Ident4()
+	scene.projectionView = mgl32.Ortho2D(-1.0, 1.0, -1.0, 1.0)
 
 	scene.Vertices = NewBufferFloat([]float32{
 		// rectangle
@@ -155,6 +149,7 @@ func NewScene() *Scene {
 			varying vec2 texOut;
 			void main() {
 				gl_FragColor = texture2D(tx, texOut);
+				//gl_FragColor = vec4(1,0,0,1);
 			}
         `)
 	vertexShader := (VertexShader)(`
@@ -171,23 +166,18 @@ func NewScene() *Scene {
         }
         `)
 
-	fmt.Println("compiling shaders")
 	fsh := fragmentShader.Compile()
 	vsh := vertexShader.Compile()
 	scene.Program = CreateProgram(fsh, vsh)
-	fmt.Println("/compiling shaders")
 
-	fmt.Println("getting attrs")
 	gl.UseProgram(scene.Program)
 	scene.attrPos = gl.GetAttribLocation(scene.Program, "pos")
 	scene.attrColor = gl.GetAttribLocation(scene.Program, "color")
 	scene.attrTexIn = gl.GetAttribLocation(scene.Program, "texIn")
-	fmt.Println("/getting attrs\ngetting uniforms")
 
 	scene.uniformTexture = gl.GetUniformLocation(scene.Program, "texture")
 	scene.uniformModel = gl.GetUniformLocation(scene.Program, "model")
 	scene.uniformProjectionView = gl.GetUniformLocation(scene.Program, "projection_view")
-	fmt.Println("/getting uniforms\nenabling vertex arrays")
 
 	gl.EnableVertexAttribArray(scene.attrPos)
 	gl.EnableVertexAttribArray(scene.attrColor)
