@@ -7,12 +7,16 @@ import (
 "github.com/BurntSushi/xgbutil/mousebind"
 "github.com/BurntSushi/xgbutil/xevent"
 "github.com/BurntSushi/xgbutil/xwindow"
-"github.com/remogatto/egl"
-"github.com/remogatto/egl/platform"
-"github.com/remogatto/egl/platform/xorg"
+"github.com/flyx/egl"
+"github.com/flyx/egl/platform"
+"github.com/flyx/egl/platform/xorg"
+"unsafe"
+"fmt"
 )
 
 func newWindow(controlCh *controlCh, X *xgbutil.XUtil, width, height int) *xwindow.Window {
+	fmt.Println("newWindow()")
+	defer fmt.Println("/newWindow()")
 	var (
 		err error
 		win *xwindow.Window
@@ -52,6 +56,8 @@ func newWindow(controlCh *controlCh, X *xgbutil.XUtil, width, height int) *xwind
 }
 
 func initEGL(controlCh *controlCh, width, height int) *platform.EGLState {
+	fmt.Println("initEgl()")
+	defer fmt.Println("/initEgl()")
 	X, err := xgbutil.NewConn()
 	if err != nil {
 		panic(err)
@@ -61,7 +67,7 @@ func initEGL(controlCh *controlCh, width, height int) *platform.EGLState {
 	xWindow := newWindow(controlCh, X, width, height)
 	go xevent.Main(X)
 	return xorg.Initialize(
-		egl.NativeWindowType(uintptr(xWindow.Id)),
+		egl.NativeWindowType(unsafe.Pointer(uintptr(xWindow.Id))),
 		xorg.DefaultConfigAttributes,
 		xorg.DefaultContextAttributes,
 	)

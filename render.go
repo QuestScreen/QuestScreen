@@ -1,13 +1,13 @@
 package main
 
 import (
-	"github.com/flyx/mobile/gl"
+	gl "github.com/remogatto/opengles2"
 	"github.com/go-gl/mathgl/mgl32"
 	"image"
 	"image/png"
 	"log"
 	"os"
-	"unsafe"
+	"fmt"
 )
 
 const (
@@ -17,7 +17,7 @@ const (
 
 type BufferByte struct {
 	data []byte
-	gl.Buffer
+	buffer uint32
 }
 
 func (b *BufferByte) Len() int {
@@ -30,7 +30,7 @@ func (b *BufferByte) Data() []byte {
 
 type BufferFloat struct {
 	data []float32
-	gl.Buffer
+	buffer uint32
 }
 
 func (b *BufferFloat) Len() int {
@@ -41,104 +41,97 @@ func (b *BufferFloat) Data() []float32 {
 	return b.data
 }
 
-func NewBufferByte(data []byte, glctx gl.Context) *BufferByte {
+func NewBufferByte(data []byte) *BufferByte {
+	fmt.Println("NewBufferByte()")
+	defer fmt.Println("/NewBufferByte()")
 	b := new(BufferByte)
 	b.data = data
-	b.Buffer = glctx.CreateBuffer()
-	glctx.BindBuffer(gl.ARRAY_BUFFER, b.Buffer)
-	glctx.BufferData(gl.ARRAY_BUFFER, b.data, gl.STATIC_DRAW)
+	gl.GenBuffers(1, &b.buffer)
+	gl.BindBuffer(gl.ARRAY_BUFFER, b.buffer)
+	gl.BufferData(gl.ARRAY_BUFFER, gl.SizeiPtr(len(b.data)), gl.Void(&b.data[0]), gl.STATIC_DRAW)
 	return b
 }
 
-func asByteSlice(floats []float32) []byte {
-	lf := 4 * len(floats)
-
-	// step by step
-	pf := &(floats[0])                        // To pointer to the first byte of b
-	up := unsafe.Pointer(pf)                  // To *special* unsafe.Pointer, it can be converted to any pointer
-	pi := (*[1]byte)(up)                      // To pointer as byte array
-	buf := (*pi)[:]                           // Creates slice to our array of 1 byte
-	address := unsafe.Pointer(&buf)           // Capture the address to the slice structure
-	lenAddr := uintptr(address) + uintptr(8)  // Capture the address where the length and cap size is stored
-	capAddr := uintptr(address) + uintptr(16) // WARNING: This is fragile, depending on a go-internal structure.
-	lenPtr := (*int)(unsafe.Pointer(lenAddr)) // Create pointers to the length and cap size
-	capPtr := (*int)(unsafe.Pointer(capAddr)) //
-	*lenPtr = lf                              // Assign the actual slice size and cap
-	*capPtr = lf                              //
-
-	return buf
-}
-
-func NewBufferFloat(data []float32, glctx gl.Context) *BufferFloat {
+func NewBufferFloat(data []float32) *BufferFloat {
+	fmt.Println("NewBufferFloat()")
+	defer fmt.Println("/NewBufferFloat()")
 	b := new(BufferFloat)
 	b.data = data
-	b.Buffer = glctx.CreateBuffer()
-	glctx.BindBuffer(gl.ARRAY_BUFFER, b.Buffer)
-	glctx.BufferData(gl.ARRAY_BUFFER, asByteSlice(b.data), gl.STATIC_DRAW)
+	gl.GenBuffers(1, &b.buffer)
+	gl.BindBuffer(gl.ARRAY_BUFFER, b.buffer)
+	gl.BufferData(gl.ARRAY_BUFFER, gl.SizeiPtr(len(b.data)*SizeOfFloat), gl.Void(&b.data[0]), gl.STATIC_DRAW)
 	return b
 }
 
 type VertexShader string
 type FragmentShader string
 
-func checkShaderCompileStatus(shader gl.Shader, glctx gl.Context) {
-	stat := glctx.GetShaderi(shader, gl.COMPILE_STATUS)
+func checkShaderCompileStatus(shader uint32) {
+	var stat int32
+	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &stat)
 	if stat == 0 {
-		infoLog := glctx.GetShaderInfoLog(shader)
-		log.Fatalf("Compile error in shader %s: \"%s\"\n", shader.String(), infoLog)
+		var length int32
+		gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &length)
+		infoLog := gl.GetShaderInfoLog(shader, gl.Sizei(length), nil)
+		log.Fatalf("Compile error in shader %d: \"%s\"\n", shader, infoLog[:len(infoLog) - 1])
 	}
 }
 
-func checkProgramLinkStatus(program gl.Program, glctx gl.Context) {
-	stat := glctx.GetProgrami(program, gl.LINK_STATUS)
+func checkProgramLinkStatus(program uint32) {
+	var stat int32
+	gl.GetProgramiv(program, gl.LINK_STATUS, &stat)
 	if stat == 0 {
-		infoLog := glctx.GetProgramInfoLog(program)
-		log.Fatalf("Link error in program %s: \"%s\"\n", program.String(), infoLog)
+		var length int32
+		gl.GetProgramiv(program, gl.INFO_LOG_LENGTH, &length)
+		infoLog := gl.GetProgramInfoLog(program, gl.Sizei(length), nil)
+		log.Fatalf("Link error in program %d: \"%s\"\n", program, infoLog[:len(infoLog)-1])
 	}
 }
 
-func compileShader(typeOfShader gl.Enum, source string, glctx gl.Context) gl.Shader {
-	shader := glctx.CreateShader(typeOfShader)
-	if shader.Value != 0 {
-		glctx.ShaderSource(shader, source)
-		glctx.CompileShader(shader)
-		checkShaderCompileStatus(shader, glctx)
+func compileShader(typeOfShader gl.Enum, source string) uint32 {
+	shader := gl.CreateShader(typeOfShader)
+	if shader != 0 {
+		gl.ShaderSource(shader, 1, &source, nil)
+		gl.CompileShader(shader)
+		checkShaderCompileStatus(shader)
 	}
 	return shader
 }
 
-func (s VertexShader) Compile(glctx gl.Context) gl.Shader {
-	shaderId := compileShader(gl.VERTEX_SHADER, (string)(s), glctx)
+func (s VertexShader) Compile() uint32 {
+	shaderId := compileShader(gl.VERTEX_SHADER, (string)(s))
 	return shaderId
 }
 
-func (s FragmentShader) Compile(glctx gl.Context) gl.Shader {
-	shaderId := compileShader(gl.FRAGMENT_SHADER, (string)(s), glctx)
+func (s FragmentShader) Compile() uint32 {
+	shaderId := compileShader(gl.FRAGMENT_SHADER, (string)(s))
 	return shaderId
 }
 
-func CreateProgram(fsh, vsh gl.Shader, glctx gl.Context) gl.Program {
-	program := glctx.CreateProgram()
-	glctx.AttachShader(program, fsh)
-	glctx.AttachShader(program, vsh)
-	glctx.LinkProgram(program)
-	checkProgramLinkStatus(program, glctx)
+func CreateProgram(fsh, vsh uint32) uint32 {
+	program := gl.CreateProgram()
+	gl.AttachShader(program, fsh)
+	gl.AttachShader(program, vsh)
+	gl.LinkProgram(program)
+	checkProgramLinkStatus(program)
 	return program
 }
 
 type Scene struct {
 	Vertices                      *BufferFloat
-	Program                       gl.Program
+	Program                       uint32
 	indices                       *BufferByte
-	textureBuffer                 gl.Texture
-	attrPos, attrColor, attrTexIn gl.Attrib
-	uniformTexture                gl.Uniform
-	uniformModel                  gl.Uniform
-	uniformProjectionView         gl.Uniform
+	textureBuffer                 uint32
+	attrPos, attrColor, attrTexIn uint32
+	uniformTexture                uint32
+	uniformModel                  uint32
+	uniformProjectionView         uint32
 	model, projectionView         mgl32.Mat4
 }
 
-func NewScene(glctx gl.Context) *Scene {
+func NewScene() *Scene {
+	fmt.Println("NewScene()")
+	defer fmt.Println("/NewScene()")
 	scene := new(Scene)
 	scene.model = mgl32.Ident4()
 
@@ -148,57 +141,62 @@ func NewScene(glctx gl.Context) *Scene {
 		1, 1, 1, 1, TexCoordMax, TexCoordMax,
 		-1, 1, 1, 1, 0, TexCoordMax,
 		-1, -1, 1, 1, 0, 0,
-	}, glctx)
+	})
 	scene.indices = NewBufferByte([]byte{
 		// rectangle
 		0, 1, 2,
 		2, 3, 0,
-	}, glctx)
+	})
 
 	fragmentShader := (FragmentShader)(`
-			#version 300 es
+			#version 101
+			precision mediump float;
 			uniform sampler2D tx;
-			in vec2 texOut;
-			out vec4 fragColor;
+			varying vec2 texOut;
 			void main() {
-				fragColor = texture(tx, texOut);
+				gl_FragColor = texture2D(tx, texOut);
 			}
         `)
 	vertexShader := (VertexShader)(`
- 				#version 300 es
+ 				#version 101
 				precision mediump float;
         uniform mat4 model;
         uniform mat4 projection_view;
-        layout (location = 0) in vec4 pos;
-        layout (location = 0) in vec2 texIn;
-        out vec2 texOut;
+        attribute vec4 pos;
+        attribute vec2 texIn;
+        varying vec2 texOut;
         void main() {
           gl_Position = projection_view*model*pos;
           texOut = texIn;
         }
         `)
 
-	fsh := fragmentShader.Compile(glctx)
-	vsh := vertexShader.Compile(glctx)
-	scene.Program = CreateProgram(fsh, vsh, glctx)
+	fmt.Println("compiling shaders")
+	fsh := fragmentShader.Compile()
+	vsh := vertexShader.Compile()
+	scene.Program = CreateProgram(fsh, vsh)
+	fmt.Println("/compiling shaders")
 
-	glctx.UseProgram(scene.Program)
-	scene.attrPos = glctx.GetAttribLocation(scene.Program, "pos")
-	scene.attrColor = glctx.GetAttribLocation(scene.Program, "color")
-	scene.attrTexIn = glctx.GetAttribLocation(scene.Program, "texIn")
+	fmt.Println("getting attrs")
+	gl.UseProgram(scene.Program)
+	scene.attrPos = gl.GetAttribLocation(scene.Program, "pos")
+	scene.attrColor = gl.GetAttribLocation(scene.Program, "color")
+	scene.attrTexIn = gl.GetAttribLocation(scene.Program, "texIn")
+	fmt.Println("/getting attrs\ngetting uniforms")
 
-	scene.uniformTexture = glctx.GetUniformLocation(scene.Program, "texture")
-	scene.uniformModel = glctx.GetUniformLocation(scene.Program, "model")
-	scene.uniformProjectionView = glctx.GetUniformLocation(scene.Program, "projection_view")
+	scene.uniformTexture = gl.GetUniformLocation(scene.Program, "texture")
+	scene.uniformModel = gl.GetUniformLocation(scene.Program, "model")
+	scene.uniformProjectionView = gl.GetUniformLocation(scene.Program, "projection_view")
+	fmt.Println("/getting uniforms\nenabling vertex arrays")
 
-	glctx.EnableVertexAttribArray(scene.attrPos)
-	glctx.EnableVertexAttribArray(scene.attrColor)
-	glctx.EnableVertexAttribArray(scene.attrTexIn)
+	gl.EnableVertexAttribArray(scene.attrPos)
+	gl.EnableVertexAttribArray(scene.attrColor)
+	gl.EnableVertexAttribArray(scene.attrTexIn)
 
 	return scene
 }
 
-func (s *Scene) AttachTextureFromFile(filename string, glctx gl.Context) error {
+func (s *Scene) AttachTextureFromFile(filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -209,11 +207,11 @@ func (s *Scene) AttachTextureFromFile(filename string, glctx gl.Context) error {
 	if err != nil {
 		return err
 	}
-	s.AttachTexture(img, glctx)
+	s.AttachTexture(img)
 	return nil
 }
 
-func (s *Scene) AttachTexture(img image.Image, glctx gl.Context) {
+func (s *Scene) AttachTexture(img image.Image) {
 	bounds := img.Bounds()
 	width, height := bounds.Size().X, bounds.Size().Y
 	buffer := make([]byte, width*height*4)
@@ -228,37 +226,37 @@ func (s *Scene) AttachTexture(img image.Image, glctx gl.Context) {
 			index += 4
 		}
 	}
-	s.textureBuffer = glctx.CreateTexture()
-	glctx.BindTexture(gl.TEXTURE_2D, s.textureBuffer)
-	glctx.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-	glctx.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-	glctx.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, gl.RGBA, gl.UNSIGNED_BYTE, buffer)
+	gl.GenTextures(1, &s.textureBuffer)
+	gl.BindTexture(gl.TEXTURE_2D, s.textureBuffer)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.Sizei(width), gl.Sizei(height), 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Void(&buffer[0]))
 }
 
-func (s *Scene) AttachTextureFromBuffer(buffer []byte, width, height int, glctx gl.Context) {
-	s.textureBuffer = glctx.CreateTexture()
-	glctx.BindTexture(gl.TEXTURE_2D, s.textureBuffer)
-	glctx.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-	glctx.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-	glctx.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, gl.RGBA, gl.UNSIGNED_BYTE, buffer)
+func (s *Scene) AttachTextureFromBuffer(buffer []byte, width, height int) {
+	gl.GenTextures(1, &s.textureBuffer)
+	gl.BindTexture(gl.TEXTURE_2D, s.textureBuffer)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.Sizei(width), gl.Sizei(height), 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Void(&buffer[0]))
 }
 
-func (s *Scene) Render(glctx gl.Context) {
-	glctx.UseProgram(s.Program)
-	glctx.BindBuffer(gl.ARRAY_BUFFER, s.Vertices.Buffer)
-	glctx.VertexAttribPointer(s.attrPos, 4, gl.FLOAT, false, SizeOfFloat*6, 0)
-	glctx.VertexAttribPointer(s.attrTexIn, 2, gl.FLOAT, false, 6*SizeOfFloat, 4*SizeOfFloat)
-	//glctx.VertexAttribPointer(c.attrColor, 4, gl.FLOAT, false, SizeOfFloat*8, SizeOfFloat*4)
+func (s *Scene) Render() {
+	gl.UseProgram(s.Program)
+	gl.BindBuffer(gl.ARRAY_BUFFER, s.Vertices.buffer)
+	gl.VertexAttribPointer(s.attrPos, 4, gl.FLOAT, false, SizeOfFloat*6, gl.Void(nil))
+	gl.VertexAttribPointer(s.attrTexIn, 2, gl.FLOAT, false, 6*SizeOfFloat, gl.Void(uintptr(4*SizeOfFloat)))
+	//gl.VertexAttribPointer(c.attrColor, 4, gl.FLOAT, false, SizeOfFloat*8, SizeOfFloat*4)
 
-	glctx.UniformMatrix4fv(s.uniformModel, (&s.model)[:])
-	glctx.UniformMatrix4fv(s.uniformProjectionView, (&s.projectionView)[:])
+	gl.UniformMatrix4fv(int32(s.uniformModel), 1, false, (*float32)(&s.model[0]))
+	gl.UniformMatrix4fv(int32(s.uniformProjectionView), 1, false, (*float32)(&s.projectionView[0]))
 
-	glctx.ActiveTexture(gl.TEXTURE0)
-	glctx.BindTexture(gl.TEXTURE_2D, s.textureBuffer)
-	glctx.Uniform1i(s.uniformTexture, 0)
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, s.textureBuffer)
+	gl.Uniform1i(int32(s.uniformTexture), 0)
 
-	glctx.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, s.indices.Buffer)
-	glctx.DrawElements(gl.TRIANGLES, s.indices.Len(), gl.UNSIGNED_BYTE, 0)
-	glctx.Flush()
-	glctx.Finish()
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, s.indices.buffer)
+	gl.DrawElements(gl.TRIANGLES, gl.Sizei(s.indices.Len()), gl.UNSIGNED_BYTE, gl.Void(nil))
+	gl.Flush()
+	gl.Finish()
 }
