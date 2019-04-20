@@ -1,11 +1,11 @@
-package rpscreen
+package main
 
 type controlCh struct {
 	Exit chan struct{}
 	Draw chan struct{}
 }
 
-func NewControlCh() *controlCh {
+func newControlCh() *controlCh {
 	return &controlCh{
 		Exit: make(chan struct{}),
 		Draw: make(chan struct{}),

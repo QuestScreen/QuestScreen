@@ -1,4 +1,4 @@
-package rpscreen
+package main
 
 import (
 	"github.com/BurntSushi/xgb/xproto"

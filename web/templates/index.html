@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+<head>
+    <title>RPScreen Control Center</title>
+</head>
+<body>
+<header>
+    <h1>RPScreen Control Center</h1>
+</header>
+{{range .modules}}
+<section>
+    <h2>{{.Name}}</h2>
+    {{.UI}}
+</section>
+{{end}}
+</body>
+</html>

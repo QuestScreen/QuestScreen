@@ -1,12 +1,7 @@
 package main
 
-/*
-#cgo LDFLAGS: -lGLESv2
-*/
-import "C"
 import (
 	"github.com/flyx/egl"
-	"github.com/flyx/rpscreen/internal/app/rpscreen"
 	"runtime"
 )
 
@@ -15,18 +10,18 @@ func init() {
 }
 
 func main() {
-	ctrl := rpscreen.NewControlCh()
-	eglState := rpscreen.InitEGL(ctrl, 800, 600)
+	ctrl := newControlCh()
+	eglState := InitEGL(ctrl, 800, 600)
 
-	state, err := rpscreen.NewRenderState(eglState)
+	screen, err := newScreen(eglState)
 	if err != nil {
 		panic(err)
 	}
 
-	//go userAppCode(ctrl)
+	startServer(screen)
 Outer:
 	for {
-		state.Render()
+		screen.Render()
 		egl.SwapBuffers(eglState.Display, eglState.Surface)
 		select {
 		case <-ctrl.Draw:

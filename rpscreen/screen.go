@@ -1,12 +1,12 @@
-package rpscreen
+package main
 
 import (
 	"fmt"
 	"github.com/flyx/egl"
 	"github.com/flyx/egl/platform"
+	"github.com/flyx/rpscreen/module"
+	"github.com/flyx/rpscreen/module/background"
 	gl "github.com/remogatto/opengles2"
-	"github.com/flyx/rpscreen/internal/pkg/background-image"
-	"github.com/flyx/rpscreen/pkg/module"
 )
 
 const TexCoordMax = 1
@@ -22,7 +22,7 @@ type Screen struct {
 	modules       []moduleListItem
 }
 
-func NewRenderState(eglState *platform.EGLState) (*Screen, error) {
+func newScreen(eglState *platform.EGLState) (*Screen, error) {
 	if ok := egl.MakeCurrent(eglState.Display, eglState.Surface, eglState.Surface, eglState.Context); !ok {
 		return nil, egl.NewError(egl.GetError())
 	}
@@ -84,11 +84,11 @@ func NewRenderState(eglState *platform.EGLState) (*Screen, error) {
 	screen.TextureRenderProgram.UniformIds.ProjectionView =
 		gl.GetUniformLocation(screen.TextureRenderProgram.GlId, "projection_view")
 
-	background := new(background_image.Background)
-	if err := background.Init(&screen.SceneCommon); err != nil {
+	bg := new(background.Background)
+	if err := bg.Init(&screen.SceneCommon); err != nil {
 		panic(err)
 	}
-	screen.modules = append(screen.modules, moduleListItem{module: background, enabled: true})
+	screen.modules = append(screen.modules, moduleListItem{module: bg, enabled: true})
 	return screen, nil
 }
 

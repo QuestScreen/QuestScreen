@@ -1,8 +1,9 @@
-package background_image
+package background
 
 import (
+	"github.com/flyx/rpscreen/module"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/flyx/rpscreen/pkg/module"
+	"html/template"
 )
 
 type Background struct {
@@ -27,4 +28,8 @@ func (me *Background) Render(common *module.SceneCommon) {
 
 func (*Background) Name() string {
 	return "Background Image"
+}
+
+func (*Background) UI() template.HTML {
+	return template.HTML("<strong>TODO</strong>")
 }
