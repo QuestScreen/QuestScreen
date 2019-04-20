@@ -1,17 +1,17 @@
-package main
+package rpscreen
 
 import (
-"github.com/BurntSushi/xgb/xproto"
-"github.com/BurntSushi/xgbutil"
-"github.com/BurntSushi/xgbutil/keybind"
-"github.com/BurntSushi/xgbutil/mousebind"
-"github.com/BurntSushi/xgbutil/xevent"
-"github.com/BurntSushi/xgbutil/xwindow"
-"github.com/flyx/egl"
-"github.com/flyx/egl/platform"
-"github.com/flyx/egl/platform/xorg"
-"unsafe"
-"fmt"
+	"fmt"
+	"github.com/BurntSushi/xgb/xproto"
+	"github.com/BurntSushi/xgbutil"
+	"github.com/BurntSushi/xgbutil/keybind"
+	"github.com/BurntSushi/xgbutil/mousebind"
+	"github.com/BurntSushi/xgbutil/xevent"
+	"github.com/BurntSushi/xgbutil/xwindow"
+	"github.com/flyx/egl"
+	"github.com/flyx/egl/platform"
+	"github.com/flyx/egl/platform/xorg"
+	"unsafe"
 )
 
 func newWindow(controlCh *controlCh, X *xgbutil.XUtil, width, height int) *xwindow.Window {
@@ -44,10 +44,10 @@ func newWindow(controlCh *controlCh, X *xgbutil.XUtil, width, height int) *xwind
 	// In order to get ConfigureNotify events, we must listen to the window
 	// using the 'StructureNotify' mask.
 	err = win.Listen(xproto.EventMaskButtonPress |
-			xproto.EventMaskButtonRelease |
-			xproto.EventMaskKeyPress |
-			xproto.EventMaskKeyRelease |
-			xproto.EventMaskStructureNotify)
+		xproto.EventMaskButtonRelease |
+		xproto.EventMaskKeyPress |
+		xproto.EventMaskKeyRelease |
+		xproto.EventMaskStructureNotify)
 	if err != nil {
 		panic(err)
 	}
@@ -55,7 +55,7 @@ func newWindow(controlCh *controlCh, X *xgbutil.XUtil, width, height int) *xwind
 	return win
 }
 
-func initEGL(controlCh *controlCh, width, height int) *platform.EGLState {
+func InitEGL(controlCh *controlCh, width, height int) *platform.EGLState {
 	fmt.Println("initEgl()")
 	defer fmt.Println("/initEgl()")
 	X, err := xgbutil.NewConn()
