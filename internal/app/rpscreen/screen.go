@@ -1,11 +1,12 @@
 package rpscreen
 
 import (
+	"fmt"
 	"github.com/flyx/egl"
 	"github.com/flyx/egl/platform"
 	gl "github.com/remogatto/opengles2"
-	"rpscreen/internal/pkg/background-image"
-	"rpscreen/pkg/module"
+	"github.com/flyx/rpscreen/internal/pkg/background-image"
+	"github.com/flyx/rpscreen/pkg/module"
 )
 
 const TexCoordMax = 1
@@ -29,11 +30,16 @@ func NewRenderState(eglState *platform.EGLState) (*Screen, error) {
 	screen := new(Screen)
 	screen.modules = make([]moduleListItem, 16)
 
+	var width, height int32
+	egl.QuerySurface(eglState.Display, eglState.Surface, egl.WIDTH, &width)
+	egl.QuerySurface(eglState.Display, eglState.Surface, egl.HEIGHT, &height)
+	screen.Ratio = float32(width) / float32(height)
+
 	screen.Square.Vertices = module.CreateFloatBuffer([]float32{
-		1, -1, 1, 1, TexCoordMax, 0,
-		1, 1, 1, 1, TexCoordMax, TexCoordMax,
-		-1, 1, 1, 1, 0, TexCoordMax,
-		-1, -1, 1, 1, 0, 0,
+		1, -1, 1, 1, TexCoordMax, TexCoordMax,
+		1, 1, 1, 1, TexCoordMax, 0,
+		-1, 1, 1, 1, 0, 0,
+		-1, -1, 1, 1, 0, TexCoordMax,
 	})
 	screen.Square.Indices = module.CreateByteBuffer([]byte{
 		0, 1, 2,
@@ -87,8 +93,10 @@ func NewRenderState(eglState *platform.EGLState) (*Screen, error) {
 }
 
 func (s *Screen) Render() {
+	fmt.Println("rendering...")
 	for _, item := range s.modules {
 		if item.enabled {
+			fmt.Println("rendering ", item.module.Name())
 			item.module.Render(&s.SceneCommon)
 		}
 	}

@@ -6,7 +6,7 @@ package main
 import "C"
 import (
 	"github.com/flyx/egl"
-	"rpscreen/internal/app/rpscreen"
+	"github.com/flyx/rpscreen/internal/app/rpscreen"
 	"runtime"
 )
 

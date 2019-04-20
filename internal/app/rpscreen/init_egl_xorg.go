@@ -1,7 +1,6 @@
 package rpscreen
 
 import (
-	"fmt"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil"
 	"github.com/BurntSushi/xgbutil/keybind"
@@ -15,8 +14,6 @@ import (
 )
 
 func newWindow(controlCh *controlCh, X *xgbutil.XUtil, width, height int) *xwindow.Window {
-	fmt.Println("newWindow()")
-	defer fmt.Println("/newWindow()")
 	var (
 		err error
 		win *xwindow.Window
@@ -38,7 +35,7 @@ func newWindow(controlCh *controlCh, X *xgbutil.XUtil, width, height int) *xwind
 			mousebind.Detach(w.X, w.Id)
 			w.Destroy()
 			xevent.Quit(X)
-			controlCh.exit <- struct{}{}
+			controlCh.Exit <- struct{}{}
 		})
 
 	// In order to get ConfigureNotify events, we must listen to the window
@@ -56,8 +53,6 @@ func newWindow(controlCh *controlCh, X *xgbutil.XUtil, width, height int) *xwind
 }
 
 func InitEGL(controlCh *controlCh, width, height int) *platform.EGLState {
-	fmt.Println("initEgl()")
-	defer fmt.Println("/initEgl()")
 	X, err := xgbutil.NewConn()
 	if err != nil {
 		panic(err)
