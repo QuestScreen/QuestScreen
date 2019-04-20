@@ -16,7 +16,7 @@ func newScreenHandler(screen *Screen) *ScreenHandler {
 	handler := new(ScreenHandler)
 	handler.screen = screen
 
-	raw, err := web.Asset("index.html")
+	raw, err := web.Asset("web/templates/index.html")
 	if err != nil {
 		panic(err)
 	}
@@ -33,15 +33,14 @@ type UIModuleData struct {
 }
 
 type UIData struct {
-	modules []UIModuleData
+	Modules []UIModuleData
 }
 
 func (me *ScreenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	data := UIData{modules: make([]UIModuleData, len(me.screen.modules))}
-	i := 0
+	data := UIData{Modules: make([]UIModuleData, len(me.screen.modules))}
 	for _, module := range me.screen.modules {
 		if module.enabled {
-			data.modules[i] = UIModuleData{Name: module.module.Name(), UI: module.module.UI()}
+			data.Modules = append(data.Modules, UIModuleData{Name: module.module.Name(), UI: module.module.UI()})
 		}
 	}
 	if err := me.index.Execute(w, data); err != nil {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/flyx/egl"
 	"github.com/flyx/egl/platform"
 	"github.com/flyx/rpscreen/module"
@@ -93,10 +92,8 @@ func newScreen(eglState *platform.EGLState) (*Screen, error) {
 }
 
 func (s *Screen) Render() {
-	fmt.Println("rendering...")
 	for _, item := range s.modules {
 		if item.enabled {
-			fmt.Println("rendering ", item.module.Name())
 			item.module.Render(&s.SceneCommon)
 		}
 	}
