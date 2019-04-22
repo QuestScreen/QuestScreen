@@ -21,10 +21,10 @@ type Screen struct {
 	module.SceneCommon
 	textureBuffer uint32
 	modules       []moduleListItem
-	ctrl          controlCh
+	ctrl          *controlCh
 }
 
-func newScreen(eglState *platform.EGLState, ctrl controlCh) (*Screen, error) {
+func newScreen(eglState *platform.EGLState, ctrl *controlCh) (*Screen, error) {
 	if ok := egl.MakeCurrent(eglState.Display, eglState.Surface, eglState.Surface, eglState.Context); !ok {
 		return nil, egl.NewError(egl.GetError())
 	}
@@ -32,7 +32,7 @@ func newScreen(eglState *platform.EGLState, ctrl controlCh) (*Screen, error) {
 	usr, _ := user.Current()
 
 	screen := new(Screen)
-	screen.modules = make([]moduleListItem, 16)
+	screen.modules = make([]moduleListItem, 0, 16)
 	screen.ctrl = ctrl
 	screen.DataDir = usr.HomeDir + "/.local/share/rpscreen"
 	if err := os.MkdirAll(screen.DataDir, 0700); err != nil {
@@ -102,8 +102,8 @@ func newScreen(eglState *platform.EGLState, ctrl controlCh) (*Screen, error) {
 }
 
 func (s *Screen) Render() {
-	gl.ClearColor(0, 0, 0, 0)
-	gl.Clear(gl.DEPTH_BUFFER_BIT & gl.COLOR_BUFFER_BIT)
+	gl.ClearColor(0, 0, 0, 1)
+	gl.Clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT)
 
 	for _, item := range s.modules {
 		if item.enabled {

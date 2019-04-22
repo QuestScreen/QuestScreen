@@ -42,7 +42,7 @@ func (me *ScreenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := UIData{Modules: make([]UIModuleData, len(me.screen.modules))}
+	data := UIData{Modules: make([]UIModuleData, 0, len(me.screen.modules))}
 	for _, module := range me.screen.modules {
 		if module.enabled {
 			data.Modules = append(data.Modules, UIModuleData{Name: module.module.Name(), UI: module.module.UI()})

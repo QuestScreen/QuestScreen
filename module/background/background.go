@@ -21,7 +21,7 @@ type Background struct {
 func (me *Background) Init(common *module.SceneCommon) error {
 	files, err := ioutil.ReadDir(common.DataDir + "/background")
 	if err == nil {
-		me.images = make([]string, 64)
+		me.images = make([]string, 0, 64)
 		for _, file := range files {
 			if !file.IsDir() {
 				me.images = append(me.images, file.Name())
@@ -54,20 +54,24 @@ func (*Background) Name() string {
 
 func (me *Background) UI() template.HTML {
 	var builder strings.Builder
-	builder.WriteString(`<form class=\"pure-form\" action="/background/image" method="post">
+	shownIndex := me.reqTextureIndex
+	if shownIndex == -1 {
+		shownIndex = me.curTextureIndex
+	}
+	builder.WriteString(`<form class="pure-form" action="/background/image" method="post">
   <fieldset>
     <legend>Select Image</legend>
     <input type="hidden" name="redirect" value="1"/>
     <select id="image" name="value">
       <option value=""`)
-	if me.curTextureIndex == len(me.images) {
+	if shownIndex == len(me.images) {
 		builder.WriteString(` selected="selected"`)
 	}
 	builder.WriteString(`>None</option>`)
 	for index, name := range me.images {
 		builder.WriteString(`<option value="`)
 		builder.WriteString(strconv.Itoa(index))
-		if me.curTextureIndex == index {
+		if shownIndex == index {
 			builder.WriteString(`" selected="selected">`)
 		} else {
 			builder.WriteString(`">`)
@@ -112,7 +116,7 @@ func (me *Background) EndpointHandler(suffix string, value string, w http.Respon
 		module.WriteEndpointHeader(w, returns)
 		return true
 	} else {
-		http.Error(w, "404 not found", http.StatusNotFound)
+		http.Error(w, "404 not found: " + suffix, http.StatusNotFound)
 		return false
 	}
 }

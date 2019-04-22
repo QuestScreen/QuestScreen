@@ -26,6 +26,7 @@ Outer:
 		egl.SwapBuffers(eglState.Display, eglState.Surface)
 		select {
 		case curUpdate := <-ctrl.ModuleUpdate:
+			screen.modules[curUpdate.index].module.ProcessUpdate(&screen.SceneCommon)
 			break
 		case <-ctrl.Exit:
 			_ = server.Close()
