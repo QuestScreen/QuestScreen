@@ -1,17 +1,21 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
     <title>RPScreen Control Center</title>
+    <link rel="stylesheet" href="/style/pure-min.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
 </head>
 <body>
 <header>
     <h1>RPScreen Control Center</h1>
 </header>
+<article class="pure-g">
 {{range .Modules}}
-<section>
+<section class=".pure-u-1 .pure-u-md-1-2 .pure-u-lg-1-4">
     <h2>{{.Name}}</h2>
     {{.UI}}
 </section>
 {{end}}
+</article>
 </body>
 </html>

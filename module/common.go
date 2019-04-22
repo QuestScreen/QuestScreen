@@ -20,6 +20,7 @@ type SceneCommon struct {
 		Vertices FloatBuffer
 		Indices  ByteBuffer
 	}
+	DataDir string
 }
 
 var OrthoMatrix = mgl32.Ortho2D(-1.0, 1.0, -1.0, 1.0)

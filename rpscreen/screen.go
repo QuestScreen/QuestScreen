@@ -6,6 +6,8 @@ import (
 	"github.com/flyx/rpscreen/module"
 	"github.com/flyx/rpscreen/module/background"
 	gl "github.com/remogatto/opengles2"
+	"os"
+	"os/user"
 )
 
 const TexCoordMax = 1
@@ -19,15 +21,23 @@ type Screen struct {
 	module.SceneCommon
 	textureBuffer uint32
 	modules       []moduleListItem
+	ctrl          controlCh
 }
 
-func newScreen(eglState *platform.EGLState) (*Screen, error) {
+func newScreen(eglState *platform.EGLState, ctrl controlCh) (*Screen, error) {
 	if ok := egl.MakeCurrent(eglState.Display, eglState.Surface, eglState.Surface, eglState.Context); !ok {
 		return nil, egl.NewError(egl.GetError())
 	}
 
+	usr, _ := user.Current()
+
 	screen := new(Screen)
 	screen.modules = make([]moduleListItem, 16)
+	screen.ctrl = ctrl
+	screen.DataDir = usr.HomeDir + "/.local/share/rpscreen"
+	if err := os.MkdirAll(screen.DataDir, 0700); err != nil {
+		panic(err)
+	}
 
 	var width, height int32
 	egl.QuerySurface(eglState.Display, eglState.Surface, egl.WIDTH, &width)
@@ -92,6 +102,9 @@ func newScreen(eglState *platform.EGLState) (*Screen, error) {
 }
 
 func (s *Screen) Render() {
+	gl.ClearColor(0, 0, 0, 0)
+	gl.Clear(gl.DEPTH_BUFFER_BIT & gl.COLOR_BUFFER_BIT)
+
 	for _, item := range s.modules {
 		if item.enabled {
 			item.module.Render(&s.SceneCommon)

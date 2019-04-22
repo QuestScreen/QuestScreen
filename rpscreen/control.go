@@ -1,13 +1,13 @@
 package main
 
 type controlCh struct {
-	Exit chan struct{}
-	Draw chan struct{}
+	Exit         chan struct{}
+	ModuleUpdate chan struct{ index int }
 }
 
 func newControlCh() *controlCh {
 	return &controlCh{
-		Exit: make(chan struct{}),
-		Draw: make(chan struct{}),
+		Exit:         make(chan struct{}),
+		ModuleUpdate: make(chan struct{ index int }),
 	}
 }
