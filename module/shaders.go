@@ -3,6 +3,7 @@ package module
 import (
 	gl "github.com/remogatto/opengles2"
 	"log"
+	"reflect"
 )
 
 type VertexShader string
@@ -40,21 +41,51 @@ func compileShader(typeOfShader gl.Enum, source string) uint32 {
 	return shader
 }
 
-func (s VertexShader) Compile() uint32 {
-	shaderId := compileShader(gl.VERTEX_SHADER, (string)(s))
-	return shaderId
-}
-
-func (s FragmentShader) Compile() uint32 {
-	shaderId := compileShader(gl.FRAGMENT_SHADER, (string)(s))
-	return shaderId
-}
-
-func CreateProgram(fsh, vsh uint32) uint32 {
+// paramsTarget shall be a struct like this:
+// struct {
+//   AttributeIds struct {
+//     attrName uint32
+//     otherAttrName uint32
+//     ...
+//   }
+//   UniformIds struct {
+//     unifName uint32
+//     ...
+//   }
+//   ...
+// }
+// fields of AttributeIds and UniformIds are to have the same name as the
+// parameters in the shaders.
+func CreateProgram(vertexShader, fragmentShader string, paramsTarget interface{}) uint32 {
 	program := gl.CreateProgram()
-	gl.AttachShader(program, fsh)
-	gl.AttachShader(program, vsh)
+	vShaderId := compileShader(gl.VERTEX_SHADER, vertexShader)
+	fShaderId := compileShader(gl.FRAGMENT_SHADER, fragmentShader)
+	gl.AttachShader(program, vShaderId)
+	gl.AttachShader(program, fShaderId)
 	gl.LinkProgram(program)
 	checkProgramLinkStatus(program)
+	loadProgramParameters(paramsTarget, program)
 	return program
+}
+
+func loadProgramParameters(v interface{}, program uint32) {
+	target := reflect.ValueOf(v).Elem()
+	for i := 0; i < target.NumField(); i++ {
+		typeValue := target.Type().Field(i)
+		if typeValue.Name == "AttributeIds" {
+			attributesValue := target.Field(i).Interface()
+			attributesTarget := reflect.ValueOf(attributesValue).Elem()
+			for j := 0; j < attributesTarget.NumField(); j++ {
+				id := gl.GetAttribLocation(program, attributesTarget.Type().Field(j).Name)
+				attributesTarget.Field(j).SetUint(uint64(id))
+			}
+		} else if typeValue.Name == "UniformIds" {
+			uniformsValue := target.Field(i).Interface()
+			uniformsTarget := reflect.ValueOf(uniformsValue).Elem()
+			for j := 0; j < uniformsTarget.NumField(); j++ {
+				id := gl.GetUniformLocation(program, uniformsTarget.Type().Field(j).Name)
+				uniformsTarget.Field(j).SetUint(uint64(id))
+			}
+		}
+	}
 }

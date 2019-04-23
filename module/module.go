@@ -3,19 +3,37 @@ package module
 import (
 	"html/template"
 	"net/http"
+	"time"
 )
 
 type Module interface {
 	// initialize the module.
 	Init(common *SceneCommon) error
-	// update module data based on user input occurred via EndpointHandler.
-	// this function is called in the OpenGL thread and may use OpenGL functions.
-	ProcessUpdate(common *SceneCommon)
+	// returns the name of the module.
+	Name() string
+	// collect requests given to EndpointHandler() and initializes a transition.
+	// returns the length of the transition animation.
+	// TransitionStep() and Render() will be invoked continuously until the returned time has been elapsed
+	// (counting starts after InitTransition() returns).
+	// after that, FinishTransition() and Render() will be called.
+	// if 0 is returned, TransitionStep will never be called; if a negative value is returned, neither FinishTransition()
+	// nor Render() will be called.
+	// this function is called in the OpenGL thread.
+	InitTransition(common *SceneCommon) time.Duration
+	// implements transitions. use this function to collect requests given to EndpointHandler and update
+	// state data based on the elapsed time accordingly. don't render anything – Render() will always be
+	// called immediately after Animate().
+	//
+	// The given elapsed time is guaranteed to always be smaller than what was returned by InitTransition().
+	// this function is called in the OpenGL thread.
+	TransitionStep(common *SceneCommon, elapsed time.Duration)
+	// implements cleanup after transitions.
+	// will be called once after each time InitTransition() returns a non-negative value
+	// (but TransitionStep() and Render() may be called in between).
+	FinishTransition(common *SceneCommon)
 	// implements rendering of the module.
 	// this function is called in the OpenGL thread.
 	Render(common *SceneCommon)
-	// returns the name of the module.
-	Name() string
 
 	// returns partial HTML that creates the module's UI within the web interface.
 	UI() template.HTML
@@ -28,8 +46,8 @@ type Module interface {
 	// on success, use WriteEndpointHeader, giving EndpointReturnRedirect if returnPartial is true.
 	// on failure, write the appropriate HTTP return code.
 	// this function will be called in the web server thread and may not call OpenGL functions.
-	// if it returns true, ProcessUpdate will be called in the OpenGL thread and any OpenGL action
-	// must be relayed there. return true only if calling ProcessUpdate will be necessary to update
+	// if it returns true, InitTransition() will be called in the OpenGL thread and any OpenGL action
+	// must be relayed there. return true only if calling InitTransition() will be necessary to update
 	// the display.
 	EndpointHandler(suffix string, value string, w http.ResponseWriter, returnPartial bool) bool
 }

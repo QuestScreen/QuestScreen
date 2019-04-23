@@ -8,20 +8,25 @@ import (
 	gl "github.com/remogatto/opengles2"
 	"os"
 	"os/user"
+	"time"
 )
 
 const TexCoordMax = 1
 
 type moduleListItem struct {
-	module  module.Module
-	enabled bool
+	module        module.Module
+	enabled       bool
+	transStart    time.Time
+	transEnd      time.Time
+	transitioning bool
 }
 
 type Screen struct {
 	module.SceneCommon
-	textureBuffer uint32
-	modules       []moduleListItem
-	ctrl          *controlCh
+	textureBuffer  uint32
+	modules        []moduleListItem
+	ctrl           *controlCh
+	numTransitions int32
 }
 
 func newScreen(eglState *platform.EGLState, ctrl *controlCh) (*Screen, error) {
@@ -38,6 +43,7 @@ func newScreen(eglState *platform.EGLState, ctrl *controlCh) (*Screen, error) {
 	if err := os.MkdirAll(screen.DataDir, 0700); err != nil {
 		panic(err)
 	}
+	screen.numTransitions = 0
 
 	var width, height int32
 	egl.QuerySurface(eglState.Display, eglState.Surface, egl.WIDTH, &width)
@@ -55,58 +61,28 @@ func newScreen(eglState *platform.EGLState, ctrl *controlCh) (*Screen, error) {
 		2, 3, 0,
 	})
 
-	fragmentShader := (module.FragmentShader)(`
-			#version 101
-			precision mediump float;
-			uniform sampler2D tx;
-			varying vec2 texOut;
-			void main() {
-				gl_FragColor = texture2D(tx, texOut);
-				//gl_FragColor = vec4(1,0,0,1);
-			}
-        `)
-	vertexShader := (module.VertexShader)(`
- 				#version 101
-				precision mediump float;
-        uniform mat4 model;
-        uniform mat4 projection_view;
-        attribute vec4 pos;
-        attribute vec2 texIn;
-        varying vec2 texOut;
-        void main() {
-          gl_Position = projection_view*model*pos;
-          texOut = texIn;
-        }
-        `)
-
-	fsh := fragmentShader.Compile()
-	vsh := vertexShader.Compile()
-	screen.TextureRenderProgram.GlId = module.CreateProgram(fsh, vsh)
-
-	screen.TextureRenderProgram.AttributeIds.Pos = gl.GetAttribLocation(screen.TextureRenderProgram.GlId, "pos")
-	screen.TextureRenderProgram.AttributeIds.Color = gl.GetAttribLocation(screen.TextureRenderProgram.GlId, "color")
-	screen.TextureRenderProgram.AttributeIds.TexIn = gl.GetAttribLocation(screen.TextureRenderProgram.GlId, "texIn")
-
-	screen.TextureRenderProgram.UniformIds.Texture =
-		gl.GetUniformLocation(screen.TextureRenderProgram.GlId, "texture")
-	screen.TextureRenderProgram.UniformIds.Model = gl.GetUniformLocation(screen.TextureRenderProgram.GlId, "model")
-	screen.TextureRenderProgram.UniformIds.ProjectionView =
-		gl.GetUniformLocation(screen.TextureRenderProgram.GlId, "projection_view")
-
 	bg := new(background.Background)
 	if err := bg.Init(&screen.SceneCommon); err != nil {
 		panic(err)
 	}
-	screen.modules = append(screen.modules, moduleListItem{module: bg, enabled: true})
+	screen.modules = append(screen.modules, moduleListItem{module: bg, enabled: true, transitioning: false})
 	return screen, nil
 }
 
-func (s *Screen) Render() {
+func (s *Screen) Render(cur time.Time) {
 	gl.ClearColor(0, 0, 0, 1)
 	gl.Clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT)
 
 	for _, item := range s.modules {
 		if item.enabled {
+			if item.transitioning {
+				if cur.After(item.transEnd) {
+					item.module.FinishTransition(&s.SceneCommon)
+					s.numTransitions--
+				} else {
+					item.module.TransitionStep(&s.SceneCommon, cur.Sub(item.transStart))
+				}
+			}
 			item.module.Render(&s.SceneCommon)
 		}
 	}

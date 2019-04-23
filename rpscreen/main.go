@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/flyx/egl"
 	"runtime"
+	"time"
 )
 
 func init() {
@@ -22,18 +23,37 @@ func main() {
 
 Outer:
 	for {
-		screen.Render()
+		curTime := time.Now()
+		screen.Render(curTime)
 		egl.SwapBuffers(eglState.Display, eglState.Surface)
-		select {
-		case curUpdate := <-ctrl.ModuleUpdate:
-			screen.modules[curUpdate.index].module.ProcessUpdate(&screen.SceneCommon)
-			break
-		case <-ctrl.Exit:
-			_ = server.Close()
-			egl.DestroySurface(eglState.Display, eglState.Surface)
-			egl.DestroyContext(eglState.Display, eglState.Context)
-			egl.Terminate(eglState.Display)
-			break Outer
+		var waitTime time.Duration
+		if screen.numTransitions > 0 {
+			waitTime = time.Now().Sub(curTime) - (time.Second / 60)
+		} else {
+			waitTime = time.Now().Sub(curTime) - time.Hour
+		}
+		if waitTime > 0 {
+			select {
+			case curUpdate := <-ctrl.ModuleUpdate:
+				curModule := &screen.modules[curUpdate.index]
+				transDur := curModule.module.InitTransition(&screen.SceneCommon)
+				if transDur == 0 {
+					curModule.module.FinishTransition(&screen.SceneCommon)
+				} else if transDur > 0 {
+					screen.numTransitions++
+					curModule.transStart = time.Now()
+					curModule.transEnd = curModule.transStart.Add(transDur)
+				}
+				break
+			case <-ctrl.Exit:
+				_ = server.Close()
+				egl.DestroySurface(eglState.Display, eglState.Surface)
+				egl.DestroyContext(eglState.Display, eglState.Context)
+				egl.Terminate(eglState.Display)
+				break Outer
+			case <-time.After(waitTime):
+				break
+			}
 		}
 	}
 }
