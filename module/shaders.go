@@ -4,6 +4,8 @@ import (
 	gl "github.com/remogatto/opengles2"
 	"log"
 	"reflect"
+	"unicode"
+	"unicode/utf8"
 )
 
 type VertexShader string
@@ -68,23 +70,30 @@ func CreateProgram(vertexShader, fragmentShader string, paramsTarget interface{}
 	return program
 }
 
+func toCamelCase(s string) string {
+	r, size := utf8.DecodeRuneInString(s)
+	return string(unicode.ToLower(r)) + s[size:]
+}
+
 func loadProgramParameters(v interface{}, program uint32) {
 	target := reflect.ValueOf(v).Elem()
 	for i := 0; i < target.NumField(); i++ {
 		typeValue := target.Type().Field(i)
 		if typeValue.Name == "AttributeIds" {
-			attributesValue := target.Field(i).Interface()
-			attributesTarget := reflect.ValueOf(attributesValue).Elem()
+			attributesTarget := target.Field(i).Type()
 			for j := 0; j < attributesTarget.NumField(); j++ {
-				id := gl.GetAttribLocation(program, attributesTarget.Type().Field(j).Name)
-				attributesTarget.Field(j).SetUint(uint64(id))
+				name := toCamelCase(attributesTarget.Field(i).Name)
+				id := gl.GetAttribLocation(program, name)
+				if id == 1<<32 - 1 { panic("unknown attribute: " + name) }
+				target.FieldByIndex([]int{i,j}).SetUint(uint64(id))
 			}
 		} else if typeValue.Name == "UniformIds" {
-			uniformsValue := target.Field(i).Interface()
-			uniformsTarget := reflect.ValueOf(uniformsValue).Elem()
+			uniformsTarget := target.Field(i).Type()
 			for j := 0; j < uniformsTarget.NumField(); j++ {
-				id := gl.GetUniformLocation(program, uniformsTarget.Type().Field(j).Name)
-				uniformsTarget.Field(j).SetUint(uint64(id))
+				name := toCamelCase(uniformsTarget.Field(j).Name)
+				id := gl.GetUniformLocation(program, name)
+				if id == 1<<32 - 1 { panic("unknown uniform: " + name) }
+				target.FieldByIndex([]int{i,j}).SetUint(uint64(id))
 			}
 		}
 	}

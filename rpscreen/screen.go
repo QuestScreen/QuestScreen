@@ -73,12 +73,14 @@ func (s *Screen) Render(cur time.Time) {
 	gl.ClearColor(0, 0, 0, 1)
 	gl.Clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT)
 
-	for _, item := range s.modules {
+	for i := 0; i < len(s.modules); i++ {
+		item := &s.modules[i]
 		if item.enabled {
 			if item.transitioning {
 				if cur.After(item.transEnd) {
 					item.module.FinishTransition(&s.SceneCommon)
 					s.numTransitions--
+					item.transitioning = false
 				} else {
 					item.module.TransitionStep(&s.SceneCommon, cur.Sub(item.transStart))
 				}

@@ -1,6 +1,7 @@
 package background
 
 import (
+	"fmt"
 	"github.com/flyx/rpscreen/module"
 	gl "github.com/remogatto/opengles2"
 	"html/template"
@@ -15,10 +16,10 @@ import (
 type BackgroundProgram struct {
 	id           uint32
 	AttributeIds struct {
-		pos, texIn, oldTex, newTex uint32
+		Pos, TexIn uint32
 	}
 	UniformIds struct {
-		projectionView, oldTex, newTex, oldScale, newScale, yCut uint32
+		ProjectionView, OldTex /*, NewTex, OldScale, NewScale, YCut*/ uint32
 	}
 }
 
@@ -50,31 +51,55 @@ func (me *Background) Init(common *module.SceneCommon) error {
 	me.reqTextureIndex = -1
 	me.curTextureIndex = len(me.images)
 	me.curTextureSplit = 0
-	me.program.id = module.CreateProgram(`
+	/*me.program.id = module.CreateProgram(`
 			#version 101
 			precision mediump float;
 			uniform mat4 projectionView;
 			uniform vec2 oldScale;
-      uniform vec2 newScale;
+			uniform vec2 newScale;
 			attribute vec4 pos;
 			attribute vec2 texIn;
 			varying vec2 oldTexOut;
 			varying vec2 newTexOut;
+			varying float yPos;
 			void main() {
-				gl_Position = projection_view*pos;
+				gl_Position = projectionView*pos;
 				oldTexOut = vec2(texIn.x * oldScale.x, texIn.y * oldScale.y);
 				newTexOut = vec2(texIn.x * newScale.x, texIn.y * newScale.y);
+				yPos = texIn.y;
 			}`, `
-      #version 101
+			#version 101
 			precision mediump float;
 			uniform sampler2D oldTex;
 			uniform sampler2D newTex;
-      uniform float yCut;
+			uniform float yCut;
 			varying vec2 oldTexOut;
 			varying vec2 newTexOut;
+			varying float yPos;
 			void main() {
-				gl_FragColor = yCut > textOut.y ? texture2D(newTex, newTexOut) : texture2D(oldTex, oldTexOut);
-				//gl_FragColor = vec4(1,0,0,1);
+				if (yCut > 2.0) {
+					gl_FragColor = yCut > yPos ? texture2D(newTex, newTexOut) : texture2D(oldTex, oldTexOut);
+				} else {
+					gl_FragColor = vec4(1,0,0,1);
+				}
+			}`, &me.program)*/
+		me.program.id = module.CreateProgram(`
+			#version 101
+			precision mediump float;
+			uniform mat4 projectionView;
+			attribute vec4 pos;
+			attribute vec2 texIn;
+			varying vec2 texOut;
+			void main() {
+				gl_Position = projectionView*pos;
+				texOut = texIn;
+			}`, `
+			#version 101
+			precision mediump float;
+			uniform sampler2D oldTex;
+			varying vec2 texOut;
+			void main() {
+				gl_FragColor = texture2D(oldTex, texOut);
 			}`, &me.program)
 	return err
 }
@@ -153,6 +178,7 @@ func (me *Background) EndpointHandler(suffix string, value string, w http.Respon
 }
 
 func (me *Background) InitTransition(common *module.SceneCommon) time.Duration {
+	fmt.Println("InitTransition with reqTexIndex=", me.reqTextureIndex)
 	var ret time.Duration = -1
 	if me.reqTextureIndex != -1 {
 		if me.reqTextureIndex != me.curTextureIndex {
@@ -188,8 +214,9 @@ func (me *Background) FinishTransition(common *module.SceneCommon) {
 }
 
 func (me *Background) Render(common *module.SceneCommon) {
+	fmt.Println("rendering with textureSplit=", me.curTextureSplit)
 	if me.texture.GlId != 0 || me.curTextureSplit != 0 {
-		var oldScale, newScale [2]float32
+		/*var oldScale, newScale [2]float32
 		if me.texture.Ratio > common.Ratio {
 			oldScale[0] = 1
 			oldScale[1] = common.Ratio / me.texture.Ratio
@@ -199,49 +226,55 @@ func (me *Background) Render(common *module.SceneCommon) {
 		}
 		if me.newTexture.Ratio > common.Ratio {
 			newScale[0] = 1
-			newScale[1] = common.Ratio / me.texture.Ratio
+			newScale[1] = common.Ratio / me.newTexture.Ratio
 		} else {
-			newScale[0] = me.texture.Ratio / common.Ratio
+			newScale[0] = me.newTexture.Ratio / common.Ratio
 			newScale[1] = 1
-		}
+		}*/
 
 		gl.UseProgram(me.program.id)
-		gl.EnableVertexAttribArray(me.program.AttributeIds.pos)
-		defer gl.DisableVertexAttribArray(me.program.AttributeIds.pos)
-		gl.EnableVertexAttribArray(me.program.AttributeIds.texIn)
-		defer gl.DisableVertexAttribArray(me.program.AttributeIds.texIn)
+		gl.EnableVertexAttribArray(me.program.AttributeIds.Pos)
+		defer gl.DisableVertexAttribArray(me.program.AttributeIds.Pos)
+		gl.EnableVertexAttribArray(me.program.AttributeIds.TexIn)
+		defer gl.DisableVertexAttribArray(me.program.AttributeIds.TexIn)
 
 		gl.BindBuffer(gl.ARRAY_BUFFER, common.Square.Vertices.GlId)
-		gl.VertexAttribPointer(me.program.AttributeIds.pos, 4, gl.FLOAT, false,
+		gl.VertexAttribPointer(me.program.AttributeIds.Pos, 4, gl.FLOAT, false,
 			module.SizeOfFloat*6, gl.Void(nil))
-		gl.VertexAttribPointer(me.program.AttributeIds.texIn, 2, gl.FLOAT, false,
+		gl.VertexAttribPointer(me.program.AttributeIds.TexIn, 2, gl.FLOAT, false,
 			6*module.SizeOfFloat, gl.Void(uintptr(4*module.SizeOfFloat)))
 
-		gl.UniformMatrix4fv(int32(me.program.UniformIds.projectionView), 1, false,
+		gl.UniformMatrix4fv(int32(me.program.UniformIds.ProjectionView), 1, false,
 			(*float32)(&module.OrthoMatrix[0]))
-		gl.Uniform2fv(int32(me.program.UniformIds.oldScale), 1, (*float32)(&oldScale[0]))
-		gl.Uniform2fv(int32(me.program.UniformIds.newScale), 1, (*float32)(&newScale[0]))
+		/*gl.Uniform2fv(int32(me.program.UniformIds.OldScale), 1, (*float32)(&oldScale[0]))
+		gl.Uniform2fv(int32(me.program.UniformIds.NewScale), 1, (*float32)(&newScale[0]))*/
 
 		gl.ActiveTexture(gl.TEXTURE0)
 		if me.texture.GlId == 0 {
+			fmt.Println("old texture empty")
 			gl.BindTexture(gl.TEXTURE_2D, me.empty.GlId)
 		} else {
 			gl.BindTexture(gl.TEXTURE_2D, me.texture.GlId)
 		}
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-		gl.Uniform1i(int32(me.program.UniformIds.oldTex), 0)
+		gl.Uniform1i(int32(me.program.UniformIds.OldTex), 0)
 
-		gl.ActiveTexture(gl.TEXTURE1)
+		/*gl.ActiveTexture(gl.TEXTURE1)
 		if me.newTexture.GlId == 0 {
+			fmt.Println("new texture empty")
 			gl.BindTexture(gl.TEXTURE_2D, me.empty.GlId)
 		} else {
 			gl.BindTexture(gl.TEXTURE_2D, me.newTexture.GlId)
 		}
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-		gl.Uniform1i(int32(me.program.UniformIds.newTex), 1)
+		gl.Uniform1i(int32(me.program.UniformIds.NewTex), 1)
 
-		gl.Uniform1f(int32(me.program.UniformIds.yCut), me.curTextureSplit)
+		gl.Uniform1f(int32(me.program.UniformIds.YCut), me.curTextureSplit)*/
 		gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, common.Square.Indices.GlId)
+		fmt.Println("drawing", common.Square.Indices.ByteLen, "elements")
 		gl.DrawElements(gl.TRIANGLES, gl.Sizei(common.Square.Indices.ByteLen), gl.UNSIGNED_BYTE, gl.Void(nil))
+		if err := gl.GetError(); err != 0 {
+			panic(gl.GetString(err))
+		}
 	}
 }

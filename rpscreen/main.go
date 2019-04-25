@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/flyx/egl"
 	"runtime"
 	"time"
@@ -28,13 +29,14 @@ Outer:
 		egl.SwapBuffers(eglState.Display, eglState.Surface)
 		var waitTime time.Duration
 		if screen.numTransitions > 0 {
-			waitTime = time.Now().Sub(curTime) - (time.Second / 60)
+			waitTime = (time.Second / 60) - time.Now().Sub(curTime)
 		} else {
-			waitTime = time.Now().Sub(curTime) - time.Hour
+			waitTime = time.Hour - time.Now().Sub(curTime)
 		}
 		if waitTime > 0 {
 			select {
 			case curUpdate := <-ctrl.ModuleUpdate:
+				fmt.Println("updating module", screen.modules[curUpdate.index].module.Name())
 				curModule := &screen.modules[curUpdate.index]
 				transDur := curModule.module.InitTransition(&screen.SceneCommon)
 				if transDur == 0 {
@@ -43,6 +45,7 @@ Outer:
 					screen.numTransitions++
 					curModule.transStart = time.Now()
 					curModule.transEnd = curModule.transStart.Add(transDur)
+					curModule.transitioning = true
 				}
 				break
 			case <-ctrl.Exit:
@@ -52,6 +55,7 @@ Outer:
 				egl.Terminate(eglState.Display)
 				break Outer
 			case <-time.After(waitTime):
+				fmt.Println("wake after timeout of", waitTime)
 				break
 			}
 		}
