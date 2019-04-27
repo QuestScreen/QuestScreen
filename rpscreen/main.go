@@ -29,7 +29,7 @@ Outer:
 		egl.SwapBuffers(eglState.Display, eglState.Surface)
 		var waitTime time.Duration
 		if screen.numTransitions > 0 {
-			waitTime = (time.Second / 60) - time.Now().Sub(curTime)
+			waitTime = (time.Second / 30) - time.Now().Sub(curTime)
 		} else {
 			waitTime = time.Hour - time.Now().Sub(curTime)
 		}

@@ -82,7 +82,7 @@ func loadProgramParameters(v interface{}, program uint32) {
 		if typeValue.Name == "AttributeIds" {
 			attributesTarget := target.Field(i).Type()
 			for j := 0; j < attributesTarget.NumField(); j++ {
-				name := toCamelCase(attributesTarget.Field(i).Name)
+				name := toCamelCase(attributesTarget.Field(j).Name)
 				id := gl.GetAttribLocation(program, name)
 				if id == 1<<32 - 1 { panic("unknown attribute: " + name) }
 				target.FieldByIndex([]int{i,j}).SetUint(uint64(id))
