@@ -1,7 +1,6 @@
 package background
 
 import (
-	"fmt"
 	"github.com/flyx/rpscreen/module"
 	gl "github.com/remogatto/opengles2"
 	"html/template"
@@ -19,7 +18,7 @@ type BackgroundProgram struct {
 		Pos, TexIn uint32
 	}
 	UniformIds struct {
-		ProjectionView, OldTex , NewTex, OldScale, NewScale, XCut uint32
+		ProjectionView, OldTex , NewTex, OldScale, NewScale, OldClampColors, NewClampColors, XCut uint32
 	}
 }
 
@@ -72,21 +71,37 @@ func (me *Background) Init(common *module.SceneCommon) error {
 			#version 101
 			precision mediump float;
 			uniform sampler2D oldTex;
+			uniform vec4 oldClampColors[4];
 			uniform sampler2D newTex;
+			uniform vec4 newClampColors[4];
 			uniform float xCut;
 			varying vec2 oldTexOut;
 			varying vec2 newTexOut;
 			varying float xPos;
+
+			vec4 texColor(sampler2D tex, vec4 clampColors[4], vec2 texPos) {
+				if (texPos.x < 0.0) {
+					return clampColors[3];
+				} else if (texPos.x > 1.0) {
+					return clampColors[1];
+				} else if (texPos.y < 0.0) {
+					return clampColors[2];
+				} else if (texPos.y > 1.0) {
+					return clampColors[0];
+				} else {
+					return texture2D(tex, texPos);
+				}
+			}
+
 			void main() {
 				float diff = ((xCut + 0.01) - xPos) * 50.0;
 				if (diff <= 0.0) {
-					gl_FragColor = texture2D(oldTex, oldTexOut);
+					gl_FragColor = texColor(oldTex, oldClampColors, oldTexOut);
 				} else if (diff < 1.0) {
-					gl_FragColor = diff * texture2D(newTex, newTexOut) + (1.0 - diff) * texture2D(oldTex, oldTexOut);
-					//gl_FragColor = vec4(1,0,0,1);
+					gl_FragColor = diff * texColor(newTex, newClampColors, newTexOut) +
+							(1.0 - diff) * texColor(oldTex, oldClampColors, oldTexOut);
 				} else {
-					//gl_FragColor = vec4(0,0,1,1);
-					gl_FragColor = texture2D(newTex, newTexOut);
+					gl_FragColor = texColor(newTex, newClampColors, newTexOut);
 				}
 			}`, &me.program)
 	return err
@@ -166,7 +181,6 @@ func (me *Background) EndpointHandler(suffix string, value string, w http.Respon
 }
 
 func (me *Background) InitTransition(common *module.SceneCommon) time.Duration {
-	fmt.Println("InitTransition with reqTexIndex=", me.reqTextureIndex)
 	var ret time.Duration = -1
 	if me.reqTextureIndex != -1 {
 		if me.reqTextureIndex != me.curTextureIndex {
@@ -201,8 +215,16 @@ func (me *Background) FinishTransition(common *module.SceneCommon) {
 	me.newTexture = module.Texture{Ratio: 1}
 }
 
+func setTexture(tex module.Texture, index int32, texUniformId uint32, clampUniformId uint32) {
+	gl.ActiveTexture(gl.TEXTURE0 + gl.Enum(index))
+	gl.BindTexture(gl.TEXTURE_2D, tex.GlId)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.Uniform1i(int32(texUniformId), index)
+	gl.Uniform4fv(int32(clampUniformId), 4, (*float32)(&tex.ClampColors[0]))
+}
+
 func (me *Background) Render(common *module.SceneCommon) {
-	fmt.Println("rendering with textureSplit=", me.curTextureSplit)
 	if err := gl.GetError(); err != 0 {
 		panic("GetError() not 0 at begin of render")
 	}
@@ -241,38 +263,16 @@ func (me *Background) Render(common *module.SceneCommon) {
 		gl.Uniform2fv(int32(me.program.UniformIds.OldScale), 1, (*float32)(&oldScale[0]))
 		gl.Uniform2fv(int32(me.program.UniformIds.NewScale), 1, (*float32)(&newScale[0]))
 
-		if err := gl.GetError(); err != 0 { panic(uint32(err)) }
-		gl.ActiveTexture(gl.TEXTURE0)
-		if err := gl.GetError(); err != 0 { panic(uint32(err)) }
-		if me.texture.GlId == 0 {
-			fmt.Println("old texture empty")
-			gl.BindTexture(gl.TEXTURE_2D, me.empty.GlId)
-		} else {
-			gl.BindTexture(gl.TEXTURE_2D, me.texture.GlId)
-		}
-		if err := gl.GetError(); err != 0 { panic(int32(err)) }
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-		gl.Uniform1i(int32(me.program.UniformIds.OldTex), 0)
+		var tex = me.texture
+		if tex.GlId == 0 { tex = me.empty }
+		setTexture(tex, 0, me.program.UniformIds.OldTex, me.program.UniformIds.OldClampColors)
 
-		gl.ActiveTexture(gl.TEXTURE1)
-		if me.newTexture.GlId == 0 {
-			fmt.Println("new texture empty")
-			gl.BindTexture(gl.TEXTURE_2D, me.empty.GlId)
-		} else {
-			gl.BindTexture(gl.TEXTURE_2D, me.newTexture.GlId)
-		}
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-		gl.Uniform1i(int32(me.program.UniformIds.NewTex), 1)
+		tex = me.newTexture
+		if tex.GlId == 0 { tex = me.empty }
+		setTexture(tex, 1, me.program.UniformIds.NewTex, me.program.UniformIds.NewClampColors)
 
 		gl.Uniform1f(int32(me.program.UniformIds.XCut), me.curTextureSplit)
 		gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, common.Square.Indices.GlId)
-		fmt.Println("drawing", common.Square.Indices.ByteLen, "elements")
 		gl.DrawElements(gl.TRIANGLES, gl.Sizei(common.Square.Indices.ByteLen), gl.UNSIGNED_BYTE, gl.Void(nil))
 		if err := gl.GetError(); err != 0 { panic(int32(err)) }
 	}

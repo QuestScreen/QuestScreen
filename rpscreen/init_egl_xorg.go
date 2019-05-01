@@ -35,7 +35,12 @@ func newWindow(controlCh *controlCh, X *xgbutil.XUtil, width, height int) *xwind
 			mousebind.Detach(w.X, w.Id)
 			w.Destroy()
 			xevent.Quit(X)
-			controlCh.Exit <- struct{}{}
+			controlCh.WMEvents <- wmExit
+		})
+
+	win.WMTakeFocus(
+		func(w *xwindow.Window, tstamp xproto.Timestamp) {
+			controlCh.WMEvents <- wmRedraw
 		})
 
 	// In order to get ConfigureNotify events, we must listen to the window

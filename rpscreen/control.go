@@ -1,13 +1,20 @@
 package main
 
+type wmEvent int
+
+const (
+	wmExit wmEvent = iota
+	wmRedraw
+)
+
 type controlCh struct {
-	Exit         chan struct{}
+	WMEvents     chan wmEvent
 	ModuleUpdate chan struct{ index int }
 }
 
 func newControlCh() *controlCh {
 	return &controlCh{
-		Exit:         make(chan struct{}),
+		WMEvents:     make(chan wmEvent),
 		ModuleUpdate: make(chan struct{ index int }),
 	}
 }
