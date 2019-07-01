@@ -76,8 +76,8 @@ func LoadTexture(img image.Image) Texture {
 	res := Texture{Ratio: float32(width) / float32(height)}
 	gl.GenTextures(1, &res.GlId)
 	gl.BindTexture(gl.TEXTURE_2D, res.GlId)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.Sizei(width), gl.Sizei(height), 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Void(&buffer[0]))
 	tmp := topSum.average()
 	copy(res.ClampColors[0:3], tmp[:])
@@ -94,8 +94,8 @@ func LoadTextureFromBuffer(buffer []byte, width, height int) Texture {
 	res := Texture{Ratio: float32(width) / float32(height)}
 	gl.GenTextures(1, &res.GlId)
 	gl.BindTexture(gl.TEXTURE_2D, res.GlId)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.Sizei(width), gl.Sizei(height), 0, gl.RGBA, gl.UNSIGNED_BYTE, gl.Void(&buffer[0]))
 	return res
 }
