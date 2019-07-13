@@ -1,17 +1,13 @@
 package main
 
 import (
-	"github.com/flyx/egl"
-	"github.com/flyx/egl/platform"
 	"github.com/flyx/rpscreen/module"
 	"github.com/flyx/rpscreen/module/background"
-	gl "github.com/remogatto/opengles2"
+	"github.com/veandco/go-sdl2/sdl"
 	"os"
 	"os/user"
 	"time"
 )
-
-const TexCoordMax = 1
 
 type moduleListItem struct {
 	module        module.Module
@@ -23,43 +19,43 @@ type moduleListItem struct {
 
 type Screen struct {
 	module.SceneCommon
-	textureBuffer  uint32
-	modules        []moduleListItem
-	ctrl           *controlCh
-	numTransitions int32
+	textureBuffer       uint32
+	modules             []moduleListItem
+	numTransitions      int32
+	moduleUpdateEventId uint32
 }
 
-func newScreen(eglState *platform.EGLState, ctrl *controlCh) (*Screen, error) {
-	if ok := egl.MakeCurrent(eglState.Display, eglState.Surface, eglState.Surface, eglState.Context); !ok {
-		return nil, egl.NewError(egl.GetError())
-	}
-
+func newScreen() (*Screen, error) {
 	usr, _ := user.Current()
 
 	screen := new(Screen)
+
+	var width, height int32
+	width = 800
+	height = 600
+	/*egl.QuerySurface(eglState.Display, eglState.Surface, egl.WIDTH, &width)
+	egl.QuerySurface(eglState.Display, eglState.Surface, egl.HEIGHT, &height)*/
+	screen.Ratio = float32(width) / float32(height)
+	var err error
+	screen.Window, err = sdl.CreateWindow("rpscreen", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
+		width, height, sdl.WINDOW_SHOWN)
+	if err != nil {
+		return nil, err
+	}
+
+	screen.Renderer, err = sdl.CreateRenderer(screen.Window, -1, sdl.RENDERER_ACCELERATED|sdl.RENDERER_TARGETTEXTURE)
+	if err != nil {
+		screen.Window.Destroy()
+		return nil, err
+	}
+
 	screen.modules = make([]moduleListItem, 0, 16)
-	screen.ctrl = ctrl
 	screen.DataDir = usr.HomeDir + "/.local/share/rpscreen"
 	if err := os.MkdirAll(screen.DataDir, 0700); err != nil {
 		panic(err)
 	}
 	screen.numTransitions = 0
-
-	var width, height int32
-	egl.QuerySurface(eglState.Display, eglState.Surface, egl.WIDTH, &width)
-	egl.QuerySurface(eglState.Display, eglState.Surface, egl.HEIGHT, &height)
-	screen.Ratio = float32(width) / float32(height)
-
-	screen.Square.Vertices = module.CreateFloatBuffer([]float32{
-		1, -1, 1, 1, TexCoordMax, TexCoordMax,
-		1, 1, 1, 1, TexCoordMax, 0,
-		-1, 1, 1, 1, 0, 0,
-		-1, -1, 1, 1, 0, TexCoordMax,
-	})
-	screen.Square.Indices = module.CreateByteBuffer([]byte{
-		0, 1, 2,
-		2, 3, 0,
-	})
+	screen.moduleUpdateEventId = sdl.RegisterEvents(1)
 
 	bg := new(background.Background)
 	if err := bg.Init(&screen.SceneCommon); err != nil {
@@ -70,9 +66,10 @@ func newScreen(eglState *platform.EGLState, ctrl *controlCh) (*Screen, error) {
 }
 
 func (s *Screen) Render(cur time.Time) {
-	gl.ClearColor(0, 0, 0, 1)
-	gl.Clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT)
-
+	s.Renderer.Clear()
+	s.Renderer.SetDrawColor(255, 255, 255, 255)
+	winWidth, winHeight := s.Window.GetSize()
+	s.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: int32(winWidth), H: int32(winHeight)})
 	for i := 0; i < len(s.modules); i++ {
 		item := &s.modules[i]
 		if item.enabled {
@@ -88,6 +85,5 @@ func (s *Screen) Render(cur time.Time) {
 			item.module.Render(&s.SceneCommon)
 		}
 	}
-	gl.Flush()
-	gl.Finish()
+	s.Renderer.Present()
 }

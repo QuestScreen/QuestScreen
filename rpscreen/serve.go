@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/flyx/rpscreen/web"
+	"github.com/veandco/go-sdl2/sdl"
 	"html/template"
 	"log"
 	"net/http"
@@ -78,7 +79,7 @@ func startServer(screen *Screen) *http.Server {
 				res := module.module.EndpointHandler(r.URL.Path[len(module.module.EndpointPath()):],
 					r.PostFormValue("value"), w, returnPartial)
 				if res {
-					screen.ctrl.ModuleUpdate <- struct{ index int }{index: index}
+					sdl.PushEvent(&sdl.UserEvent{Type: screen.moduleUpdateEventId, Code: int32(index)})
 				}
 			}
 		})

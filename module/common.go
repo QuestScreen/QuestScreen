@@ -1,16 +1,12 @@
 package module
 
 import (
-	"github.com/go-gl/mathgl/mgl32"
+	"github.com/veandco/go-sdl2/sdl"
 )
 
 type SceneCommon struct {
-	Ratio  float32
-	Square struct {
-		Vertices FloatBuffer
-		Indices  ByteBuffer
-	}
-	DataDir string
+	Ratio    float32
+	DataDir  string
+	Renderer *sdl.Renderer
+	Window   *sdl.Window
 }
-
-var OrthoMatrix = mgl32.Ortho2D(-1.0, 1.0, -1.0, 1.0)
