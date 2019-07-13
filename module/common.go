@@ -9,4 +9,5 @@ type SceneCommon struct {
 	DataDir  string
 	Renderer *sdl.Renderer
 	Window   *sdl.Window
+	Fonts    []LoadedFont
 }

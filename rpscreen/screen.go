@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/flyx/rpscreen/module"
 	"github.com/flyx/rpscreen/module/background"
+	"github.com/flyx/rpscreen/module/sceneTitle"
 	"github.com/veandco/go-sdl2/sdl"
 	"os"
 	"os/user"
@@ -56,12 +57,20 @@ func newScreen() (*Screen, error) {
 	}
 	screen.numTransitions = 0
 	screen.moduleUpdateEventId = sdl.RegisterEvents(1)
+	screen.Fonts = module.CreateFontCatalog(screen.DataDir)
 
 	bg := new(background.Background)
 	if err := bg.Init(&screen.SceneCommon); err != nil {
 		panic(err)
 	}
 	screen.modules = append(screen.modules, moduleListItem{module: bg, enabled: true, transitioning: false})
+	if len(screen.Fonts) > 0 {
+		title := new(sceneTitle.SceneTitle)
+		if err := title.Init(&screen.SceneCommon); err != nil {
+			panic(err)
+		}
+		screen.modules = append(screen.modules, moduleListItem{module: title, enabled: true, transitioning: false})
+	}
 	return screen, nil
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
+	"github.com/veandco/go-sdl2/ttf"
 	"runtime"
 	"time"
 )
@@ -16,6 +17,10 @@ func main() {
 		panic(err)
 	}
 	defer sdl.Quit()
+	if err := ttf.Init(); err != nil {
+		panic(err)
+	}
+	defer ttf.Quit()
 	img.Init(img.INIT_PNG | img.INIT_JPG)
 	defer img.Quit()
 	screen, err := newScreen()

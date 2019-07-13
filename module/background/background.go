@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -86,8 +87,9 @@ func (*Background) EndpointPath() string {
 	return "/background/"
 }
 
-func (me *Background) EndpointHandler(suffix string, value string, w http.ResponseWriter, returnPartial bool) bool {
+func (me *Background) EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool {
 	if suffix == "image" {
+		value := values["value"][0]
 		if value == "" {
 			me.reqTextureIndex = len(me.images)
 		} else {

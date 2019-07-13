@@ -70,16 +70,19 @@ func startServer(screen *Screen) *http.Server {
 		}
 	})
 
-	for index, module := range screen.modules {
-		http.HandleFunc(module.module.EndpointPath(), func(w http.ResponseWriter, r *http.Request) {
+	for index, item := range screen.modules {
+		// needed to avoid closure over loop variable (which doesn't work)
+		curIndex := index
+		curItem := item
+		http.HandleFunc(item.module.EndpointPath(), func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "POST" {
 				http.Error(w, "400: module endpoints only take POST requests", http.StatusBadRequest)
 			} else {
 				returnPartial := r.PostFormValue("redirect") != "1"
-				res := module.module.EndpointHandler(r.URL.Path[len(module.module.EndpointPath()):],
-					r.PostFormValue("value"), w, returnPartial)
+				res := curItem.module.EndpointHandler(r.URL.Path[len(curItem.module.EndpointPath()):],
+					r.PostForm, w, returnPartial)
 				if res {
-					sdl.PushEvent(&sdl.UserEvent{Type: screen.moduleUpdateEventId, Code: int32(index)})
+					sdl.PushEvent(&sdl.UserEvent{Type: screen.moduleUpdateEventId, Code: int32(curIndex)})
 				}
 			}
 		})

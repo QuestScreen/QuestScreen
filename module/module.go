@@ -3,6 +3,7 @@ package module
 import (
 	"html/template"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -49,7 +50,7 @@ type Module interface {
 	// if it returns true, InitTransition() will be called in the OpenGL thread and any OpenGL action
 	// must be relayed there. return true only if calling InitTransition() will be necessary to update
 	// the display.
-	EndpointHandler(suffix string, value string, w http.ResponseWriter, returnPartial bool) bool
+	EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool
 }
 
 type EndpointReturn int
