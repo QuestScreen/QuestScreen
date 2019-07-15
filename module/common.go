@@ -5,7 +5,7 @@ import (
 )
 
 type SceneCommon struct {
-	Ratio    float32
+	Width, Height int32
 	DataDir  string
 	Renderer *sdl.Renderer
 	Window   *sdl.Window

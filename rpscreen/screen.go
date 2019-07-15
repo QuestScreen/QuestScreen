@@ -36,7 +36,8 @@ func newScreen() (*Screen, error) {
 	height = 600
 	/*egl.QuerySurface(eglState.Display, eglState.Surface, egl.WIDTH, &width)
 	egl.QuerySurface(eglState.Display, eglState.Surface, egl.HEIGHT, &height)*/
-	screen.Ratio = float32(width) / float32(height)
+	screen.Width = width
+	screen.Height = height
 	var err error
 	screen.Window, err = sdl.CreateWindow("rpscreen", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
 		width, height, sdl.WINDOW_SHOWN)
@@ -57,7 +58,7 @@ func newScreen() (*Screen, error) {
 	}
 	screen.numTransitions = 0
 	screen.moduleUpdateEventId = sdl.RegisterEvents(1)
-	screen.Fonts = module.CreateFontCatalog(screen.DataDir)
+	screen.Fonts = module.CreateFontCatalog(screen.DataDir, int(height) / 13)
 
 	bg := new(background.Background)
 	if err := bg.Init(&screen.SceneCommon); err != nil {

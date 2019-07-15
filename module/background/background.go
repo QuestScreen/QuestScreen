@@ -155,7 +155,8 @@ func (me *Background) InitTransition(common *module.SceneCommon) time.Duration {
 					common.Renderer.Clear()
 					common.Renderer.SetDrawColor(255, 255, 255, 255)
 					common.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: int32(winWidth), H: int32(winHeight)})
-					dst := offsets(float32(texWidth)/float32(texHeight), common.Ratio, winWidth, winHeight)
+					dst := offsets(float32(texWidth)/float32(texHeight), float32(common.Width) / float32(common.Height),
+						winWidth, winHeight)
 					common.Renderer.Copy(tex, nil, &dst)
 				}
 			}

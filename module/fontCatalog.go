@@ -11,7 +11,7 @@ type LoadedFont struct {
 	Name string
 }
 
-func CreateFontCatalog(dataDir string) []LoadedFont {
+func CreateFontCatalog(dataDir string, defaultSize int) []LoadedFont {
 	fontPath := dataDir + "/fonts"
 	files, err := ioutil.ReadDir(fontPath)
 
@@ -19,7 +19,7 @@ func CreateFontCatalog(dataDir string) []LoadedFont {
 		catalog := make([]LoadedFont, 0, len(files))
 		for _, file := range files {
 			if !file.IsDir() {
-				if font, err := ttf.OpenFont(fontPath+"/"+file.Name(), 32); err != nil {
+				if font, err := ttf.OpenFont(fontPath+"/"+file.Name(), defaultSize); err != nil {
 					log.Println(err)
 				} else {
 					familyName := font.FaceFamilyName()
