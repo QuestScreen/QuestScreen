@@ -12,6 +12,12 @@ type Module interface {
 	Init(common *SceneCommon) error
 	// returns the name of the module.
 	Name() string
+	// Alphanumeric name used for:
+	// * directories with module data
+	// * HTTP setter endpoints
+	// * IDs for menu setters
+	// May not contain whitespace or special characters. Must be unique among loaded modules.
+	InternalName() string
 	// collect requests given to EndpointHandler() and initializes a transition.
 	// returns the length of the transition animation.
 	// TransitionStep() and Render() will be invoked continuously until the returned time has been elapsed
@@ -38,9 +44,6 @@ type Module interface {
 
 	// returns partial HTML that creates the module's UI within the web interface.
 	UI() template.HTML
-	// returns the base path for the module's endpoints.
-	// must start with a '/'.
-	EndpointPath() string
 	// implements handling for all endpoints of the module.
 	// will be called for requests on all paths starting with EndpointPath.
 	// returnPartial specifies whether a partial value may be returned (in case of AJAX requests).

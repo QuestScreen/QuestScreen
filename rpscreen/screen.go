@@ -5,8 +5,6 @@ import (
 	"github.com/flyx/rpscreen/module/background"
 	"github.com/flyx/rpscreen/module/sceneTitle"
 	"github.com/veandco/go-sdl2/sdl"
-	"os"
-	"os/user"
 	"time"
 )
 
@@ -20,15 +18,14 @@ type moduleListItem struct {
 
 type Screen struct {
 	module.SceneCommon
-	textureBuffer       uint32
-	modules             []moduleListItem
-	numTransitions      int32
-	moduleUpdateEventId uint32
+	textureBuffer              uint32
+	modules                    []moduleListItem
+	numTransitions             int32
+	moduleUpdateEventId        uint32
+	groupOrSystemUpdateEventId uint32
 }
 
 func newScreen() (*Screen, error) {
-	usr, _ := user.Current()
-
 	screen := new(Screen)
 
 	var width, height int32
@@ -52,13 +49,11 @@ func newScreen() (*Screen, error) {
 	}
 
 	screen.modules = make([]moduleListItem, 0, 16)
-	screen.DataDir = usr.HomeDir + "/.local/share/rpscreen"
-	if err := os.MkdirAll(screen.DataDir, 0700); err != nil {
-		panic(err)
-	}
+	screen.SharedData = module.InitSharedData()
 	screen.numTransitions = 0
 	screen.moduleUpdateEventId = sdl.RegisterEvents(1)
-	screen.Fonts = module.CreateFontCatalog(screen.DataDir, int(height) / 13)
+	screen.groupOrSystemUpdateEventId = sdl.RegisterEvents(1)
+	screen.Fonts = module.CreateFontCatalog(&screen.SharedData, int(height)/13)
 
 	bg := new(background.Background)
 	if err := bg.Init(&screen.SceneCommon); err != nil {

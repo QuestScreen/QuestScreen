@@ -4,6 +4,7 @@ import (
 	"github.com/veandco/go-sdl2/ttf"
 	"io/ioutil"
 	"log"
+	"path/filepath"
 )
 
 type LoadedFont struct {
@@ -11,8 +12,8 @@ type LoadedFont struct {
 	Name string
 }
 
-func CreateFontCatalog(dataDir string, defaultSize int) []LoadedFont {
-	fontPath := dataDir + "/fonts"
+func CreateFontCatalog(common *SharedData, defaultSize int) []LoadedFont {
+	fontPath := filepath.Join(common.dataDir, "fonts")
 	files, err := ioutil.ReadDir(fontPath)
 
 	if err == nil {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/flyx/rpscreen/module"
 	"github.com/flyx/rpscreen/web"
 	"github.com/veandco/go-sdl2/sdl"
 	"html/template"
@@ -8,9 +9,32 @@ import (
 	"net/http"
 )
 
+type UIModuleData struct {
+	Name    string
+	UI      template.HTML
+	Enabled bool
+}
+
+type UISystemData struct {
+	*module.System
+	Selected bool
+}
+
+type UIGroupData struct {
+	*module.Group
+	Selected bool
+}
+
+type UIData struct {
+	Modules []UIModuleData
+	Systems []UISystemData
+	Groups  []UIGroupData
+}
+
 type ScreenHandler struct {
 	screen *Screen
 	index  *template.Template
+	data   UIData
 }
 
 func newScreenHandler(screen *Screen) *ScreenHandler {
@@ -25,48 +49,101 @@ func newScreenHandler(screen *Screen) *ScreenHandler {
 	if err != nil {
 		panic(err)
 	}
+
+	handler.data = UIData{Modules: make([]UIModuleData, 0, len(screen.modules)),
+		Systems: make([]UISystemData, 0, len(screen.Systems)),
+		Groups:  make([]UIGroupData, 0, len(screen.Groups))}
+	for _, mod := range screen.modules {
+		handler.data.Modules = append(handler.data.Modules,
+			UIModuleData{Name: mod.module.Name(), Enabled: false})
+	}
+	for index := range screen.Systems {
+		handler.data.Systems = append(handler.data.Systems,
+			UISystemData{System: &screen.Systems[index], Selected: false})
+	}
+	for index := range screen.Groups {
+		handler.data.Groups = append(handler.data.Groups,
+			UIGroupData{Group: &screen.Groups[index], Selected: false})
+	}
+
 	return handler
 }
 
-type UIModuleData struct {
-	Name string
-	UI   template.HTML
-}
-
-type UIData struct {
-	Modules []UIModuleData
-}
-
-func (me *ScreenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (sh *ScreenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" && r.URL.Path != "/index.html" {
 		http.NotFound(w, r)
 		return
 	}
 
-	data := UIData{Modules: make([]UIModuleData, 0, len(me.screen.modules))}
-	for _, module := range me.screen.modules {
-		if module.enabled {
-			data.Modules = append(data.Modules, UIModuleData{Name: module.module.Name(), UI: module.module.UI()})
-		}
+	for index, mod := range sh.screen.modules {
+		sh.data.Modules[index].Enabled = mod.enabled
+		sh.data.Modules[index].UI = mod.module.UI()
 	}
-	w.Header().Set("Content-Type", "text/html")
-	if err := me.index.Execute(w, data); err != nil {
+	for index := range sh.data.Systems {
+		sh.data.Systems[index].Selected = sh.screen.ActiveSystem == int32(index)
+	}
+	for index := range sh.data.Groups {
+		sh.data.Groups[index].Selected = sh.screen.ActiveGroup == int32(index)
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := sh.index.Execute(w, sh.data); err != nil {
 		panic(err)
 	}
+}
+
+func setupResourceHandler(server *http.Server, path string, contentType string) {
+	http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		raw, err := web.Asset("web" + path)
+		if err != nil {
+			panic(err)
+		}
+		w.Header().Set("Content-Type", contentType)
+		if _, err = w.Write(raw); err != nil {
+			panic(err)
+		}
+	})
 }
 
 func startServer(screen *Screen) *http.Server {
 	server := &http.Server{Addr: ":8080"}
 
 	http.Handle("/", newScreenHandler(screen))
-	http.HandleFunc("/style/pure-min.css", func(w http.ResponseWriter, r *http.Request) {
-		raw, err := web.Asset("web/style/pure-min.css")
-		if err != nil {
-			panic(err)
+	setupResourceHandler(server, "/style/pure-min.css", "text/css")
+	setupResourceHandler(server, "/style/style.css", "text/css")
+	setupResourceHandler(server, "/js/ui.js", "application/javascript")
+
+	http.HandleFunc("/systems/", func(w http.ResponseWriter, r *http.Request) {
+		systemName := r.URL.Path[len("/systems/"):]
+		found := false
+		for index, item := range screen.Systems {
+			if item.DirName == systemName {
+				screen.ActiveSystem = int32(index)
+				sdl.PushEvent(&sdl.UserEvent{Type: screen.groupOrSystemUpdateEventId})
+				found = true
+				break
+			}
 		}
-		w.Header().Set("Content-Type", "text/css")
-		if _, err = w.Write(raw); err != nil {
-			panic(err)
+		if found {
+			module.WriteEndpointHeader(w, module.EndpointReturnRedirect)
+		} else {
+			http.Error(w, "404: unknown system \""+systemName+"\"", http.StatusNotFound)
+		}
+	})
+	http.HandleFunc("/groups/", func(w http.ResponseWriter, r *http.Request) {
+		groupName := r.URL.Path[len("/groups/"):]
+		found := false
+		for index, item := range screen.Groups {
+			if item.DirName == groupName {
+				screen.ActiveGroup = int32(index)
+				sdl.PushEvent(&sdl.UserEvent{Type: screen.groupOrSystemUpdateEventId})
+				found = true
+				break
+			}
+		}
+		if found {
+			module.WriteEndpointHeader(w, module.EndpointReturnRedirect)
+		} else {
+			http.Error(w, "404: unknown group \""+groupName+"\"", http.StatusNotFound)
 		}
 	})
 
@@ -74,12 +151,12 @@ func startServer(screen *Screen) *http.Server {
 		// needed to avoid closure over loop variable (which doesn't work)
 		curIndex := index
 		curItem := item
-		http.HandleFunc(item.module.EndpointPath(), func(w http.ResponseWriter, r *http.Request) {
+		http.HandleFunc("/"+curItem.module.InternalName()+"/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "POST" {
 				http.Error(w, "400: module endpoints only take POST requests", http.StatusBadRequest)
 			} else {
 				returnPartial := r.PostFormValue("redirect") != "1"
-				res := curItem.module.EndpointHandler(r.URL.Path[len(curItem.module.EndpointPath()):],
+				res := curItem.module.EndpointHandler(r.URL.Path[len(curItem.module.InternalName())+2:],
 					r.PostForm, w, returnPartial)
 				if res {
 					sdl.PushEvent(&sdl.UserEvent{Type: screen.moduleUpdateEventId, Code: int32(curIndex)})
