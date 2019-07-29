@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -57,7 +58,15 @@ func (st *Title) UI(common *module.SceneCommon) template.HTML {
 	builder.StartForm(st, "set", "Set Scene Title", false)
 	builder.StartSelect("Font", "title-font", "font")
 	for index, font := range st.fonts {
-		builder.Option(strconv.Itoa(index), shownIndex == index, font.Name)
+		var nameBuilder strings.Builder
+		nameBuilder.WriteString(font.Name)
+		if font.Bold {
+			nameBuilder.WriteString(" Bold")
+		}
+		if font.Italic {
+			nameBuilder.WriteString(" Italic")
+		}
+		builder.Option(strconv.Itoa(index), shownIndex == index, nameBuilder.String())
 	}
 	builder.EndSelect()
 	builder.TextInput("Text", "title-text", "text", st.reqName)

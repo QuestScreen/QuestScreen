@@ -8,8 +8,10 @@ import (
 )
 
 type LoadedFont struct {
-	Font *ttf.Font
-	Name string
+	Font   *ttf.Font
+	Name   string
+	Bold   bool
+	Italic bool
 }
 
 func CreateFontCatalog(common *SharedData, defaultSize int) []LoadedFont {
@@ -27,7 +29,9 @@ func CreateFontCatalog(common *SharedData, defaultSize int) []LoadedFont {
 					if familyName == "" {
 						familyName = file.Name()
 					}
-					catalog = append(catalog, LoadedFont{Font: font, Name: familyName})
+					isBold := (font.GetStyle() & ttf.STYLE_BOLD) != 0
+					isItalic := (font.GetStyle() & ttf.STYLE_ITALIC) != 0
+					catalog = append(catalog, LoadedFont{Font: font, Name: familyName, Bold: isBold, Italic: isItalic})
 				}
 			}
 		}
