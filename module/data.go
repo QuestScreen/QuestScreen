@@ -74,16 +74,19 @@ func InitSharedData() SharedData {
 }
 
 type Resource struct {
-	Name string
-	Path string
+	Name   string
+	Path   string
+	Group  int32
+	System int32
 }
 
-func appendDir(resources []Resource, path string) []Resource {
+func appendDir(resources []Resource, path string, group int32, system int32) []Resource {
 	files, err := ioutil.ReadDir(path)
 	if err == nil {
 		for _, file := range files {
 			if !file.IsDir() {
-				resources = append(resources, Resource{Name: file.Name(), Path: filepath.Join(path, file.Name())})
+				resources = append(resources, Resource{Name: file.Name(), Path: filepath.Join(path, file.Name()),
+					Group: group, System: system})
 			}
 		}
 	} else {
@@ -99,16 +102,25 @@ func appendDir(resources []Resource, path string) []Resource {
  */
 func (data *SharedData) ListFiles(module Module, subdir string) []Resource {
 	resources := make([]Resource, 0, 64)
-	resources = appendDir(resources, filepath.Join(data.dataDir, "common", module.InternalName(), subdir))
-	if data.ActiveSystem != -1 && data.Systems[data.ActiveSystem].DirName != "" {
-		resources = appendDir(resources, filepath.Join(data.dataDir, "systems",
-			data.Systems[data.ActiveSystem].DirName, module.InternalName(), subdir))
+	resources = appendDir(resources, filepath.Join(data.dataDir, "common", module.InternalName(), subdir), -1, -1)
+	for index := range data.Systems {
+		if data.Systems[index].DirName != "" {
+			resources = appendDir(resources, filepath.Join(data.dataDir, "systems",
+				data.Systems[index].DirName, module.InternalName(), subdir), -1, int32(index))
+		}
 	}
-	if data.ActiveGroup != -1 && data.Groups[data.ActiveGroup].DirName != "" {
-		resources = appendDir(resources, filepath.Join(data.dataDir, "groups",
-			data.Groups[data.ActiveGroup].DirName, module.InternalName(), subdir))
+	for index := range data.Groups {
+		if data.Groups[index].DirName != "" {
+			resources = appendDir(resources, filepath.Join(data.dataDir, "groups",
+				data.Groups[index].DirName, module.InternalName(), subdir), int32(index), -1)
+		}
 	}
 	return resources
+}
+
+func (res *Resource) Enabled(data *SharedData) bool {
+	return (res.Group == -1 || res.Group == data.ActiveGroup) &&
+		(res.System == -1 || res.System == data.ActiveSystem)
 }
 
 func isProperFile(path string) bool {

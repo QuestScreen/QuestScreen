@@ -77,7 +77,7 @@ func (sh *ScreenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	for index, mod := range sh.screen.modules {
 		sh.data.Modules[index].Enabled = mod.enabled
-		sh.data.Modules[index].UI = mod.module.UI()
+		sh.data.Modules[index].UI = mod.module.UI(&sh.screen.SceneCommon)
 	}
 	for index := range sh.data.Systems {
 		sh.data.Systems[index].Selected = sh.screen.ActiveSystem == int32(index)

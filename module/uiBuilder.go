@@ -7,7 +7,8 @@ import (
 )
 
 type UIBuilder struct {
-	builder strings.Builder
+	builder     strings.Builder
+	formAligned bool
 }
 
 var inputTextTempl *template.Template
@@ -22,8 +23,24 @@ func init() {
 	}
 }
 
-func (b *UIBuilder) StartForm(module Module, relativePath string, legend string) *UIBuilder {
-	b.builder.WriteString(`<form class="pure-form" action="`)
+func (b *UIBuilder) StartGroup() *UIBuilder {
+	b.builder.WriteString(`    <div class="pure-control-group">
+`)
+	return b
+}
+
+func (b *UIBuilder) EndGroup() *UIBuilder {
+	b.builder.WriteString(`    </div>
+`)
+	return b
+}
+
+func (b *UIBuilder) StartForm(module Module, relativePath string, legend string, aligned bool) *UIBuilder {
+	b.builder.WriteString(`<form class="pure-form`)
+	if aligned {
+		b.builder.WriteString(` pure-form-aligned`)
+	}
+	b.builder.WriteString(`" action="`)
 	b.builder.WriteString("/" + module.InternalName() + "/" + relativePath)
 	b.builder.WriteString(`" method="post" accept-charset="UTF-8">
   <fieldset>
@@ -33,6 +50,7 @@ func (b *UIBuilder) StartForm(module Module, relativePath string, legend string)
 `)
 	}
 	b.builder.WriteString(`    <input type="hidden" name="redirect" value="1"/>`)
+	b.formAligned = aligned
 	return b
 }
 
@@ -44,6 +62,9 @@ func (b *UIBuilder) EndForm() *UIBuilder {
 }
 
 func (b *UIBuilder) StartSelect(label string, id string, name string) *UIBuilder {
+	if b.formAligned {
+		b.StartGroup()
+	}
 	b.builder.WriteString(`    <label for="`)
 	b.builder.WriteString(id)
 	b.builder.WriteString(`">`)
@@ -75,6 +96,9 @@ func (b *UIBuilder) Option(value string, selected bool, content string) *UIBuild
 func (b *UIBuilder) EndSelect() *UIBuilder {
 	b.builder.WriteString(`    </select>
 `)
+	if b.formAligned {
+		b.EndGroup()
+	}
 	return b
 }
 
@@ -88,6 +112,9 @@ func (b *UIBuilder) TextInput(label string, id string, name string, value string
 		Id: id, Name: name, Value: value}); err != nil {
 		panic(err)
 	}
+	if b.formAligned {
+		b.StartGroup()
+	}
 	b.builder.WriteString(`    <label for="`)
 	b.builder.WriteString(id)
 	b.builder.WriteString(`">`)
@@ -95,13 +122,58 @@ func (b *UIBuilder) TextInput(label string, id string, name string, value string
 	b.builder.WriteString(`</label>
 `)
 	b.builder.WriteString(buf.String())
+	if b.formAligned {
+		b.EndGroup()
+	}
 	return b
 }
 
-func (b *UIBuilder) SubmitButton(caption string) *UIBuilder {
+func (b *UIBuilder) SubmitButton(caption string, label string) *UIBuilder {
+	if b.formAligned {
+		b.StartGroup()
+	}
+	if label != "" {
+		b.builder.WriteString(`    <label>`)
+		b.builder.WriteString(label)
+		b.builder.WriteString(`</label>
+`)
+	}
 	b.builder.WriteString(`    <button type="submit" class="pure-button pure-button-primary">`)
 	b.builder.WriteString(caption)
 	b.builder.WriteString(`</button>
+`)
+	if b.formAligned {
+		b.EndGroup()
+	}
+	return b
+}
+
+func (b *UIBuilder) SecondarySubmitButton(caption string, label string) *UIBuilder {
+	if b.formAligned {
+		b.StartGroup()
+	}
+	if label != "" {
+		b.builder.WriteString(`    <label>`)
+		b.builder.WriteString(label)
+		b.builder.WriteString(`</label>
+`)
+	}
+	b.builder.WriteString(`    <button type="submit" class="pure-button">`)
+	b.builder.WriteString(caption)
+	b.builder.WriteString(`</button>
+`)
+	if b.formAligned {
+		b.EndGroup()
+	}
+	return b
+}
+
+func (b *UIBuilder) HiddenValue(name string, value string) *UIBuilder {
+	b.builder.WriteString(`    <input type="hidden" name="`)
+	b.builder.WriteString(name)
+	b.builder.WriteString(`" value="`)
+	b.builder.WriteString(value)
+	b.builder.WriteString(`"/>
 `)
 	return b
 }

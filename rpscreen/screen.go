@@ -3,7 +3,8 @@ package main
 import (
 	"github.com/flyx/rpscreen/module"
 	"github.com/flyx/rpscreen/module/background"
-	"github.com/flyx/rpscreen/module/sceneTitle"
+	"github.com/flyx/rpscreen/module/persons"
+	"github.com/flyx/rpscreen/module/title"
 	"github.com/veandco/go-sdl2/sdl"
 	"time"
 )
@@ -61,12 +62,19 @@ func newScreen() (*Screen, error) {
 	}
 	screen.modules = append(screen.modules, moduleListItem{module: bg, enabled: true, transitioning: false})
 	if len(screen.Fonts) > 0 {
-		title := new(sceneTitle.SceneTitle)
-		if err := title.Init(&screen.SceneCommon); err != nil {
+		t := new(title.Title)
+		if err := t.Init(&screen.SceneCommon); err != nil {
 			panic(err)
 		}
-		screen.modules = append(screen.modules, moduleListItem{module: title, enabled: true, transitioning: false})
+		screen.modules = append(screen.modules, moduleListItem{module: t, enabled: true, transitioning: false})
 	}
+
+	p := new(persons.Persons)
+	if err := p.Init(&screen.SceneCommon); err != nil {
+		panic(err)
+	}
+	screen.modules = append(screen.modules, moduleListItem{module: p, enabled: true, transitioning: false})
+
 	return screen, nil
 }
 

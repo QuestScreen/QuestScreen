@@ -13,7 +13,7 @@ import (
 )
 
 type Background struct {
-	texture, newTexture              module.Texture
+	texture, newTexture              *sdl.Texture
 	reqTextureIndex, curTextureIndex int
 	images                           []module.Resource
 	curTextureSplit                  float32
@@ -21,8 +21,8 @@ type Background struct {
 
 func (bg *Background) Init(common *module.SceneCommon) error {
 	bg.images = common.ListFiles(bg, "")
-	bg.texture = module.Texture{Ratio: 1}
-	bg.newTexture = module.Texture{Ratio: 1}
+	bg.texture = nil
+	bg.newTexture = nil
 
 	bg.reqTextureIndex = -1
 	bg.curTextureIndex = len(bg.images)
@@ -38,20 +38,22 @@ func (*Background) InternalName() string {
 	return "background"
 }
 
-func (bg *Background) UI() template.HTML {
+func (bg *Background) UI(common *module.SceneCommon) template.HTML {
 	var builder module.UIBuilder
 	shownIndex := bg.reqTextureIndex
 	if shownIndex == -1 {
 		shownIndex = bg.curTextureIndex
 	}
-	builder.StartForm(bg, "image", "Select Image")
+	builder.StartForm(bg, "image", "Select Image", false)
 	builder.StartSelect("", "image", "value")
 	builder.Option("", shownIndex == len(bg.images), "None")
 	for index, file := range bg.images {
-		builder.Option(strconv.Itoa(index), shownIndex == index, file.Name)
+		if file.Enabled(&common.SharedData) {
+			builder.Option(strconv.Itoa(index), shownIndex == index, file.Name)
+		}
 	}
 	builder.EndSelect()
-	builder.SubmitButton("Update")
+	builder.SubmitButton("Update", "")
 	builder.EndForm()
 
 	return builder.Finish()
@@ -107,7 +109,7 @@ func (bg *Background) InitTransition(common *module.SceneCommon) time.Duration {
 				tex, err := img.LoadTexture(common.Renderer, file.Path)
 				if err != nil {
 					log.Println(err)
-					bg.newTexture.Tex = nil
+					bg.newTexture = nil
 				} else {
 					defer tex.Destroy()
 					_, _, texWidth, texHeight, err := tex.Query()
@@ -115,12 +117,12 @@ func (bg *Background) InitTransition(common *module.SceneCommon) time.Duration {
 						panic(err)
 					}
 					winWidth, winHeight := common.Window.GetSize()
-					bg.newTexture.Tex, err = common.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
+					bg.newTexture, err = common.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
 						winWidth, winHeight)
 					if err != nil {
 						panic(err)
 					}
-					common.Renderer.SetRenderTarget(bg.newTexture.Tex)
+					common.Renderer.SetRenderTarget(bg.newTexture)
 					defer common.Renderer.SetRenderTarget(nil)
 					common.Renderer.Clear()
 					common.Renderer.SetDrawColor(255, 255, 255, 255)
@@ -144,25 +146,25 @@ func (bg *Background) TransitionStep(common *module.SceneCommon, elapsed time.Du
 }
 
 func (bg *Background) FinishTransition(common *module.SceneCommon) {
-	if bg.texture.Tex != nil {
-		bg.texture.Tex.Destroy()
+	if bg.texture != nil {
+		bg.texture.Destroy()
 	}
 	bg.texture = bg.newTexture
 	bg.curTextureSplit = 0.0
-	bg.newTexture = module.Texture{Ratio: 1}
+	bg.newTexture = nil
 }
 
 func (bg *Background) Render(common *module.SceneCommon) {
-	if bg.texture.Tex != nil || bg.curTextureSplit != 0 {
+	if bg.texture != nil || bg.curTextureSplit != 0 {
 		winWidth, winHeight := common.Window.GetSize()
 		curSplit := int32(bg.curTextureSplit * float32(winWidth))
-		if bg.texture.Tex != nil {
+		if bg.texture != nil {
 			rect := sdl.Rect{X: curSplit, Y: 0, W: winWidth - curSplit, H: winHeight}
-			common.Renderer.Copy(bg.texture.Tex, &rect, &rect)
+			common.Renderer.Copy(bg.texture, &rect, &rect)
 		}
-		if bg.newTexture.Tex != nil {
+		if bg.newTexture != nil {
 			rect := sdl.Rect{X: 0, Y: 0, W: curSplit, H: winHeight}
-			common.Renderer.Copy(bg.newTexture.Tex, &rect, &rect)
+			common.Renderer.Copy(bg.newTexture, &rect, &rect)
 		}
 	}
 }

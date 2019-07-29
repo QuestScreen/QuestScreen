@@ -1,4 +1,4 @@
-package sceneTitle
+package title
 
 import (
 	"github.com/flyx/rpscreen/module"
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-type SceneTitle struct {
+type Title struct {
 	reqName      string
 	reqFontIndex int
 	curTitle     *sdl.Texture
@@ -22,7 +22,7 @@ type SceneTitle struct {
 	curYOffset   int32
 }
 
-func (st *SceneTitle) Init(common *module.SceneCommon) error {
+func (st *Title) Init(common *module.SceneCommon) error {
 	st.curTitle = nil
 	st.reqFontIndex = -1
 	st.fonts = common.Fonts
@@ -40,33 +40,33 @@ func (st *SceneTitle) Init(common *module.SceneCommon) error {
 	return nil
 }
 
-func (*SceneTitle) Name() string {
+func (*Title) Name() string {
 	return "Scene Title"
 }
 
-func (*SceneTitle) InternalName() string {
+func (*Title) InternalName() string {
 	return "title"
 }
 
-func (st *SceneTitle) UI() template.HTML {
+func (st *Title) UI(common *module.SceneCommon) template.HTML {
 	var builder module.UIBuilder
 	shownIndex := st.reqFontIndex
 	if shownIndex == -1 {
 		shownIndex = 0
 	}
-	builder.StartForm(st, "set", "Set Scene Title")
+	builder.StartForm(st, "set", "Set Scene Title", false)
 	builder.StartSelect("Font", "title-font", "font")
 	for index, font := range st.fonts {
 		builder.Option(strconv.Itoa(index), shownIndex == index, font.Name)
 	}
 	builder.EndSelect()
 	builder.TextInput("Text", "title-text", "text", st.reqName)
-	builder.SubmitButton("Update")
+	builder.SubmitButton("Update", "")
 	builder.EndForm()
 	return builder.Finish()
 }
 
-func (st *SceneTitle) EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool {
+func (st *Title) EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool {
 	if suffix == "set" {
 		fontVal := values["font"]
 		if len(fontVal) == 0 {
@@ -106,7 +106,7 @@ func (st *SceneTitle) EndpointHandler(suffix string, values url.Values, w http.R
 	}
 }
 
-func (st *SceneTitle) InitTransition(common *module.SceneCommon) time.Duration {
+func (st *Title) InitTransition(common *module.SceneCommon) time.Duration {
 	var ret time.Duration = -1
 	if st.reqFontIndex != -1 {
 		surface, err := common.Fonts[st.reqFontIndex].Font.RenderUTF8Blended(
@@ -154,7 +154,7 @@ func (st *SceneTitle) InitTransition(common *module.SceneCommon) time.Duration {
 	return ret
 }
 
-func (st *SceneTitle) TransitionStep(common *module.SceneCommon, elapsed time.Duration) {
+func (st *Title) TransitionStep(common *module.SceneCommon, elapsed time.Duration) {
 	if elapsed < time.Second/3 {
 		if st.curTitle != nil {
 			_, _, _, texHeight, _ := st.curTitle.Query()
@@ -167,7 +167,7 @@ func (st *SceneTitle) TransitionStep(common *module.SceneCommon, elapsed time.Du
 		}
 	} else {
 		if st.newTitle != nil {
-			st.curTitle.Destroy()
+			_ = st.curTitle.Destroy()
 			st.curTitle = st.newTitle
 			st.newTitle = nil
 		}
@@ -178,14 +178,14 @@ func (st *SceneTitle) TransitionStep(common *module.SceneCommon, elapsed time.Du
 	}
 }
 
-func (st *SceneTitle) FinishTransition(common *module.SceneCommon) {
+func (st *Title) FinishTransition(common *module.SceneCommon) {
 	st.curYOffset = 0
 }
 
-func (st *SceneTitle) Render(common *module.SceneCommon) {
+func (st *Title) Render(common *module.SceneCommon) {
 	winWidth, _ := common.Window.GetSize()
 	_, _, texWidth, texHeight, _ := st.curTitle.Query()
 
 	dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -st.curYOffset, W: texWidth, H: texHeight}
-	common.Renderer.Copy(st.curTitle, nil, &dst)
+	_ = common.Renderer.Copy(st.curTitle, nil, &dst)
 }

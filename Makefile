@@ -1,3 +1,5 @@
+PREFIX ?= /usr/local
+
 all: rpscreen/rpscreen
 
 web/data.go: web/templates/index.html web/style/style.css web/style/pure-min.css web/js/ui.js
@@ -8,3 +10,6 @@ rpscreen/rpscreen: web/data.go
 	cd rpscreen && go build
 
 .PHONY: rpscreen/rpscreen
+
+install: rpscreen/rpscreen
+	cp rpscreen/rpscreen ${PREFIX}/bin

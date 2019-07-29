@@ -43,7 +43,7 @@ type Module interface {
 	Render(common *SceneCommon)
 
 	// returns partial HTML that creates the module's UI within the web interface.
-	UI() template.HTML
+	UI(common *SceneCommon) template.HTML
 	// implements handling for all endpoints of the module.
 	// will be called for requests on all paths starting with EndpointPath.
 	// returnPartial specifies whether a partial value may be returned (in case of AJAX requests).
