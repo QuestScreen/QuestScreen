@@ -40,7 +40,9 @@ Outer:
 		var event sdl.Event
 		if screen.numTransitions > 0 {
 			waitTime := (time.Second / 30) - time.Now().Sub(curTime)
-			event = sdl.WaitEventTimeout(int(waitTime / time.Millisecond))
+			if waitTime > 0 {
+				event = sdl.WaitEventTimeout(int(waitTime / time.Millisecond))
+			}
 		} else {
 			render = false
 			event = sdl.WaitEvent()

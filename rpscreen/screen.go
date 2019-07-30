@@ -6,6 +6,7 @@ import (
 	"github.com/flyx/rpscreen/module/persons"
 	"github.com/flyx/rpscreen/module/title"
 	"github.com/veandco/go-sdl2/sdl"
+	"log"
 	"time"
 )
 
@@ -79,6 +80,7 @@ func newScreen() (*Screen, error) {
 }
 
 func (s *Screen) Render(cur time.Time) {
+	log.Println("[%d] rendering image", cur)
 	s.Renderer.Clear()
 	s.Renderer.SetDrawColor(255, 255, 255, 255)
 	winWidth, winHeight := s.Window.GetSize()
