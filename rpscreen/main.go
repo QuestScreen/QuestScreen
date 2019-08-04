@@ -4,6 +4,7 @@ import (
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
+	"log"
 	"runtime"
 	"time"
 )
@@ -12,8 +13,20 @@ func init() {
 	runtime.LockOSThread()
 }
 
+func startTransition(m *moduleListItem, screen *Screen) {
+	transDur := m.module.InitTransition(&screen.SceneCommon)
+	if transDur == 0 {
+		m.module.FinishTransition(&screen.SceneCommon)
+	} else if transDur > 0 {
+		screen.numTransitions++
+		m.transStart = time.Now()
+		m.transEnd = m.transStart.Add(transDur)
+		m.transitioning = true
+	}
+}
+
 func main() {
-	if err := sdl.Init(sdl.INIT_VIDEO); err != nil {
+	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_EVENTS); err != nil {
 		panic(err)
 	}
 	defer sdl.Quit()
@@ -31,10 +44,13 @@ func main() {
 	server := startServer(screen)
 
 	var render = true
+	var animationStart = time.Now()
+	var frameCount = time.Duration(0)
 Outer:
 	for {
 		curTime := time.Now()
 		if render {
+			frameCount++
 			screen.Render(curTime)
 		}
 		var event sdl.Event
@@ -44,9 +60,13 @@ Outer:
 				event = sdl.WaitEventTimeout(int(waitTime / time.Millisecond))
 			}
 		} else {
+			if render {
+				log.Printf("animation finished; FPS: %d\n", time.Now().Sub(animationStart)*frameCount/time.Second)
+			}
 			render = false
 			event = sdl.WaitEvent()
 		}
+		inRender := render
 		for ; event != nil; event = sdl.PollEvent() {
 			switch e := event.(type) {
 			case *sdl.QuitEvent:
@@ -54,19 +74,28 @@ Outer:
 			case *sdl.UserEvent:
 				switch e.Type {
 				case screen.moduleUpdateEventId:
-					curModule := &screen.modules[e.Code]
-					transDur := curModule.module.InitTransition(&screen.SceneCommon)
-					if transDur == 0 {
-						curModule.module.FinishTransition(&screen.SceneCommon)
-					} else if transDur > 0 {
-						screen.numTransitions++
-						curModule.transStart = time.Now()
-						curModule.transEnd = curModule.transStart.Add(transDur)
-						curModule.transitioning = true
-					}
+					startTransition(&screen.modules[e.Code], screen)
 					render = true
+				case screen.systemUpdateEventId:
+					for i := range screen.modules {
+						if screen.modules[i].module.SystemChanged(&screen.SceneCommon) {
+							startTransition(&screen.modules[i], screen)
+							render = true
+						}
+					}
+				case screen.groupUpdateEventId:
+					for i := range screen.modules {
+						if screen.modules[i].module.GroupChanged(&screen.SceneCommon) {
+							startTransition(&screen.modules[i], screen)
+							render = true
+						}
+					}
 				}
 			}
+		}
+		if render && !inRender {
+			animationStart = time.Now()
+			frameCount = 0
 		}
 	}
 	_ = server.Close()

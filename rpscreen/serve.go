@@ -114,16 +114,18 @@ func startServer(screen *Screen) *http.Server {
 
 	http.HandleFunc("/systems/", func(w http.ResponseWriter, r *http.Request) {
 		systemName := r.URL.Path[len("/systems/"):]
-		found := false
+		newSystemIndex := int32(-2)
 		for index, item := range screen.Systems {
 			if item.DirName == systemName {
-				screen.ActiveSystem = int32(index)
-				sdl.PushEvent(&sdl.UserEvent{Type: screen.groupOrSystemUpdateEventId})
-				found = true
+				newSystemIndex = int32(index)
 				break
 			}
 		}
-		if found {
+		if newSystemIndex != -2 {
+			if newSystemIndex != screen.ActiveSystem {
+				screen.ActiveSystem = newSystemIndex
+				sdl.PushEvent(&sdl.UserEvent{Type: screen.systemUpdateEventId})
+			}
 			module.WriteEndpointHeader(w, module.EndpointReturnRedirect)
 		} else {
 			http.Error(w, "404: unknown system \""+systemName+"\"", http.StatusNotFound)
@@ -131,16 +133,18 @@ func startServer(screen *Screen) *http.Server {
 	})
 	http.HandleFunc("/groups/", func(w http.ResponseWriter, r *http.Request) {
 		groupName := r.URL.Path[len("/groups/"):]
-		found := false
+		newGroupIndex := int32(-2)
 		for index, item := range screen.Groups {
 			if item.DirName == groupName {
-				screen.ActiveGroup = int32(index)
-				sdl.PushEvent(&sdl.UserEvent{Type: screen.groupOrSystemUpdateEventId})
-				found = true
+				newGroupIndex = int32(index)
 				break
 			}
 		}
-		if found {
+		if newGroupIndex != -2 {
+			if screen.ActiveGroup != newGroupIndex {
+				screen.ActiveGroup = newGroupIndex
+				sdl.PushEvent(&sdl.UserEvent{Type: screen.groupUpdateEventId, Code: 0})
+			}
 			module.WriteEndpointHeader(w, module.EndpointReturnRedirect)
 		} else {
 			http.Error(w, "404: unknown group \""+groupName+"\"", http.StatusNotFound)

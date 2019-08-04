@@ -54,6 +54,12 @@ type Module interface {
 	// must be relayed there. return true only if calling InitTransition() will be necessary to update
 	// the display.
 	EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool
+	// called whenever the user selects a different system.
+	// shall return true iff the module will do a transition based on the system change.
+	SystemChanged(common *SceneCommon) bool
+	// called whenever the user selects a different group.
+	// shall return true iff the module will do a transition based on the group change.
+	GroupChanged(common *SceneCommon) bool
 }
 
 type EndpointReturn int

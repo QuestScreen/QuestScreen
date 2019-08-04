@@ -6,12 +6,19 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 )
+
+type Hero struct {
+	Name        string
+	Description string
+}
 
 type Group struct {
 	Name    string
 	DirName string
 	System  string
+	Heroes  []Hero
 }
 
 type System struct {
@@ -40,7 +47,8 @@ func InitSharedData() SharedData {
 			if file.IsDir() {
 				name, err := ioutil.ReadFile(filepath.Join(systemsDir, file.Name(), ".name"))
 				if err == nil {
-					ret.Systems = append(ret.Systems, System{Name: string(name), DirName: file.Name()})
+					ret.Systems = append(ret.Systems, System{Name: strings.TrimSpace(string(name)),
+						DirName: file.Name()})
 				} else {
 					log.Println(err)
 				}
@@ -62,12 +70,48 @@ func InitSharedData() SharedData {
 					if err == nil {
 						systemName = string(system)
 					}
-					ret.Groups = append(ret.Groups, Group{Name: string(name), DirName: file.Name(), System: systemName})
+					ret.Groups = append(ret.Groups, Group{Name: strings.TrimSpace(string(name)), DirName: file.Name(),
+						System: systemName, Heroes: make([]Hero, 0, 16)})
+				} else {
+					log.Println(err)
 				}
 			}
 		}
 	} else {
 		log.Println(err)
+	}
+
+	heroesDir := filepath.Join(ret.dataDir, "heroes")
+	files, err = ioutil.ReadDir(heroesDir)
+	if err == nil {
+		for _, file := range files {
+			if file.IsDir() {
+				raw, err := ioutil.ReadFile(filepath.Join(heroesDir, file.Name(), ".meta"))
+				if err == nil {
+					meta := strings.Split(string(raw), "\n")
+					if len(meta) == 3 || (len(meta) == 4 && meta[3] == "") {
+						var target *Group = nil
+						for i := range ret.Groups {
+							if ret.Groups[i].Name == meta[2] {
+								target = &ret.Groups[i]
+								break
+							}
+						}
+						if target == nil {
+							log.Printf("Hero \"%s\" belongs to unknown group \"%s\"\n",
+								meta[0], meta[2])
+						} else {
+							target.Heroes = append(target.Heroes, Hero{Name: meta[0], Description: meta[1]})
+						}
+					} else {
+						log.Printf("Hero metadata \"%s\" expected to contain 3 lines, but contains %d\n",
+							filepath.Join(file.Name(), ".meta"), len(meta))
+					}
+				} else {
+					log.Println(err)
+				}
+			}
+		}
 	}
 
 	return ret

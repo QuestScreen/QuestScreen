@@ -3,10 +3,10 @@ package main
 import (
 	"github.com/flyx/rpscreen/module"
 	"github.com/flyx/rpscreen/module/background"
+	"github.com/flyx/rpscreen/module/herolist"
 	"github.com/flyx/rpscreen/module/persons"
 	"github.com/flyx/rpscreen/module/title"
 	"github.com/veandco/go-sdl2/sdl"
-	"log"
 	"time"
 )
 
@@ -20,11 +20,12 @@ type moduleListItem struct {
 
 type Screen struct {
 	module.SceneCommon
-	textureBuffer              uint32
-	modules                    []moduleListItem
-	numTransitions             int32
-	moduleUpdateEventId        uint32
-	groupOrSystemUpdateEventId uint32
+	textureBuffer       uint32
+	modules             []moduleListItem
+	numTransitions      int32
+	moduleUpdateEventId uint32
+	groupUpdateEventId  uint32
+	systemUpdateEventId uint32
 }
 
 func newScreen() (*Screen, error) {
@@ -53,8 +54,9 @@ func newScreen() (*Screen, error) {
 	screen.modules = make([]moduleListItem, 0, 16)
 	screen.SharedData = module.InitSharedData()
 	screen.numTransitions = 0
-	screen.moduleUpdateEventId = sdl.RegisterEvents(1)
-	screen.groupOrSystemUpdateEventId = sdl.RegisterEvents(1)
+	screen.moduleUpdateEventId = sdl.RegisterEvents(3)
+	screen.groupUpdateEventId = screen.moduleUpdateEventId + 1
+	screen.systemUpdateEventId = screen.moduleUpdateEventId + 2
 	screen.Fonts = module.CreateFontCatalog(&screen.SharedData, int(height)/13)
 
 	bg := new(background.Background)
@@ -76,11 +78,16 @@ func newScreen() (*Screen, error) {
 	}
 	screen.modules = append(screen.modules, moduleListItem{module: p, enabled: true, transitioning: false})
 
+	h := new(herolist.HeroList)
+	if err := h.Init(&screen.SceneCommon); err != nil {
+		panic(err)
+	}
+	screen.modules = append(screen.modules, moduleListItem{module: h, enabled: true, transitioning: false})
+
 	return screen, nil
 }
 
 func (s *Screen) Render(cur time.Time) {
-	log.Println("[%d] rendering image", cur)
 	s.Renderer.Clear()
 	s.Renderer.SetDrawColor(255, 255, 255, 255)
 	winWidth, winHeight := s.Window.GetSize()

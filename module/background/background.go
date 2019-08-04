@@ -53,7 +53,7 @@ func (bg *Background) UI(common *module.SceneCommon) template.HTML {
 		}
 	}
 	builder.EndSelect()
-	builder.SubmitButton("Update", "")
+	builder.SubmitButton("Update", "", true)
 	builder.EndForm()
 
 	return builder.Finish()
@@ -167,4 +167,12 @@ func (bg *Background) Render(common *module.SceneCommon) {
 			common.Renderer.Copy(bg.newTexture, &rect, &rect)
 		}
 	}
+}
+
+func (*Background) SystemChanged(common *module.SceneCommon) bool {
+	return false
+}
+
+func (*Background) GroupChanged(common *module.SceneCommon) bool {
+	return false
 }

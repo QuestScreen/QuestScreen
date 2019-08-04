@@ -128,7 +128,7 @@ func (b *UIBuilder) TextInput(label string, id string, name string, value string
 	return b
 }
 
-func (b *UIBuilder) SubmitButton(caption string, label string) *UIBuilder {
+func (b *UIBuilder) SubmitButton(caption string, label string, enabled bool) *UIBuilder {
 	if b.formAligned {
 		b.StartGroup()
 	}
@@ -138,7 +138,11 @@ func (b *UIBuilder) SubmitButton(caption string, label string) *UIBuilder {
 		b.builder.WriteString(`</label>
 `)
 	}
-	b.builder.WriteString(`    <button type="submit" class="pure-button pure-button-primary">`)
+	b.builder.WriteString(`    <button type="submit" class="pure-button pure-button-primary`)
+	if !enabled {
+		b.builder.WriteString(" pure-button-disabled")
+	}
+	b.builder.WriteString(`">`)
 	b.builder.WriteString(caption)
 	b.builder.WriteString(`</button>
 `)
@@ -148,7 +152,7 @@ func (b *UIBuilder) SubmitButton(caption string, label string) *UIBuilder {
 	return b
 }
 
-func (b *UIBuilder) SecondarySubmitButton(caption string, label string) *UIBuilder {
+func (b *UIBuilder) SecondarySubmitButton(caption string, label string, enabled bool) *UIBuilder {
 	if b.formAligned {
 		b.StartGroup()
 	}
@@ -158,7 +162,11 @@ func (b *UIBuilder) SecondarySubmitButton(caption string, label string) *UIBuild
 		b.builder.WriteString(`</label>
 `)
 	}
-	b.builder.WriteString(`    <button type="submit" class="pure-button">`)
+	b.builder.WriteString(`    <button type="submit" class="pure-button`)
+	if !enabled {
+		b.builder.WriteString(" pure-button-disabled")
+	}
+	b.builder.WriteString(`">`)
 	b.builder.WriteString(caption)
 	b.builder.WriteString(`</button>
 `)

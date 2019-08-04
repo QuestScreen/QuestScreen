@@ -58,9 +58,9 @@ func (p *Persons) UI(common *module.SceneCommon) template.HTML {
 			builder.StartForm(p, "switch", "", true)
 			builder.HiddenValue("index", strconv.Itoa(index))
 			if p.shown[index] {
-				builder.SubmitButton("Hide", file.Name)
+				builder.SubmitButton("Hide", file.Name, true)
 			} else {
-				builder.SecondarySubmitButton("Show", file.Name)
+				builder.SecondarySubmitButton("Show", file.Name, true)
 			}
 			builder.EndForm()
 		}
@@ -193,4 +193,12 @@ func (p *Persons) Render(common *module.SceneCommon) {
 			}
 		}
 	}
+}
+
+func (*Persons) SystemChanged(common *module.SceneCommon) bool {
+	return false
+}
+
+func (*Persons) GroupChanged(common *module.SceneCommon) bool {
+	return false
 }

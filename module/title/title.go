@@ -70,7 +70,7 @@ func (st *Title) UI(common *module.SceneCommon) template.HTML {
 	}
 	builder.EndSelect()
 	builder.TextInput("Text", "title-text", "text", st.reqName)
-	builder.SubmitButton("Update", "")
+	builder.SubmitButton("Update", "", true)
 	builder.EndForm()
 	return builder.Finish()
 }
@@ -197,4 +197,12 @@ func (st *Title) Render(common *module.SceneCommon) {
 
 	dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -st.curYOffset, W: texWidth, H: texHeight}
 	_ = common.Renderer.Copy(st.curTitle, nil, &dst)
+}
+
+func (*Title) SystemChanged(common *module.SceneCommon) bool {
+	return false
+}
+
+func (*Title) GroupChanged(common *module.SceneCommon) bool {
+	return false
 }
