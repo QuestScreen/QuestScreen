@@ -26,26 +26,24 @@ type Screen struct {
 	moduleUpdateEventId uint32
 	groupUpdateEventId  uint32
 	systemUpdateEventId uint32
+	popupTexture        *sdl.Texture
 }
 
 func newScreen() (*Screen, error) {
 	screen := new(Screen)
-
-	var width, height int32
-	width = 800
-	height = 600
 	/*egl.QuerySurface(eglState.Display, eglState.Surface, egl.WIDTH, &width)
 	egl.QuerySurface(eglState.Display, eglState.Surface, egl.HEIGHT, &height)*/
-	screen.Width = width
-	screen.Height = height
 	var err error
 	screen.Window, err = sdl.CreateWindow("rpscreen", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
-		width, height, sdl.WINDOW_SHOWN)
+		800, 600, sdl.WINDOW_OPENGL)
 	if err != nil {
 		return nil, err
 	}
+	width, height := screen.Window.GetSize()
+	screen.DefaultBorderWidth = height / 133
 
-	screen.Renderer, err = sdl.CreateRenderer(screen.Window, -1, sdl.RENDERER_ACCELERATED|sdl.RENDERER_TARGETTEXTURE)
+	screen.Renderer, err = sdl.CreateRenderer(screen.Window, -1,
+		sdl.RENDERER_ACCELERATED|sdl.RENDERER_TARGETTEXTURE)
 	if err != nil {
 		screen.Window.Destroy()
 		return nil, err
@@ -84,14 +82,51 @@ func newScreen() (*Screen, error) {
 	}
 	screen.modules = append(screen.modules, moduleListItem{module: h, enabled: true, transitioning: false})
 
+	// create picture of popup for key presses
+
+	screen.popupTexture, err = screen.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
+		width, height)
+	if err != nil {
+		panic(err)
+	}
+	screen.Renderer.SetRenderTarget(screen.popupTexture)
+	defer screen.Renderer.SetRenderTarget(nil)
+	screen.Renderer.Clear()
+	screen.Renderer.SetDrawColor(0, 0, 0, 127)
+	screen.Renderer.FillRect(nil)
+	rect := sdl.Rect{X: width / 4, Y: height / 4, W: width / 2, H: height / 2}
+	screen.Renderer.SetDrawColor(0, 0, 0, 255)
+	screen.Renderer.FillRect(&rect)
+	rect.X += screen.DefaultBorderWidth
+	rect.Y += screen.DefaultBorderWidth
+	rect.W -= 2 * screen.DefaultBorderWidth
+	rect.H -= 2 * screen.DefaultBorderWidth
+	screen.Renderer.SetDrawColor(255, 255, 255, 255)
+	screen.Renderer.FillRect(&rect)
+
+	surface, err := screen.Fonts[0].Font.RenderUTF8Blended(
+		"Press X to quit, S to shut down, or any other key to close popup", sdl.Color{R: 0, G: 0, B: 0, A: 230})
+	if err != nil {
+		panic(err)
+	}
+	textTexture, err := screen.Renderer.CreateTextureFromSurface(surface)
+	if err != nil {
+		panic(err)
+	}
+	defer textTexture.Destroy()
+	textWidth := surface.W
+	textHeight := surface.H
+	screen.Renderer.Copy(textTexture, nil, &sdl.Rect{X: (width - textWidth) / 2, Y: (height - textHeight) / 2,
+		W: textWidth, H: textHeight})
+	surface.Free()
+	screen.popupTexture.SetBlendMode(sdl.BLENDMODE_BLEND)
 	return screen, nil
 }
 
-func (s *Screen) Render(cur time.Time) {
+func (s *Screen) Render(cur time.Time, popup bool) {
 	s.Renderer.Clear()
 	s.Renderer.SetDrawColor(255, 255, 255, 255)
-	winWidth, winHeight := s.Window.GetSize()
-	s.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: int32(winWidth), H: int32(winHeight)})
+	s.Renderer.FillRect(nil)
 	for i := 0; i < len(s.modules); i++ {
 		item := &s.modules[i]
 		if item.enabled {
@@ -106,6 +141,9 @@ func (s *Screen) Render(cur time.Time) {
 			}
 			item.module.Render(&s.SceneCommon)
 		}
+	}
+	if popup {
+		s.Renderer.Copy(s.popupTexture, nil, nil)
 	}
 	s.Renderer.Present()
 }

@@ -119,7 +119,7 @@ func (st *Title) InitTransition(common *module.SceneCommon) time.Duration {
 	var ret time.Duration = -1
 	if st.reqFontIndex != -1 {
 		surface, err := common.Fonts[st.reqFontIndex].Font.RenderUTF8Blended(
-			st.reqName, sdl.Color{0, 0, 0, 230})
+			st.reqName, sdl.Color{R: 0, G: 0, B: 0, A: 230})
 		if err != nil {
 			log.Println(err)
 			return -1
@@ -138,7 +138,7 @@ func (st *Title) InitTransition(common *module.SceneCommon) time.Duration {
 			textHeight = textHeight * (winWidth * 2 / 3) / textWidth
 			textWidth = winWidth * 2 / 3
 		}
-		border := common.Height / 133
+		border := common.DefaultBorderWidth
 		st.newTitle, err = common.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
 			textWidth+6*border, textHeight+2*border)
 		common.Renderer.SetRenderTarget(st.newTitle)

@@ -43,15 +43,22 @@ func main() {
 
 	server := startServer(screen)
 
-	var render = true
-	var animationStart = time.Now()
-	var frameCount = time.Duration(0)
+	render := true
+	popup := false
+
+	var start = time.Now()
+	var frameCount = int64(0)
 Outer:
 	for {
 		curTime := time.Now()
 		if render {
 			frameCount++
-			screen.Render(curTime)
+			screen.Render(curTime, popup)
+			if curTime.Sub(start) >= time.Second {
+				log.Printf("FPS: %d\n", frameCount)
+				start = curTime
+				frameCount = 0
+			}
 		}
 		var event sdl.Event
 		if screen.numTransitions > 0 {
@@ -60,15 +67,29 @@ Outer:
 				event = sdl.WaitEventTimeout(int(waitTime / time.Millisecond))
 			}
 		} else {
-			if render {
-				log.Printf("animation finished; FPS: %d\n", time.Now().Sub(animationStart)*frameCount/time.Second)
-			}
 			render = false
 			event = sdl.WaitEvent()
 		}
 		inRender := render
 		for ; event != nil; event = sdl.PollEvent() {
 			switch e := event.(type) {
+			case *sdl.KeyboardEvent:
+				if e.Type == sdl.KEYDOWN {
+					if popup {
+						switch e.Keysym.Sym {
+						case sdl.K_x:
+							break Outer
+						case sdl.K_s:
+							break Outer
+						default:
+							render = true
+							popup = false
+						}
+					} else {
+						render = true
+						popup = true
+					}
+				}
 			case *sdl.QuitEvent:
 				break Outer
 			case *sdl.UserEvent:
@@ -94,7 +115,7 @@ Outer:
 			}
 		}
 		if render && !inRender {
-			animationStart = time.Now()
+			start = time.Now()
 			frameCount = 0
 		}
 	}
