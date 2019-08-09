@@ -6,8 +6,10 @@ import (
 
 type SceneCommon struct {
 	SharedData
-	Renderer           *sdl.Renderer
-	Window             *sdl.Window
-	Fonts              []LoadedFont
-	DefaultBorderWidth int32
+	Renderer               *sdl.Renderer
+	Window                 *sdl.Window
+	Fonts                  []LoadedFontFamily
+	DefaultBorderWidth     int32
+	DefaultHeadingTextSize int32
+	DefaultBodyTextSize    int32
 }

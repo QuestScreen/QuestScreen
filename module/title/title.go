@@ -19,7 +19,7 @@ type Title struct {
 	curTitle     *sdl.Texture
 	newTitle     *sdl.Texture
 	mask         *sdl.Texture
-	fonts        []module.LoadedFont
+	fonts        []module.LoadedFontFamily
 	curYOffset   int32
 }
 
@@ -60,15 +60,10 @@ func (st *Title) UI(common *module.SceneCommon) template.HTML {
 	for index, font := range st.fonts {
 		var nameBuilder strings.Builder
 		nameBuilder.WriteString(font.Name)
-		if font.Bold {
-			nameBuilder.WriteString(" Bold")
-		}
-		if font.Italic {
-			nameBuilder.WriteString(" Italic")
-		}
 		builder.Option(strconv.Itoa(index), shownIndex == index, nameBuilder.String())
 	}
 	builder.EndSelect()
+
 	builder.TextInput("Text", "title-text", "text", st.reqName)
 	builder.SubmitButton("Update", "", true)
 	builder.EndForm()
@@ -118,7 +113,9 @@ func (st *Title) EndpointHandler(suffix string, values url.Values, w http.Respon
 func (st *Title) InitTransition(common *module.SceneCommon) time.Duration {
 	var ret time.Duration = -1
 	if st.reqFontIndex != -1 {
-		surface, err := common.Fonts[st.reqFontIndex].Font.RenderUTF8Blended(
+		font := common.Fonts[st.reqFontIndex].GetSize(common.DefaultHeadingTextSize)
+		face := font.GetFace(module.Standard)
+		surface, err := face.RenderUTF8Blended(
 			st.reqName, sdl.Color{R: 0, G: 0, B: 0, A: 230})
 		if err != nil {
 			log.Println(err)

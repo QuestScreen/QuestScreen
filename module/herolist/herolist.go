@@ -138,8 +138,11 @@ func (l *HeroList) EndpointHandler(suffix string, values url.Values, w http.Resp
 	}
 }
 
-func renderText(text string, common *module.SceneCommon, fontIndex int32) *sdl.Texture {
-	surface, err := common.Fonts[fontIndex].Font.RenderUTF8Blended(
+func renderText(text string, common *module.SceneCommon, fontIndex int32,
+	style module.FontStyle) *sdl.Texture {
+	face := common.Fonts[fontIndex].GetSize(common.DefaultBodyTextSize).GetFace(style)
+
+	surface, err := face.RenderUTF8Blended(
 		text, sdl.Color{0, 0, 0, 230})
 	if err != nil {
 		log.Println(err)
@@ -172,9 +175,9 @@ func (l *HeroList) rebuildHeroBoxes(common *module.SceneCommon) {
 				l.boxWidth(), l.boxHeight())
 			if err == nil {
 				common.Renderer.SetRenderTarget(hero.tex)
-				name := renderText(common.Groups[l.reqGroup].Heroes[index].Name, common, 0)
+				name := renderText(common.Groups[l.reqGroup].Heroes[index].Name, common, 0, module.Standard)
 				_, _, nameWidth, nameHeight, _ := name.Query()
-				descr := renderText(common.Groups[l.reqGroup].Heroes[index].Description, common, 0)
+				descr := renderText(common.Groups[l.reqGroup].Heroes[index].Description, common, 0, module.Standard)
 				_, _, descrWidth, descrHeight, _ := descr.Query()
 				common.Renderer.Clear()
 				common.Renderer.SetDrawColor(0, 0, 0, 192)
