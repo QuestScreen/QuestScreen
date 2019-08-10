@@ -111,6 +111,7 @@ func startServer(screen *Screen) *http.Server {
 	setupResourceHandler(server, "/style/pure-min.css", "text/css")
 	setupResourceHandler(server, "/style/style.css", "text/css")
 	setupResourceHandler(server, "/js/ui.js", "application/javascript")
+	setupResourceHandler(server, "/js/sharedData.js", "application/javascript")
 
 	http.HandleFunc("/systems/", func(w http.ResponseWriter, r *http.Request) {
 		systemName := r.URL.Path[len("/systems/"):]
@@ -149,6 +150,9 @@ func startServer(screen *Screen) *http.Server {
 		} else {
 			http.Error(w, "404: unknown group \""+groupName+"\"", http.StatusNotFound)
 		}
+	})
+	http.HandleFunc("/static.json", func(w http.ResponseWriter, r *http.Request) {
+		screen.SendJson(w)
 	})
 
 	for index, item := range screen.modules {

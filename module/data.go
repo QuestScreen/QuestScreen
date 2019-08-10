@@ -1,8 +1,10 @@
 package module
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -202,5 +204,17 @@ func (data *SharedData) GetFilePath(module Module, subdir string, filename strin
 		return path
 	} else {
 		return ""
+	}
+}
+
+func (data *SharedData) SendJson(w http.ResponseWriter) {
+	b, err := json.Marshal(data)
+	if err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control",  "no-store")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(b)
+	} else {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

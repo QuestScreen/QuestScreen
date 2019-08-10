@@ -16,22 +16,12 @@
     </a>
 
     <div id="menu">
-        <div class="pure-menu">
+        <div class="pure-menu" id="rp-menu">
             <a class="pure-menu-heading" href="/">RPScreen</a>
 
-            <ul class="pure-menu-list">
-                <li class="pure-menu-heading">Systems</li>
-                {{range .Systems}}
-                    <li class="pure-menu-item{{if .Selected}} pure-menu-selected{{end}}">
-                        <a class="pure-menu-link" href="/systems/{{.DirName}}">{{.Name}}</a>
-                    </li>
-                {{end}}
-                <li class="pure-menu-heading">Groups</li>
-                {{range .Groups}}
-                    <li class="pure-menu-item{{if .Selected}} pure-menu-selected{{end}}">
-                        <a class="pure-menu-link" href="/groups/{{.DirName}}">{{.Name}}</a>
-                    </li>
-                {{end}}
+            <ul class="pure-menu-list" style="visibility: hidden" id="rp-menu-list">
+                <li class="pure-menu-heading" id="rp-menu-system-heading">Systems</li>
+                <li class="pure-menu-heading" id="rp-menu-group-heading">Groups</li>
             </ul>
         </div>
     </div>
@@ -48,6 +38,18 @@
     </div>
 
 </div>
+<template id="tmpl-system-entry">
+    <li class="pure-menu-item rp-menu-system-entry">
+        <a class="pure-menu-link"></a>
+    </li>
+</template>
+<template id="tmpl-group-entry">
+    <li class="pure-menu-item rp-menu-group-entry">
+        <a class="pure-menu-link"></a>
+    </li>
+</template>
+
 <script src="/js/ui.js"></script>
+<script src="/js/sharedData.js"></script>
 </body>
 </html>

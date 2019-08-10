@@ -2,7 +2,7 @@ PREFIX ?= /usr/local
 
 all: rpscreen/rpscreen
 
-web/data.go: web/templates/index.html web/style/style.css web/style/pure-min.css web/js/ui.js
+web/data.go: web/templates/index.html web/style/style.css web/style/pure-min.css web/js/ui.js web/js/sharedData.js
 	go get github.com/go-bindata/go-bindata/...
 	${GOPATH}/bin/go-bindata -o web/data.go -pkg web web/templates web/style web/js
 
