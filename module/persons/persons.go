@@ -1,17 +1,20 @@
 package persons
 
 import (
-	"github.com/flyx/rpscreen/module"
-	"github.com/veandco/go-sdl2/img"
-	"github.com/veandco/go-sdl2/sdl"
 	"html/template"
 	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/flyx/rpscreen/module"
+	"github.com/veandco/go-sdl2/img"
+	"github.com/veandco/go-sdl2/sdl"
+	"gopkg.in/yaml.v3"
 )
 
+// The Persons module can show pictures of persons and other stuff.
 type Persons struct {
 	textures        []*sdl.Texture
 	textureScale    []float32
@@ -24,6 +27,7 @@ type Persons struct {
 	transitioning   bool
 }
 
+// Init initializes the module.
 func (p *Persons) Init(common *module.SceneCommon) error {
 	p.files = common.ListFiles(p, "")
 	p.textures = make([]*sdl.Texture, len(p.files))
@@ -42,14 +46,17 @@ func (p *Persons) Init(common *module.SceneCommon) error {
 	return nil
 }
 
+// Name returns "Persons"
 func (*Persons) Name() string {
 	return "Persons"
 }
 
+// InternalName returns "persons"
 func (*Persons) InternalName() string {
 	return "persons"
 }
 
+// UI renders the HTML UI of the module.
 func (p *Persons) UI(common *module.SceneCommon) template.HTML {
 	var builder module.UIBuilder
 
@@ -68,6 +75,7 @@ func (p *Persons) UI(common *module.SceneCommon) template.HTML {
 	return builder.Finish()
 }
 
+// EndpointHandler implements the endpoint handler of the module.
 func (p *Persons) EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool {
 	if suffix == "switch" {
 		index, err := strconv.Atoi(values["index"][0])
@@ -90,12 +98,12 @@ func (p *Persons) EndpointHandler(suffix string, values url.Values, w http.Respo
 		}
 		module.WriteEndpointHeader(w, returns)
 		return true
-	} else {
-		http.Error(w, "404 not found: "+suffix, http.StatusNotFound)
-		return false
 	}
+	http.Error(w, "404 not found: "+suffix, http.StatusNotFound)
+	return false
 }
 
+// InitTransition initializes a transition.
 func (p *Persons) InitTransition(common *module.SceneCommon) time.Duration {
 	var ret time.Duration = -1
 	if p.reqShow {
@@ -141,6 +149,7 @@ func (p *Persons) InitTransition(common *module.SceneCommon) time.Duration {
 	return ret
 }
 
+// TransitionStep advances the transition.
 func (p *Persons) TransitionStep(common *module.SceneCommon, elapsed time.Duration) {
 	if p.reqShow {
 		err := p.textures[p.reqTextureIndex].SetAlphaMod(uint8((elapsed * 255) / time.Second))
@@ -155,6 +164,7 @@ func (p *Persons) TransitionStep(common *module.SceneCommon, elapsed time.Durati
 	}
 }
 
+// FinishTransition finalizes the transition.
 func (p *Persons) FinishTransition(common *module.SceneCommon) {
 	if !p.reqShow {
 		_, _, texWidth, _, _ := p.textures[p.reqTextureIndex].Query()
@@ -177,6 +187,7 @@ func (p *Persons) FinishTransition(common *module.SceneCommon) {
 	p.transitioning = false
 }
 
+// Render renders the module.
 func (p *Persons) Render(common *module.SceneCommon) {
 	winWidth, winHeight := common.Window.GetSize()
 	curX := (winWidth - int32(float32(p.curOrigWidth)*p.curScale)) / 2
@@ -195,10 +206,17 @@ func (p *Persons) Render(common *module.SceneCommon) {
 	}
 }
 
+// SystemChanged returns false
 func (*Persons) SystemChanged(common *module.SceneCommon) bool {
 	return false
 }
 
+// GroupChanged returns false
 func (*Persons) GroupChanged(common *module.SceneCommon) bool {
 	return false
+}
+
+// ToConfig is not implemented yet.
+func (*Persons) ToConfig(node *yaml.Node) (interface{}, error) {
+	return nil, nil
 }

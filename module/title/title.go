@@ -1,9 +1,6 @@
 package title
 
 import (
-	"github.com/flyx/rpscreen/module"
-	"github.com/veandco/go-sdl2/img"
-	"github.com/veandco/go-sdl2/sdl"
 	"html/template"
 	"log"
 	"net/http"
@@ -11,8 +8,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/flyx/rpscreen/module"
+	"github.com/veandco/go-sdl2/img"
+	"github.com/veandco/go-sdl2/sdl"
+	"gopkg.in/yaml.v3"
 )
 
+// The Title module draws a title box at the top of the screen.
 type Title struct {
 	reqName      string
 	reqFontIndex int
@@ -23,6 +26,7 @@ type Title struct {
 	curYOffset   int32
 }
 
+// Init initializes the module.
 func (st *Title) Init(common *module.SceneCommon) error {
 	st.curTitle = nil
 	st.reqFontIndex = -1
@@ -41,14 +45,17 @@ func (st *Title) Init(common *module.SceneCommon) error {
 	return nil
 }
 
+// Name returns "Scene Title"
 func (*Title) Name() string {
 	return "Scene Title"
 }
 
+// InternalName returns "title"
 func (*Title) InternalName() string {
 	return "title"
 }
 
+// UI generates the HTML UI of the module.
 func (st *Title) UI(common *module.SceneCommon) template.HTML {
 	var builder module.UIBuilder
 	shownIndex := st.reqFontIndex
@@ -70,6 +77,7 @@ func (st *Title) UI(common *module.SceneCommon) template.HTML {
 	return builder.Finish()
 }
 
+// EndpointHandler implements the endpoint handler of the module.
 func (st *Title) EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool {
 	if suffix == "set" {
 		fontVal := values["font"]
@@ -104,12 +112,12 @@ func (st *Title) EndpointHandler(suffix string, values url.Values, w http.Respon
 		}
 		module.WriteEndpointHeader(w, returns)
 		return true
-	} else {
-		http.Error(w, "404 not found: "+suffix, http.StatusNotFound)
-		return false
 	}
+	http.Error(w, "404 not found: "+suffix, http.StatusNotFound)
+	return false
 }
 
+// InitTransition initializes a transition.
 func (st *Title) InitTransition(common *module.SceneCommon) time.Duration {
 	var ret time.Duration = -1
 	if st.reqFontIndex != -1 {
@@ -160,6 +168,7 @@ func (st *Title) InitTransition(common *module.SceneCommon) time.Duration {
 	return ret
 }
 
+// TransitionStep advances the transition.
 func (st *Title) TransitionStep(common *module.SceneCommon, elapsed time.Duration) {
 	if elapsed < time.Second/3 {
 		if st.curTitle != nil {
@@ -184,10 +193,12 @@ func (st *Title) TransitionStep(common *module.SceneCommon, elapsed time.Duratio
 	}
 }
 
+// FinishTransition finalizes the transition.
 func (st *Title) FinishTransition(common *module.SceneCommon) {
 	st.curYOffset = 0
 }
 
+// Render renders the module.
 func (st *Title) Render(common *module.SceneCommon) {
 	winWidth, _ := common.Window.GetSize()
 	_, _, texWidth, texHeight, _ := st.curTitle.Query()
@@ -196,10 +207,17 @@ func (st *Title) Render(common *module.SceneCommon) {
 	_ = common.Renderer.Copy(st.curTitle, nil, &dst)
 }
 
+// SystemChanged returns false.
 func (*Title) SystemChanged(common *module.SceneCommon) bool {
 	return false
 }
 
+// GroupChanged returns false.
 func (*Title) GroupChanged(common *module.SceneCommon) bool {
 	return false
+}
+
+// ToConfig is not implemented yet.
+func (*Title) ToConfig(node *yaml.Node) (interface{}, error) {
+	return nil, nil
 }

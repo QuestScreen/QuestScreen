@@ -1,13 +1,16 @@
 package main
 
 import (
+	"log"
+	"time"
+
+	"github.com/flyx/rpscreen/config"
 	"github.com/flyx/rpscreen/module"
 	"github.com/flyx/rpscreen/module/background"
 	"github.com/flyx/rpscreen/module/herolist"
 	"github.com/flyx/rpscreen/module/persons"
 	"github.com/flyx/rpscreen/module/title"
 	"github.com/veandco/go-sdl2/sdl"
-	"time"
 )
 
 type moduleListItem struct {
@@ -18,10 +21,22 @@ type moduleListItem struct {
 	transitioning bool
 }
 
+type moduleList struct {
+	items []moduleListItem
+}
+
+func (ml *moduleList) NumItems() int {
+	return len(ml.items)
+}
+
+func (ml *moduleList) ItemAt(index int) config.ConfigurableItem {
+	return ml.items[index].module
+}
+
 type Screen struct {
 	module.SceneCommon
 	textureBuffer       uint32
-	modules             []moduleListItem
+	modules             moduleList
 	numTransitions      int32
 	moduleUpdateEventId uint32
 	groupUpdateEventId  uint32
@@ -149,53 +164,30 @@ func (s *Screen) genPopup(width int32, height int32) {
 	s.Renderer.SetDrawColor(255, 255, 255, 255)
 	s.Renderer.FillRect(&rect)
 
-	/*surface, err := s.Fonts[0].GetSize(s.DefaultBodyTextSize).GetFace(module.Standard).RenderUTF8Blended(
-		"Press X to quit, S to shut down, or any other key to close popup", sdl.Color{R: 0, G: 0, B: 0, A: 230})
-	if err != nil {
-		panic(err)
-	}
-	textTexture, err := s.Renderer.CreateTextureFromSurface(surface)
-	if err != nil {
-		panic(err)
-	}
-	defer textTexture.Destroy()
-	textWidth := surface.W
-	textHeight := surface.H
-	s.Renderer.Copy(textTexture, nil, &sdl.Rect{X: (width - textWidth) / 2, Y: (height - textHeight) / 2,
-		W: textWidth, H: textHeight})
-	surface.Free()*/
-	if err = s.renderKeyOptions(&rect, keyOption{key: "X", desc: "Quit"}, keyOption{key: "S", desc: "Shutdown"}); err != nil {
+	if err = s.renderKeyOptions(&rect, keyOption{key: "X", desc: "Quit"},
+		keyOption{key: "S", desc: "Shutdown"}); err != nil {
 		panic(err)
 	}
 	s.popupTexture.SetBlendMode(sdl.BLENDMODE_BLEND)
 }
 
 func (s *Screen) loadModules() {
-	s.modules = make([]moduleListItem, 0, 16)
-	bg := new(background.Background)
-	if err := bg.Init(&s.SceneCommon); err != nil {
-		panic(err)
-	}
-	s.modules = append(s.modules, moduleListItem{module: bg, enabled: true, transitioning: false})
-	if len(s.Fonts) > 0 {
-		t := new(title.Title)
-		if err := t.Init(&s.SceneCommon); err != nil {
-			panic(err)
+	s.modules = moduleList{items: make([]moduleListItem, 0, 16)}
+	s.modules.items = append(s.modules.items, moduleListItem{module: new(background.Background)})
+	s.modules.items = append(s.modules.items, moduleListItem{module: new(title.Title)})
+	s.modules.items = append(s.modules.items, moduleListItem{module: new(persons.Persons)})
+	s.modules.items = append(s.modules.items, moduleListItem{module: new(herolist.HeroList)})
+}
+
+func (s *Screen) initModules() {
+	for i := range s.modules.items {
+		if err := s.modules.items[i].module.Init(&s.SceneCommon); err != nil {
+			log.Printf("Could not initialize module %s: %s\n",
+				s.modules.items[i].module.Name(), err)
+		} else {
+			s.modules.items[i].enabled = true
 		}
-		s.modules = append(s.modules, moduleListItem{module: t, enabled: true, transitioning: false})
 	}
-
-	p := new(persons.Persons)
-	if err := p.Init(&s.SceneCommon); err != nil {
-		panic(err)
-	}
-	s.modules = append(s.modules, moduleListItem{module: p, enabled: true, transitioning: false})
-
-	h := new(herolist.HeroList)
-	if err := h.Init(&s.SceneCommon); err != nil {
-		panic(err)
-	}
-	s.modules = append(s.modules, moduleListItem{module: h, enabled: true, transitioning: false})
 }
 
 func newScreen() (*Screen, error) {
@@ -220,14 +212,15 @@ func newScreen() (*Screen, error) {
 		return nil, err
 	}
 
-	screen.SharedData = module.InitSharedData()
+	screen.loadModules()
+	screen.SharedData.Init(&screen.modules)
 	screen.numTransitions = 0
 	screen.moduleUpdateEventId = sdl.RegisterEvents(3)
 	screen.groupUpdateEventId = screen.moduleUpdateEventId + 1
 	screen.systemUpdateEventId = screen.moduleUpdateEventId + 2
 	screen.Fonts = module.CreateFontCatalog(&screen.SharedData, screen.DefaultBodyTextSize)
 
-	screen.loadModules()
+	screen.initModules()
 	screen.genPopup(width, height)
 
 	return screen, nil
@@ -237,8 +230,8 @@ func (s *Screen) Render(cur time.Time, popup bool) {
 	s.Renderer.Clear()
 	s.Renderer.SetDrawColor(255, 255, 255, 255)
 	s.Renderer.FillRect(nil)
-	for i := 0; i < len(s.modules); i++ {
-		item := &s.modules[i]
+	for i := 0; i < len(s.modules.items); i++ {
+		item := &s.modules.items[i]
 		if item.enabled {
 			if item.transitioning {
 				if cur.After(item.transEnd) {

@@ -1,17 +1,20 @@
 package background
 
 import (
-	"github.com/flyx/rpscreen/module"
-	"github.com/veandco/go-sdl2/img"
-	"github.com/veandco/go-sdl2/sdl"
 	"html/template"
 	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/flyx/rpscreen/module"
+	"github.com/veandco/go-sdl2/img"
+	"github.com/veandco/go-sdl2/sdl"
+	"gopkg.in/yaml.v3"
 )
 
+// Background is a module for painting background images
 type Background struct {
 	texture, newTexture              *sdl.Texture
 	reqTextureIndex, curTextureIndex int
@@ -19,6 +22,7 @@ type Background struct {
 	curTextureSplit                  float32
 }
 
+// Init initializes the module
 func (bg *Background) Init(common *module.SceneCommon) error {
 	bg.images = common.ListFiles(bg, "")
 	bg.texture = nil
@@ -30,14 +34,17 @@ func (bg *Background) Init(common *module.SceneCommon) error {
 	return nil
 }
 
+// Name returns "Background Image"
 func (*Background) Name() string {
 	return "Background Image"
 }
 
+// InternalName returns "background"
 func (*Background) InternalName() string {
 	return "background"
 }
 
+// UI renders the HTML UI of the module.
 func (bg *Background) UI(common *module.SceneCommon) template.HTML {
 	var builder module.UIBuilder
 	shownIndex := bg.reqTextureIndex
@@ -59,6 +66,7 @@ func (bg *Background) UI(common *module.SceneCommon) template.HTML {
 	return builder.Finish()
 }
 
+// EndpointHandler implements the endpoint of the module.
 func (bg *Background) EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool {
 	if suffix == "image" {
 		value := values["value"][0]
@@ -84,10 +92,9 @@ func (bg *Background) EndpointHandler(suffix string, values url.Values, w http.R
 		}
 		module.WriteEndpointHeader(w, returns)
 		return true
-	} else {
-		http.Error(w, "404 not found: "+suffix, http.StatusNotFound)
-		return false
 	}
+	http.Error(w, "404 not found: "+suffix, http.StatusNotFound)
+	return false
 }
 
 func offsets(inRatio float32, outRatio float32, winWidth int32, winHeight int32) sdl.Rect {
@@ -100,6 +107,7 @@ func offsets(inRatio float32, outRatio float32, winWidth int32, winHeight int32)
 	}
 }
 
+// InitTransition initializes a transition
 func (bg *Background) InitTransition(common *module.SceneCommon) time.Duration {
 	var ret time.Duration = -1
 	if bg.reqTextureIndex != -1 {
@@ -141,10 +149,12 @@ func (bg *Background) InitTransition(common *module.SceneCommon) time.Duration {
 	return ret
 }
 
+// TransitionStep advances the transition.
 func (bg *Background) TransitionStep(common *module.SceneCommon, elapsed time.Duration) {
 	bg.curTextureSplit = float32(elapsed) / float32(time.Second)
 }
 
+// FinishTransition finalizes the transition.
 func (bg *Background) FinishTransition(common *module.SceneCommon) {
 	if bg.texture != nil {
 		bg.texture.Destroy()
@@ -154,6 +164,7 @@ func (bg *Background) FinishTransition(common *module.SceneCommon) {
 	bg.newTexture = nil
 }
 
+// Render renders the module
 func (bg *Background) Render(common *module.SceneCommon) {
 	if bg.texture != nil || bg.curTextureSplit != 0 {
 		winWidth, winHeight := common.Window.GetSize()
@@ -169,10 +180,18 @@ func (bg *Background) Render(common *module.SceneCommon) {
 	}
 }
 
+// SystemChanged returns false
 func (*Background) SystemChanged(common *module.SceneCommon) bool {
 	return false
 }
 
+// GroupChanged returns false
 func (*Background) GroupChanged(common *module.SceneCommon) bool {
 	return false
+}
+
+// ToConfig is not implemented yet.
+func (*Background) ToConfig(node *yaml.Node) (interface{}, error) {
+	// no config
+	return nil, nil
 }

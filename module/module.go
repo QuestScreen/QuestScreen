@@ -5,13 +5,15 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/flyx/rpscreen/config"
 )
 
+// Module describes a module usable with rpscreen
 type Module interface {
+	config.ConfigurableItem
 	// initialize the module.
 	Init(common *SceneCommon) error
-	// returns the name of the module.
-	Name() string
 	// Alphanumeric name used for:
 	// * directories with module data
 	// * HTTP setter endpoints

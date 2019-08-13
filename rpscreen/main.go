@@ -1,12 +1,13 @@
 package main
 
 import (
-	"github.com/veandco/go-sdl2/img"
-	"github.com/veandco/go-sdl2/sdl"
-	"github.com/veandco/go-sdl2/ttf"
 	"log"
 	"runtime"
 	"time"
+
+	"github.com/veandco/go-sdl2/img"
+	"github.com/veandco/go-sdl2/sdl"
+	"github.com/veandco/go-sdl2/ttf"
 )
 
 func init() {
@@ -95,19 +96,19 @@ Outer:
 			case *sdl.UserEvent:
 				switch e.Type {
 				case screen.moduleUpdateEventId:
-					startTransition(&screen.modules[e.Code], screen)
+					startTransition(&screen.modules.items[e.Code], screen)
 					render = true
 				case screen.systemUpdateEventId:
-					for i := range screen.modules {
-						if screen.modules[i].module.SystemChanged(&screen.SceneCommon) {
-							startTransition(&screen.modules[i], screen)
+					for i := range screen.modules.items {
+						if screen.modules.items[i].module.SystemChanged(&screen.SceneCommon) {
+							startTransition(&screen.modules.items[i], screen)
 							render = true
 						}
 					}
 				case screen.groupUpdateEventId:
-					for i := range screen.modules {
-						if screen.modules[i].module.GroupChanged(&screen.SceneCommon) {
-							startTransition(&screen.modules[i], screen)
+					for i := range screen.modules.items {
+						if screen.modules.items[i].module.GroupChanged(&screen.SceneCommon) {
+							startTransition(&screen.modules.items[i], screen)
 							render = true
 						}
 					}

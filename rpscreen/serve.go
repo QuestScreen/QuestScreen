@@ -1,44 +1,43 @@
 package main
 
 import (
-	"github.com/flyx/rpscreen/module"
-	"github.com/flyx/rpscreen/web"
-	"github.com/veandco/go-sdl2/sdl"
 	"html/template"
 	"log"
 	"net/http"
+
+	"github.com/flyx/rpscreen/module"
+	"github.com/flyx/rpscreen/web"
+	"github.com/veandco/go-sdl2/sdl"
 )
 
-type UIModuleData struct {
+type uiModuleData struct {
 	Name    string
 	UI      template.HTML
 	Enabled bool
 }
 
-type UISystemData struct {
-	*module.System
+type uiSystemData struct {
 	Selected bool
 }
 
-type UIGroupData struct {
-	*module.Group
+type uiGroupData struct {
 	Selected bool
 }
 
-type UIData struct {
-	Modules []UIModuleData
-	Systems []UISystemData
-	Groups  []UIGroupData
+type uiData struct {
+	Modules []uiModuleData
+	Systems []uiSystemData
+	Groups  []uiGroupData
 }
 
-type ScreenHandler struct {
+type screenHandler struct {
 	screen *Screen
 	index  *template.Template
-	data   UIData
+	data   uiData
 }
 
-func newScreenHandler(screen *Screen) *ScreenHandler {
-	handler := new(ScreenHandler)
+func newScreenHandler(screen *Screen) *screenHandler {
+	handler := new(screenHandler)
 	handler.screen = screen
 
 	raw, err := web.Asset("web/templates/index.html")
@@ -50,40 +49,41 @@ func newScreenHandler(screen *Screen) *ScreenHandler {
 		panic(err)
 	}
 
-	handler.data = UIData{Modules: make([]UIModuleData, 0, len(screen.modules)),
-		Systems: make([]UISystemData, 0, len(screen.Systems)),
-		Groups:  make([]UIGroupData, 0, len(screen.Groups))}
-	for _, mod := range screen.modules {
+	handler.data = uiData{Modules: make([]uiModuleData, 0, screen.modules.NumItems()),
+		Systems: make([]uiSystemData, 0, screen.Config.NumSystems()),
+		Groups:  make([]uiGroupData, 0, screen.Config.NumGroups())}
+	for _, item := range screen.modules.items {
 		handler.data.Modules = append(handler.data.Modules,
-			UIModuleData{Name: mod.module.Name(), Enabled: false})
+			uiModuleData{Name: item.module.Name(), Enabled: false})
 	}
-	for index := range screen.Systems {
+	for i := 0; i < screen.Config.NumSystems(); i++ {
 		handler.data.Systems = append(handler.data.Systems,
-			UISystemData{System: &screen.Systems[index], Selected: false})
+			uiSystemData{Selected: false})
 	}
-	for index := range screen.Groups {
+	for i := 0; i < screen.Config.NumGroups(); i++ {
 		handler.data.Groups = append(handler.data.Groups,
-			UIGroupData{Group: &screen.Groups[index], Selected: false})
+			uiGroupData{Selected: false})
 	}
 
 	return handler
 }
 
-func (sh *ScreenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// ServeHTTP implements the HTTP server
+func (sh *screenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" && r.URL.Path != "/index.html" {
 		http.NotFound(w, r)
 		return
 	}
 
-	for index, mod := range sh.screen.modules {
-		sh.data.Modules[index].Enabled = mod.enabled
-		sh.data.Modules[index].UI = mod.module.UI(&sh.screen.SceneCommon)
+	for index, item := range sh.screen.modules.items {
+		sh.data.Modules[index].Enabled = item.enabled
+		sh.data.Modules[index].UI = item.module.UI(&sh.screen.SceneCommon)
 	}
 	for index := range sh.data.Systems {
-		sh.data.Systems[index].Selected = sh.screen.ActiveSystem == int32(index)
+		sh.data.Systems[index].Selected = sh.screen.ActiveSystem == index
 	}
 	for index := range sh.data.Groups {
-		sh.data.Groups[index].Selected = sh.screen.ActiveGroup == int32(index)
+		sh.data.Groups[index].Selected = sh.screen.ActiveGroup == index
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := sh.index.Execute(w, sh.data); err != nil {
@@ -115,10 +115,10 @@ func startServer(screen *Screen) *http.Server {
 
 	http.HandleFunc("/systems/", func(w http.ResponseWriter, r *http.Request) {
 		systemName := r.URL.Path[len("/systems/"):]
-		newSystemIndex := int32(-2)
-		for index, item := range screen.Systems {
-			if item.DirName == systemName {
-				newSystemIndex = int32(index)
+		newSystemIndex := -2
+		for i := 0; i < screen.Config.NumSystems(); i++ {
+			if screen.Config.SystemDirectory(i) == systemName {
+				newSystemIndex = i
 				break
 			}
 		}
@@ -134,10 +134,10 @@ func startServer(screen *Screen) *http.Server {
 	})
 	http.HandleFunc("/groups/", func(w http.ResponseWriter, r *http.Request) {
 		groupName := r.URL.Path[len("/groups/"):]
-		newGroupIndex := int32(-2)
-		for index, item := range screen.Groups {
-			if item.DirName == groupName {
-				newGroupIndex = int32(index)
+		newGroupIndex := -2
+		for i := 0; i < screen.Config.NumGroups(); i++ {
+			if screen.Config.GroupDirectory(i) == groupName {
+				newGroupIndex = i
 				break
 			}
 		}
@@ -152,16 +152,18 @@ func startServer(screen *Screen) *http.Server {
 		}
 	})
 	http.HandleFunc("/static.json", func(w http.ResponseWriter, r *http.Request) {
-		screen.SendJson(w)
+		screen.SendJSON(w)
 	})
 
-	for index, item := range screen.modules {
+	for index, item := range screen.modules.items {
 		// needed to avoid closure over loop variable (which doesn't work)
 		curIndex := index
 		curItem := item
 		http.HandleFunc("/"+curItem.module.InternalName()+"/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "POST" {
 				http.Error(w, "400: module endpoints only take POST requests", http.StatusBadRequest)
+			} else if !curItem.enabled {
+				http.Error(w, "400: module is not enabled", http.StatusBadRequest)
 			} else {
 				returnPartial := r.PostFormValue("redirect") != "1"
 				res := curItem.module.EndpointHandler(r.URL.Path[len(curItem.module.InternalName())+2:],
