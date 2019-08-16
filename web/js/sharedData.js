@@ -15,7 +15,8 @@ document.addEventListener("DOMContentLoaded", function () {
             let link = entry.querySelector("a");
             link.href = prefix + item.DirName;
             link.textContent = item.Name;
-            curLast = curLast.parentNode.insertBefore(entry, curLast.nextSibling);
+            curLast.parentNode.insertBefore(entry, curLast.nextSibling);
+            curLast = curLast.nextSibling;
         }
 
         let systemTemplate = document.querySelector("#tmpl-system-entry");

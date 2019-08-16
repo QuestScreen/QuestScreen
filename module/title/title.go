@@ -15,8 +15,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type titleConfig struct{}
+
 // The Title module draws a title box at the top of the screen.
 type Title struct {
+	config       *titleConfig
 	reqName      string
 	reqFontIndex int
 	curTitle     *sdl.Texture
@@ -27,20 +30,20 @@ type Title struct {
 }
 
 // Init initializes the module.
-func (st *Title) Init(common *module.SceneCommon) error {
-	st.curTitle = nil
-	st.reqFontIndex = -1
-	st.fonts = common.Fonts
+func (t *Title) Init(common *module.SceneCommon) error {
+	t.curTitle = nil
+	t.reqFontIndex = -1
+	t.fonts = common.Fonts
 	var err error
-	maskPath := common.GetFilePath(st, "", "mask.png")
+	maskPath := common.GetFilePath(t, "", "mask.png")
 	if maskPath != "" {
-		st.mask, err = img.LoadTexture(common.Renderer, maskPath)
+		t.mask, err = img.LoadTexture(common.Renderer, maskPath)
 		if err != nil {
 			log.Println(err)
-			st.mask = nil
+			t.mask = nil
 		}
 	} else {
-		st.mask = nil
+		t.mask = nil
 	}
 	return nil
 }
@@ -56,29 +59,29 @@ func (*Title) InternalName() string {
 }
 
 // UI generates the HTML UI of the module.
-func (st *Title) UI(common *module.SceneCommon) template.HTML {
+func (t *Title) UI(common *module.SceneCommon) template.HTML {
 	var builder module.UIBuilder
-	shownIndex := st.reqFontIndex
+	shownIndex := t.reqFontIndex
 	if shownIndex == -1 {
 		shownIndex = 0
 	}
-	builder.StartForm(st, "set", "Set Scene Title", false)
+	builder.StartForm(t, "set", "Set Scene Title", false)
 	builder.StartSelect("Font", "title-font", "font")
-	for index, font := range st.fonts {
+	for index, font := range t.fonts {
 		var nameBuilder strings.Builder
 		nameBuilder.WriteString(font.Name)
 		builder.Option(strconv.Itoa(index), shownIndex == index, nameBuilder.String())
 	}
 	builder.EndSelect()
 
-	builder.TextInput("Text", "title-text", "text", st.reqName)
+	builder.TextInput("Text", "title-text", "text", t.reqName)
 	builder.SubmitButton("Update", "", true)
 	builder.EndForm()
 	return builder.Finish()
 }
 
 // EndpointHandler implements the endpoint handler of the module.
-func (st *Title) EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool {
+func (t *Title) EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool {
 	if suffix == "set" {
 		fontVal := values["font"]
 		if len(fontVal) == 0 {
@@ -97,12 +100,12 @@ func (st *Title) EndpointHandler(suffix string, values url.Values, w http.Respon
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return false
 		}
-		if fontIndex < 0 || fontIndex >= len(st.fonts) {
+		if fontIndex < 0 || fontIndex >= len(t.fonts) {
 			http.Error(w, "font index out of range", http.StatusBadRequest)
 			return false
 		}
-		st.reqFontIndex = fontIndex
-		st.reqName = text
+		t.reqFontIndex = fontIndex
+		t.reqName = text
 
 		var returns module.EndpointReturn
 		if returnPartial {
@@ -118,13 +121,13 @@ func (st *Title) EndpointHandler(suffix string, values url.Values, w http.Respon
 }
 
 // InitTransition initializes a transition.
-func (st *Title) InitTransition(common *module.SceneCommon) time.Duration {
+func (t *Title) InitTransition(common *module.SceneCommon) time.Duration {
 	var ret time.Duration = -1
-	if st.reqFontIndex != -1 {
-		font := common.Fonts[st.reqFontIndex].GetSize(common.DefaultHeadingTextSize)
+	if t.reqFontIndex != -1 {
+		font := common.Fonts[t.reqFontIndex].GetSize(common.DefaultHeadingTextSize)
 		face := font.GetFace(module.Standard)
 		surface, err := face.RenderUTF8Blended(
-			st.reqName, sdl.Color{R: 0, G: 0, B: 0, A: 230})
+			t.reqName, sdl.Color{R: 0, G: 0, B: 0, A: 230})
 		if err != nil {
 			log.Println(err)
 			return -1
@@ -144,20 +147,20 @@ func (st *Title) InitTransition(common *module.SceneCommon) time.Duration {
 			textWidth = winWidth * 2 / 3
 		}
 		border := common.DefaultBorderWidth
-		st.newTitle, err = common.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
+		t.newTitle, err = common.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
 			textWidth+6*border, textHeight+2*border)
-		common.Renderer.SetRenderTarget(st.newTitle)
+		common.Renderer.SetRenderTarget(t.newTitle)
 		defer common.Renderer.SetRenderTarget(nil)
 		common.Renderer.Clear()
 		common.Renderer.SetDrawColor(0, 0, 0, 192)
 		common.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: int32(textWidth + 6*border), H: int32(textHeight) + 2*border})
 		common.Renderer.SetDrawColor(200, 173, 127, 255)
 		common.Renderer.FillRect(&sdl.Rect{X: border, Y: 0, W: int32(textWidth + 4*border), H: int32(textHeight + border)})
-		if st.mask != nil {
-			_, _, maskWidth, maskHeight, _ := st.mask.Query()
+		if t.mask != nil {
+			_, _, maskWidth, maskHeight, _ := t.mask.Query()
 			for x := int32(0); x < textWidth+6*border; x += maskWidth {
 				for y := int32(0); y < textHeight+2*border; y += maskHeight {
-					common.Renderer.Copy(st.mask, nil, &sdl.Rect{X: x, Y: y, W: maskWidth, H: maskHeight})
+					common.Renderer.Copy(t.mask, nil, &sdl.Rect{X: x, Y: y, W: maskWidth, H: maskHeight})
 				}
 			}
 		}
@@ -169,42 +172,42 @@ func (st *Title) InitTransition(common *module.SceneCommon) time.Duration {
 }
 
 // TransitionStep advances the transition.
-func (st *Title) TransitionStep(common *module.SceneCommon, elapsed time.Duration) {
+func (t *Title) TransitionStep(common *module.SceneCommon, elapsed time.Duration) {
 	if elapsed < time.Second/3 {
-		if st.curTitle != nil {
-			_, _, _, texHeight, _ := st.curTitle.Query()
-			st.curYOffset = int32(float64(elapsed) / float64(time.Second/3) * float64(texHeight))
+		if t.curTitle != nil {
+			_, _, _, texHeight, _ := t.curTitle.Query()
+			t.curYOffset = int32(float64(elapsed) / float64(time.Second/3) * float64(texHeight))
 		}
 	} else if elapsed < time.Second/3+time.Millisecond*100 {
-		if st.newTitle != nil {
-			_, _, _, texHeight, _ := st.curTitle.Query()
-			st.curYOffset = texHeight + 1
+		if t.newTitle != nil {
+			_, _, _, texHeight, _ := t.curTitle.Query()
+			t.curYOffset = texHeight + 1
 		}
 	} else {
-		if st.newTitle != nil {
-			_ = st.curTitle.Destroy()
-			st.curTitle = st.newTitle
-			st.newTitle = nil
+		if t.newTitle != nil {
+			_ = t.curTitle.Destroy()
+			t.curTitle = t.newTitle
+			t.newTitle = nil
 		}
-		if st.curTitle != nil {
-			_, _, _, texHeight, _ := st.curTitle.Query()
-			st.curYOffset = int32(float64(time.Second*2/3-(elapsed-time.Millisecond*100)) / float64(time.Second/3) * float64(texHeight))
+		if t.curTitle != nil {
+			_, _, _, texHeight, _ := t.curTitle.Query()
+			t.curYOffset = int32(float64(time.Second*2/3-(elapsed-time.Millisecond*100)) / float64(time.Second/3) * float64(texHeight))
 		}
 	}
 }
 
 // FinishTransition finalizes the transition.
-func (st *Title) FinishTransition(common *module.SceneCommon) {
-	st.curYOffset = 0
+func (t *Title) FinishTransition(common *module.SceneCommon) {
+	t.curYOffset = 0
 }
 
 // Render renders the module.
-func (st *Title) Render(common *module.SceneCommon) {
+func (t *Title) Render(common *module.SceneCommon) {
 	winWidth, _ := common.Window.GetSize()
-	_, _, texWidth, texHeight, _ := st.curTitle.Query()
+	_, _, texWidth, texHeight, _ := t.curTitle.Query()
 
-	dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -st.curYOffset, W: texWidth, H: texHeight}
-	_ = common.Renderer.Copy(st.curTitle, nil, &dst)
+	dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -t.curYOffset, W: texWidth, H: texHeight}
+	_ = common.Renderer.Copy(t.curTitle, nil, &dst)
 }
 
 // SystemChanged returns false.
@@ -219,5 +222,20 @@ func (*Title) GroupChanged(common *module.SceneCommon) bool {
 
 // ToConfig is not implemented yet.
 func (*Title) ToConfig(node *yaml.Node) (interface{}, error) {
-	return nil, nil
+	return &titleConfig{}, nil
+}
+
+// DefaultConfig returns the default configuration
+func (*Title) DefaultConfig() interface{} {
+	return &titleConfig{}
+}
+
+// SetConfig sets the module's configuration
+func (t *Title) SetConfig(config interface{}) {
+	t.config = config.(*titleConfig)
+}
+
+// NeedsTransition returns false
+func (*Title) NeedsTransition(common *module.SceneCommon) bool {
+	return false
 }

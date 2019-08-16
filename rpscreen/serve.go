@@ -125,7 +125,7 @@ func startServer(screen *Screen) *http.Server {
 		if newSystemIndex != -2 {
 			if newSystemIndex != screen.ActiveSystem {
 				screen.ActiveSystem = newSystemIndex
-				sdl.PushEvent(&sdl.UserEvent{Type: screen.systemUpdateEventId})
+				sdl.PushEvent(&sdl.UserEvent{Type: screen.systemUpdateEventID})
 			}
 			module.WriteEndpointHeader(w, module.EndpointReturnRedirect)
 		} else {
@@ -144,7 +144,7 @@ func startServer(screen *Screen) *http.Server {
 		if newGroupIndex != -2 {
 			if screen.ActiveGroup != newGroupIndex {
 				screen.ActiveGroup = newGroupIndex
-				sdl.PushEvent(&sdl.UserEvent{Type: screen.groupUpdateEventId, Code: 0})
+				sdl.PushEvent(&sdl.UserEvent{Type: screen.groupUpdateEventID, Code: 0})
 			}
 			module.WriteEndpointHeader(w, module.EndpointReturnRedirect)
 		} else {
@@ -169,7 +169,7 @@ func startServer(screen *Screen) *http.Server {
 				res := curItem.module.EndpointHandler(r.URL.Path[len(curItem.module.InternalName())+2:],
 					r.PostForm, w, returnPartial)
 				if res {
-					sdl.PushEvent(&sdl.UserEvent{Type: screen.moduleUpdateEventId, Code: int32(curIndex)})
+					sdl.PushEvent(&sdl.UserEvent{Type: screen.moduleUpdateEventID, Code: int32(curIndex)})
 				}
 			}
 		})

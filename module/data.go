@@ -8,12 +8,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/flyx/rpscreen/config"
+	"github.com/flyx/rpscreen/data"
 )
 
 // SharedData contains configuration and state of the whole application.
 type SharedData struct {
-	config.Config
+	data.Config
 	ActiveGroup  int
 	ActiveSystem int
 }
@@ -42,7 +42,7 @@ func appendDir(resources []Resource, path string, group int, system int) []Resou
 }
 
 // Init initializes the SharedData, including loading the configuration files.
-func (data *SharedData) Init(modules config.ConfigurableItemProvider) {
+func (data *SharedData) Init(modules data.ConfigurableItemProvider) {
 	data.Config.Init(modules)
 	data.ActiveGroup = -1
 	data.ActiveSystem = -1

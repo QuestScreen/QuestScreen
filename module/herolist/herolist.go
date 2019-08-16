@@ -28,11 +28,13 @@ const (
 	hidingHero
 )
 
+type heroListConfig struct{}
+
 // HeroList is a module for displaying a list of heroes.
 type HeroList struct {
+	config                      *heroListConfig
 	heroes                      []displayedHero
 	displayedGroup              int
-	reqGroup                    int
 	hidden                      bool
 	reqSwitch                   int32
 	reqHidden                   bool
@@ -45,7 +47,6 @@ type HeroList struct {
 // Init initializes the module.
 func (l *HeroList) Init(common *module.SceneCommon) error {
 	l.displayedGroup = -1
-	l.reqGroup = -1
 	l.hidden = false
 	l.reqHidden = false
 	l.reqSwitch = -1
@@ -89,18 +90,15 @@ func (l *HeroList) UI(common *module.SceneCommon) template.HTML {
 	}
 	builder.EndForm()
 
-	if l.reqGroup >= 0 {
-		for i := 0; i < common.Config.NumHeroes(l.reqGroup); i++ {
+	if l.displayedGroup >= 0 {
+		for i := 0; i < common.Config.NumHeroes(l.displayedGroup); i++ {
 			builder.StartForm(l, "switchHero", "", true)
 			builder.HiddenValue("index", strconv.Itoa(i))
-			shown := true
-			if l.reqGroup == common.ActiveGroup {
-				shown = l.heroes[i].shown
-			}
+			shown := l.heroes[i].shown
 			if shown {
-				builder.SubmitButton("Hide", common.Config.HeroName(l.reqGroup, i), !l.reqHidden)
+				builder.SubmitButton("Hide", common.Config.HeroName(l.displayedGroup, i), !l.reqHidden)
 			} else {
-				builder.SecondarySubmitButton("Show", common.Config.HeroName(l.reqGroup, i), !l.reqHidden)
+				builder.SecondarySubmitButton("Show", common.Config.HeroName(l.displayedGroup, i), !l.reqHidden)
 			}
 			builder.EndForm()
 		}
@@ -171,10 +169,10 @@ func (l *HeroList) rebuildHeroBoxes(common *module.SceneCommon) {
 			hero.tex.Destroy()
 		}
 	}
-	if l.reqGroup == -1 {
+	if common.ActiveGroup == -1 {
 		l.heroes = nil
 	} else {
-		l.heroes = make([]displayedHero, common.Config.NumHeroes(l.reqGroup))
+		l.heroes = make([]displayedHero, common.Config.NumHeroes(common.ActiveGroup))
 		var err error
 		for index := range l.heroes {
 			hero := &l.heroes[index]
@@ -183,9 +181,9 @@ func (l *HeroList) rebuildHeroBoxes(common *module.SceneCommon) {
 				l.boxWidth(), l.boxHeight())
 			if err == nil {
 				common.Renderer.SetRenderTarget(hero.tex)
-				name := renderText(common.Config.HeroName(l.reqGroup, index), common, 0, module.Standard)
+				name := renderText(common.Config.HeroName(common.ActiveGroup, index), common, 0, module.Standard)
 				_, _, nameWidth, nameHeight, _ := name.Query()
-				descr := renderText(common.Config.HeroDescription(l.reqGroup, index), common, 0, module.Standard)
+				descr := renderText(common.Config.HeroDescription(common.ActiveGroup, index), common, 0, module.Standard)
 				_, _, descrWidth, descrHeight, _ := descr.Query()
 				common.Renderer.Clear()
 				common.Renderer.SetDrawColor(0, 0, 0, 192)
@@ -208,12 +206,12 @@ func (l *HeroList) rebuildHeroBoxes(common *module.SceneCommon) {
 
 // InitTransition starts a transition
 func (l *HeroList) InitTransition(common *module.SceneCommon) time.Duration {
-	if l.reqGroup != l.displayedGroup {
+	if common.ActiveGroup != l.displayedGroup {
 		if l.displayedGroup == -1 {
 			l.rebuildHeroBoxes(common)
 			l.status = showingAll
 			return time.Second
-		} else if l.reqGroup == -1 {
+		} else if common.ActiveGroup == -1 {
 			l.status = hidingAll
 			return time.Second
 		} else {
@@ -227,23 +225,23 @@ func (l *HeroList) InitTransition(common *module.SceneCommon) time.Duration {
 			l.status = hidingAll
 		}
 		return time.Second
-	} else {
-		if l.heroes[l.reqSwitch].shown {
-			l.status = hidingHero
-		} else {
-			l.status = showingHero
-		}
-		l.heroes[l.reqSwitch].tex.SetBlendMode(sdl.BLENDMODE_BLEND)
-		return time.Second
 	}
+
+	if l.heroes[l.reqSwitch].shown {
+		l.status = hidingHero
+	} else {
+		l.status = showingHero
+	}
+	l.heroes[l.reqSwitch].tex.SetBlendMode(sdl.BLENDMODE_BLEND)
+	return time.Second
 }
 
 // TransitionStep advances the transition
 func (l *HeroList) TransitionStep(common *module.SceneCommon, elapsed time.Duration) {
-	if l.reqGroup != l.displayedGroup {
+	if common.ActiveGroup != l.displayedGroup {
 		if l.displayedGroup == -1 {
 			l.curXOffset = int32(((time.Second - elapsed) * time.Duration(l.boxWidth())) / time.Second)
-		} else if l.reqGroup == -1 {
+		} else if common.ActiveGroup == -1 {
 			l.curXOffset = int32((elapsed * time.Duration(l.boxWidth())) / time.Second)
 		} else {
 			if elapsed >= time.Second {
@@ -285,12 +283,12 @@ func (l *HeroList) FinishTransition(common *module.SceneCommon) {
 	}
 	l.reqSwitch = -1
 	l.hidden = l.reqHidden
-	if l.reqGroup == -1 {
+	if common.ActiveGroup == -1 {
 		for i := range l.heroes {
 			l.heroes[i].tex.Destroy()
 		}
 	}
-	l.displayedGroup = l.reqGroup
+	l.displayedGroup = common.ActiveGroup
 }
 
 // Render renders the current state of the HeroList
@@ -333,25 +331,22 @@ func (l *HeroList) Render(common *module.SceneCommon) {
 	}
 }
 
-// SystemChanged returns false.
-func (*HeroList) SystemChanged(common *module.SceneCommon) bool {
-	return false
-}
-
-// GroupChanged updates the displayed group if necessary.
-func (l *HeroList) GroupChanged(common *module.SceneCommon) bool {
-	if common.ActiveGroup != l.displayedGroup {
-		if l.hidden {
-			l.displayedGroup = common.ActiveGroup
-			return false
-		}
-		l.reqGroup = common.ActiveGroup
-		return true
-	}
-	return false
-}
-
 // ToConfig is not implemented yet.
 func (*HeroList) ToConfig(node *yaml.Node) (interface{}, error) {
-	return nil, nil
+	return &heroListConfig{}, nil
+}
+
+// DefaultConfig returns the default configuration
+func (*HeroList) DefaultConfig() interface{} {
+	return &heroListConfig{}
+}
+
+// SetConfig sets the module's configuration
+func (l *HeroList) SetConfig(config interface{}) {
+	l.config = config.(*heroListConfig)
+}
+
+// NeedsTransition return true iff the group has been changed.
+func (l *HeroList) NeedsTransition(common *module.SceneCommon) bool {
+	return l.displayedGroup != common.ActiveGroup
 }

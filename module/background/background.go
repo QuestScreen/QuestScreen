@@ -14,8 +14,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type backgroundConfig struct{}
+
 // Background is a module for painting background images
 type Background struct {
+	config                           *backgroundConfig
 	texture, newTexture              *sdl.Texture
 	reqTextureIndex, curTextureIndex int
 	images                           []module.Resource
@@ -101,10 +104,9 @@ func offsets(inRatio float32, outRatio float32, winWidth int32, winHeight int32)
 	if inRatio > outRatio {
 		return sdl.Rect{X: 0, Y: int32(float32(winHeight) * (1.0 - (outRatio / inRatio)) / 2.0),
 			W: winWidth, H: int32(float32(winHeight) * (outRatio / inRatio))}
-	} else {
-		return sdl.Rect{X: int32(float32(winWidth) * (1.0 - (inRatio / outRatio)) / 2.0),
-			Y: 0, W: int32(float32(winWidth) * (inRatio / outRatio)), H: winHeight}
 	}
+	return sdl.Rect{X: int32(float32(winWidth) * (1.0 - (inRatio / outRatio)) / 2.0),
+		Y: 0, W: int32(float32(winWidth) * (inRatio / outRatio)), H: winHeight}
 }
 
 // InitTransition initializes a transition
@@ -180,18 +182,23 @@ func (bg *Background) Render(common *module.SceneCommon) {
 	}
 }
 
-// SystemChanged returns false
-func (*Background) SystemChanged(common *module.SceneCommon) bool {
-	return false
+// DefaultConfig returns the default configuration
+func (*Background) DefaultConfig() interface{} {
+	return &backgroundConfig{}
 }
 
-// GroupChanged returns false
-func (*Background) GroupChanged(common *module.SceneCommon) bool {
-	return false
+// SetConfig sets the module's configuration
+func (bg *Background) SetConfig(config interface{}) {
+	bg.config = config.(*backgroundConfig)
 }
 
 // ToConfig is not implemented yet.
 func (*Background) ToConfig(node *yaml.Node) (interface{}, error) {
 	// no config
-	return nil, nil
+	return &backgroundConfig{}, nil
+}
+
+// NeedsTransition returns false
+func (*Background) NeedsTransition(common *module.SceneCommon) bool {
+	return false
 }

@@ -95,19 +95,27 @@ Outer:
 				break Outer
 			case *sdl.UserEvent:
 				switch e.Type {
-				case screen.moduleUpdateEventId:
+				case screen.moduleUpdateEventID:
 					startTransition(&screen.modules.items[e.Code], screen)
 					render = true
-				case screen.systemUpdateEventId:
+				case screen.systemUpdateEventID:
 					for i := range screen.modules.items {
-						if screen.modules.items[i].module.SystemChanged(&screen.SceneCommon) {
+						screen.Config.UpdateConfig(
+							screen.modules.items[i].module.DefaultConfig(),
+							screen.modules.items[i].module, screen.ActiveSystem, screen.ActiveGroup)
+
+						if screen.modules.items[i].module.NeedsTransition(&screen.SceneCommon) {
 							startTransition(&screen.modules.items[i], screen)
 							render = true
 						}
 					}
-				case screen.groupUpdateEventId:
+				case screen.groupUpdateEventID:
 					for i := range screen.modules.items {
-						if screen.modules.items[i].module.GroupChanged(&screen.SceneCommon) {
+						screen.Config.UpdateConfig(
+							screen.modules.items[i].module.DefaultConfig(),
+							screen.modules.items[i].module, screen.ActiveSystem, screen.ActiveGroup)
+
+						if screen.modules.items[i].module.NeedsTransition(&screen.SceneCommon) {
 							startTransition(&screen.modules.items[i], screen)
 							render = true
 						}

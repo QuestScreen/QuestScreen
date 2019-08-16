@@ -14,8 +14,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type personsConfig struct{}
+
 // The Persons module can show pictures of persons and other stuff.
 type Persons struct {
+	config          *personsConfig
 	textures        []*sdl.Texture
 	textureScale    []float32
 	reqTextureIndex int
@@ -218,5 +221,20 @@ func (*Persons) GroupChanged(common *module.SceneCommon) bool {
 
 // ToConfig is not implemented yet.
 func (*Persons) ToConfig(node *yaml.Node) (interface{}, error) {
-	return nil, nil
+	return &personsConfig{}, nil
+}
+
+// DefaultConfig returns the default configuration
+func (*Persons) DefaultConfig() interface{} {
+	return &personsConfig{}
+}
+
+// SetConfig sets the module's configuration
+func (p *Persons) SetConfig(config interface{}) {
+	p.config = config.(*personsConfig)
+}
+
+// NeedsTransition returns false
+func (*Persons) NeedsTransition(common *module.SceneCommon) bool {
+	return false
 }

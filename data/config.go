@@ -1,13 +1,14 @@
 /*
-Package config implements loading and writing the config.yaml files.
+Package data implements loading and writing configuration and state data.
 */
-package config
+package data
 
 import (
 	"io/ioutil"
 	"log"
 	"os/user"
 	"path/filepath"
+	"reflect"
 
 	"gopkg.in/yaml.v3"
 )
@@ -88,10 +89,17 @@ type Config struct {
 type ConfigurableItem interface {
 	// Name gives the name of this item.
 	Name() string
+	// returns a configuration object with default values.
+	// The item defines the type of its configuration.
+	// The configuration object must be a pointer.
+	DefaultConfig() interface{}
 	// ToConfig parses a YAML node inside config yaml and returns the result.
-	// the module defines the type of its configuration; however the configuration
-	// belongs to SharedData.
+	// The returned type is the same as that of DefaultConfig.
 	ToConfig(node *yaml.Node) (interface{}, error)
+	// SetConfig sets current configuration for the item.
+	// This configuration is to be merge from return values of ToConfig and
+	// DefaultConfig.
+	SetConfig(config interface{})
 }
 
 // ConfigurableItemProvider is basically a list of ConfigurableItem.
@@ -185,7 +193,7 @@ func constructModuleConfigs(data map[string]moduleConfig,
 			evaluated, err := mod.ToConfig(&node.Config)
 			if err == nil {
 				data[name] = moduleConfig{
-					State: node.State, Config: evaluated}
+					State: node.State, Config: &evaluated}
 			} else {
 				log.Println(err)
 			}
@@ -316,4 +324,46 @@ func (c *Config) Init(items ConfigurableItemProvider) {
 			}
 		}
 	}
+}
+
+// UpdateConfig sets the configuration of the given module.
+// It merges the default config with the configs from current system and group.
+func (c *Config) UpdateConfig(defaultValues interface{}, item ConfigurableItem,
+	systemIndex int, groupIndex int) {
+	var configStack [4]*reflect.Value
+	if groupIndex != -1 {
+		conf := c.groups[groupIndex].Config.Modules[item.Name()].Config
+		if conf != nil {
+			val := reflect.ValueOf(conf).Elem()
+			configStack[0] = &val
+		}
+	}
+	if systemIndex != -1 {
+		conf := c.systems[systemIndex].Modules[item.Name()].Config
+		if conf != nil {
+			val := reflect.ValueOf(conf).Elem()
+			configStack[1] = &val
+		}
+	}
+
+	baseConf := c.baseConfigs[item.Name()].Config
+	if baseConf != nil {
+		baseValue := reflect.ValueOf(baseConf).Elem()
+		configStack[2] = &baseValue
+	}
+	defaultValue := reflect.ValueOf(defaultValues).Elem()
+	configStack[3] = &defaultValue
+
+	configType := reflect.TypeOf(defaultValues).Elem()
+	result := reflect.New(configType)
+	for i := 0; i < configType.NumField(); i++ {
+		if configStack[i] != nil {
+			field := configStack[i].Field(i)
+			if !field.IsNil() {
+				result.Elem().Field(i).Set(field)
+				break
+			}
+		}
+	}
+	item.SetConfig(result.Interface())
 }

@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/flyx/rpscreen/config"
+	"github.com/flyx/rpscreen/data"
 	"github.com/flyx/rpscreen/module"
 	"github.com/flyx/rpscreen/module/background"
 	"github.com/flyx/rpscreen/module/herolist"
@@ -29,18 +29,19 @@ func (ml *moduleList) NumItems() int {
 	return len(ml.items)
 }
 
-func (ml *moduleList) ItemAt(index int) config.ConfigurableItem {
+func (ml *moduleList) ItemAt(index int) data.ConfigurableItem {
 	return ml.items[index].module
 }
 
+// Screen holds all data related to displaying stuff on a screen.
 type Screen struct {
 	module.SceneCommon
 	textureBuffer       uint32
 	modules             moduleList
 	numTransitions      int32
-	moduleUpdateEventId uint32
-	groupUpdateEventId  uint32
-	systemUpdateEventId uint32
+	moduleUpdateEventID uint32
+	groupUpdateEventID  uint32
+	systemUpdateEventID uint32
 	popupTexture        *sdl.Texture
 }
 
@@ -186,6 +187,8 @@ func (s *Screen) initModules() {
 				s.modules.items[i].module.Name(), err)
 		} else {
 			s.modules.items[i].enabled = true
+			s.Config.UpdateConfig(s.modules.items[i].module.DefaultConfig(),
+				s.modules.items[i].module, -1, -1)
 		}
 	}
 }
@@ -215,9 +218,9 @@ func newScreen() (*Screen, error) {
 	screen.loadModules()
 	screen.SharedData.Init(&screen.modules)
 	screen.numTransitions = 0
-	screen.moduleUpdateEventId = sdl.RegisterEvents(3)
-	screen.groupUpdateEventId = screen.moduleUpdateEventId + 1
-	screen.systemUpdateEventId = screen.moduleUpdateEventId + 2
+	screen.moduleUpdateEventID = sdl.RegisterEvents(3)
+	screen.groupUpdateEventID = screen.moduleUpdateEventID + 1
+	screen.systemUpdateEventID = screen.moduleUpdateEventID + 2
 	screen.Fonts = module.CreateFontCatalog(&screen.SharedData, screen.DefaultBodyTextSize)
 
 	screen.initModules()
@@ -226,6 +229,7 @@ func newScreen() (*Screen, error) {
 	return screen, nil
 }
 
+// Render renders all currently visible modules to the screen.
 func (s *Screen) Render(cur time.Time, popup bool) {
 	s.Renderer.Clear()
 	s.Renderer.SetDrawColor(255, 255, 255, 255)

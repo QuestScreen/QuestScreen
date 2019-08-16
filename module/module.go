@@ -6,12 +6,12 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/flyx/rpscreen/config"
+	"github.com/flyx/rpscreen/data"
 )
 
 // Module describes a module usable with rpscreen
 type Module interface {
-	config.ConfigurableItem
+	data.ConfigurableItem
 	// initialize the module.
 	Init(common *SceneCommon) error
 	// Alphanumeric name used for:
@@ -43,6 +43,9 @@ type Module interface {
 	// implements rendering of the module.
 	// this function is called in the OpenGL thread.
 	Render(common *SceneCommon)
+	// returns true iff the module needs a transition after the config has been
+	// updated.
+	NeedsTransition(common *SceneCommon) bool
 
 	// returns partial HTML that creates the module's UI within the web interface.
 	UI(common *SceneCommon) template.HTML
@@ -56,12 +59,6 @@ type Module interface {
 	// must be relayed there. return true only if calling InitTransition() will be necessary to update
 	// the display.
 	EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool
-	// called whenever the user selects a different system.
-	// shall return true iff the module will do a transition based on the system change.
-	SystemChanged(common *SceneCommon) bool
-	// called whenever the user selects a different group.
-	// shall return true iff the module will do a transition based on the group change.
-	GroupChanged(common *SceneCommon) bool
 }
 
 type EndpointReturn int
