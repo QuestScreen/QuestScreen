@@ -68,7 +68,7 @@ func shrinkTo(rect *sdl.Rect, w int32, h int32) {
 
 func (s *Screen) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error {
 	surfaces := make([]*sdl.Surface, len(options))
-	fontFace := s.Fonts[0].GetSize(s.DefaultBodyTextSize).GetFace(module.Standard)
+	fontFace := s.Fonts[0].GetSize(s.DefaultBodyTextSize).GetFace(data.Standard)
 	var err error
 	var bottomText *sdl.Surface
 	if bottomText, err = fontFace.RenderUTF8Blended(
@@ -239,14 +239,14 @@ func (s *Screen) Render(cur time.Time, popup bool) {
 		if item.enabled {
 			if item.transitioning {
 				if cur.After(item.transEnd) {
-					item.module.FinishTransition(&s.SceneCommon)
+					item.module.FinishTransition()
 					s.numTransitions--
 					item.transitioning = false
 				} else {
-					item.module.TransitionStep(&s.SceneCommon, cur.Sub(item.transStart))
+					item.module.TransitionStep(cur.Sub(item.transStart))
 				}
 			}
-			item.module.Render(&s.SceneCommon)
+			item.module.Render()
 		}
 	}
 	if popup {

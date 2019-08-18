@@ -1,10 +1,8 @@
 package module
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 
@@ -108,48 +106,4 @@ func (data *SharedData) GetFilePath(module Module, subdir string, filename strin
 		return path
 	}
 	return ""
-}
-
-type jsonItem struct {
-	Name, DirName string
-}
-
-type jsonData struct {
-	Systems      []jsonItem
-	Groups       []jsonItem
-	ActiveGroup  int
-	ActiveSystem int
-}
-
-func (data *SharedData) jsonSystems() []jsonItem {
-	ret := make([]jsonItem, 0, data.Config.NumSystems())
-	for i := 0; i < data.Config.NumSystems(); i++ {
-		ret = append(ret, jsonItem{Name: data.Config.SystemName(i),
-			DirName: data.Config.SystemDirectory(i)})
-	}
-	return ret
-}
-
-func (data *SharedData) jsonGroups() []jsonItem {
-	ret := make([]jsonItem, 0, data.Config.NumGroups())
-	for i := 0; i < data.Config.NumGroups(); i++ {
-		ret = append(ret, jsonItem{Name: data.Config.GroupName(i),
-			DirName: data.Config.GroupDirectory(i)})
-	}
-	return ret
-}
-
-// SendJSON sends a JSON describing all systems and groups.
-func (data *SharedData) SendJSON(w http.ResponseWriter) {
-	b, err := json.Marshal(jsonData{
-		Systems: data.jsonSystems(), Groups: data.jsonGroups(),
-		ActiveGroup: data.ActiveGroup, ActiveSystem: data.ActiveSystem})
-	if err == nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Cache-Control", "no-store")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(b)
-	} else {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/flyx/rpscreen/data"
 	"github.com/flyx/rpscreen/module"
 	"github.com/veandco/go-sdl2/sdl"
 	"gopkg.in/yaml.v3"
@@ -32,6 +33,7 @@ type heroListConfig struct{}
 
 // HeroList is a module for displaying a list of heroes.
 type HeroList struct {
+	common                      *module.SceneCommon
 	config                      *heroListConfig
 	heroes                      []displayedHero
 	displayedGroup              int
@@ -46,6 +48,7 @@ type HeroList struct {
 
 // Init initializes the module.
 func (l *HeroList) Init(common *module.SceneCommon) error {
+	l.common = common
 	l.displayedGroup = -1
 	l.hidden = false
 	l.reqHidden = false
@@ -79,7 +82,7 @@ func (l *HeroList) boxHeight() int32 {
 }
 
 // UI constructs the HTML UI of the modules
-func (l *HeroList) UI(common *module.SceneCommon) template.HTML {
+func (l *HeroList) UI() template.HTML {
 	var builder module.UIBuilder
 
 	builder.StartForm(l, "switchHidden", "", true)
@@ -91,14 +94,16 @@ func (l *HeroList) UI(common *module.SceneCommon) template.HTML {
 	builder.EndForm()
 
 	if l.displayedGroup >= 0 {
-		for i := 0; i < common.Config.NumHeroes(l.displayedGroup); i++ {
+		for i := 0; i < l.common.Config.NumHeroes(l.displayedGroup); i++ {
 			builder.StartForm(l, "switchHero", "", true)
 			builder.HiddenValue("index", strconv.Itoa(i))
 			shown := l.heroes[i].shown
 			if shown {
-				builder.SubmitButton("Hide", common.Config.HeroName(l.displayedGroup, i), !l.reqHidden)
+				builder.SubmitButton("Hide",
+					l.common.Config.HeroName(l.displayedGroup, i), !l.reqHidden)
 			} else {
-				builder.SecondarySubmitButton("Show", common.Config.HeroName(l.displayedGroup, i), !l.reqHidden)
+				builder.SecondarySubmitButton("Show",
+					l.common.Config.HeroName(l.displayedGroup, i), !l.reqHidden)
 			}
 			builder.EndForm()
 		}
@@ -145,7 +150,7 @@ func (l *HeroList) EndpointHandler(suffix string, values url.Values, w http.Resp
 }
 
 func renderText(text string, common *module.SceneCommon, fontIndex int32,
-	style module.FontStyle) *sdl.Texture {
+	style data.FontStyle) *sdl.Texture {
 	face := common.Fonts[fontIndex].GetSize(common.DefaultBodyTextSize).GetFace(style)
 
 	surface, err := face.RenderUTF8Blended(
@@ -163,36 +168,36 @@ func renderText(text string, common *module.SceneCommon, fontIndex int32,
 	return textTexture
 }
 
-func (l *HeroList) rebuildHeroBoxes(common *module.SceneCommon) {
+func (l *HeroList) rebuildHeroBoxes() {
 	if l.displayedGroup != -1 {
 		for _, hero := range l.heroes {
 			hero.tex.Destroy()
 		}
 	}
-	if common.ActiveGroup == -1 {
+	if l.common.ActiveGroup == -1 {
 		l.heroes = nil
 	} else {
-		l.heroes = make([]displayedHero, common.Config.NumHeroes(common.ActiveGroup))
+		l.heroes = make([]displayedHero, l.common.Config.NumHeroes(l.common.ActiveGroup))
 		var err error
 		for index := range l.heroes {
 			hero := &l.heroes[index]
 			hero.shown = true
-			hero.tex, err = common.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
+			hero.tex, err = l.common.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
 				l.boxWidth(), l.boxHeight())
 			if err == nil {
-				common.Renderer.SetRenderTarget(hero.tex)
-				name := renderText(common.Config.HeroName(common.ActiveGroup, index), common, 0, module.Standard)
+				l.common.Renderer.SetRenderTarget(hero.tex)
+				name := renderText(l.common.Config.HeroName(l.common.ActiveGroup, index), l.common, 0, data.Standard)
 				_, _, nameWidth, nameHeight, _ := name.Query()
-				descr := renderText(common.Config.HeroDescription(common.ActiveGroup, index), common, 0, module.Standard)
+				descr := renderText(l.common.Config.HeroDescription(l.common.ActiveGroup, index), l.common, 0, data.Standard)
 				_, _, descrWidth, descrHeight, _ := descr.Query()
-				common.Renderer.Clear()
-				common.Renderer.SetDrawColor(0, 0, 0, 192)
-				common.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: l.boxWidth(), H: l.boxHeight()})
-				common.Renderer.SetDrawColor(200, 173, 127, 255)
-				common.Renderer.FillRect(&sdl.Rect{X: 0, Y: l.borderWidth, W: int32(l.contentWidth + 4*l.borderWidth),
+				l.common.Renderer.Clear()
+				l.common.Renderer.SetDrawColor(0, 0, 0, 192)
+				l.common.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: l.boxWidth(), H: l.boxHeight()})
+				l.common.Renderer.SetDrawColor(200, 173, 127, 255)
+				l.common.Renderer.FillRect(&sdl.Rect{X: 0, Y: l.borderWidth, W: int32(l.contentWidth + 4*l.borderWidth),
 					H: int32(l.contentHeight + 2*l.borderWidth)})
-				common.Renderer.Copy(name, nil, &sdl.Rect{X: 2 * l.borderWidth, Y: l.borderWidth, W: nameWidth, H: nameHeight})
-				common.Renderer.Copy(descr, nil, &sdl.Rect{X: 2 * l.borderWidth,
+				l.common.Renderer.Copy(name, nil, &sdl.Rect{X: 2 * l.borderWidth, Y: l.borderWidth, W: nameWidth, H: nameHeight})
+				l.common.Renderer.Copy(descr, nil, &sdl.Rect{X: 2 * l.borderWidth,
 					Y: l.contentHeight - l.borderWidth - descrHeight, W: descrWidth, H: descrHeight})
 				name.Destroy()
 				descr.Destroy()
@@ -200,18 +205,18 @@ func (l *HeroList) rebuildHeroBoxes(common *module.SceneCommon) {
 				log.Println(err)
 			}
 		}
-		common.Renderer.SetRenderTarget(nil)
+		l.common.Renderer.SetRenderTarget(nil)
 	}
 }
 
 // InitTransition starts a transition
-func (l *HeroList) InitTransition(common *module.SceneCommon) time.Duration {
-	if common.ActiveGroup != l.displayedGroup {
+func (l *HeroList) InitTransition() time.Duration {
+	if l.common.ActiveGroup != l.displayedGroup {
 		if l.displayedGroup == -1 {
-			l.rebuildHeroBoxes(common)
+			l.rebuildHeroBoxes()
 			l.status = showingAll
 			return time.Second
-		} else if common.ActiveGroup == -1 {
+		} else if l.common.ActiveGroup == -1 {
 			l.status = hidingAll
 			return time.Second
 		} else {
@@ -237,16 +242,16 @@ func (l *HeroList) InitTransition(common *module.SceneCommon) time.Duration {
 }
 
 // TransitionStep advances the transition
-func (l *HeroList) TransitionStep(common *module.SceneCommon, elapsed time.Duration) {
-	if common.ActiveGroup != l.displayedGroup {
+func (l *HeroList) TransitionStep(elapsed time.Duration) {
+	if l.common.ActiveGroup != l.displayedGroup {
 		if l.displayedGroup == -1 {
 			l.curXOffset = int32(((time.Second - elapsed) * time.Duration(l.boxWidth())) / time.Second)
-		} else if common.ActiveGroup == -1 {
+		} else if l.common.ActiveGroup == -1 {
 			l.curXOffset = int32((elapsed * time.Duration(l.boxWidth())) / time.Second)
 		} else {
 			if elapsed >= time.Second {
 				if l.status == hidingAll {
-					l.rebuildHeroBoxes(common)
+					l.rebuildHeroBoxes()
 				}
 				l.curXOffset = int32(((time.Second*2 - elapsed) * time.Duration(l.boxWidth())) / time.Second)
 			} else {
@@ -273,7 +278,7 @@ func (l *HeroList) TransitionStep(common *module.SceneCommon, elapsed time.Durat
 }
 
 // FinishTransition finalizes the transition
-func (l *HeroList) FinishTransition(common *module.SceneCommon) {
+func (l *HeroList) FinishTransition() {
 	l.curXOffset = 0
 	l.curYOffset = 0
 	l.status = resting
@@ -283,16 +288,16 @@ func (l *HeroList) FinishTransition(common *module.SceneCommon) {
 	}
 	l.reqSwitch = -1
 	l.hidden = l.reqHidden
-	if common.ActiveGroup == -1 {
+	if l.common.ActiveGroup == -1 {
 		for i := range l.heroes {
 			l.heroes[i].tex.Destroy()
 		}
 	}
-	l.displayedGroup = common.ActiveGroup
+	l.displayedGroup = l.common.ActiveGroup
 }
 
 // Render renders the current state of the HeroList
-func (l *HeroList) Render(common *module.SceneCommon) {
+func (l *HeroList) Render() {
 	shown := int32(0)
 	additionalYOffset := int32(0)
 	if l.hidden && l.status == resting {
@@ -307,18 +312,18 @@ func (l *HeroList) Render(common *module.SceneCommon) {
 			((l.status == showingHero || l.status == hidingHero) && l.reqSwitch == int32(i)) {
 			xOffset = l.curXOffset
 		}
-		_, winHeight := common.Window.GetSize()
+		_, winHeight := l.common.Window.GetSize()
 		if xOffset == 0 {
 			targetRect := sdl.Rect{X: 0, Y: winHeight/10 + (l.boxHeight()+l.contentHeight/4)*shown + additionalYOffset,
 				W: l.boxWidth(), H: l.boxHeight()}
-			if err := common.Renderer.Copy(l.heroes[i].tex, nil, &targetRect); err != nil {
+			if err := l.common.Renderer.Copy(l.heroes[i].tex, nil, &targetRect); err != nil {
 				log.Println(err)
 			}
 		} else {
 			targetRect := sdl.Rect{X: 0, Y: winHeight/10 + (l.boxHeight()+l.contentHeight/4)*shown + additionalYOffset,
 				W: l.boxWidth() - xOffset, H: l.boxHeight()}
 			sourceRect := sdl.Rect{X: l.curXOffset, Y: 0, W: l.boxWidth(), H: l.boxHeight()}
-			if err := common.Renderer.Copy(l.heroes[i].tex, &sourceRect, &targetRect); err != nil {
+			if err := l.common.Renderer.Copy(l.heroes[i].tex, &sourceRect, &targetRect); err != nil {
 				log.Println(err)
 			}
 		}
@@ -336,6 +341,11 @@ func (*HeroList) ToConfig(node *yaml.Node) (interface{}, error) {
 	return &heroListConfig{}, nil
 }
 
+// EmptyConfig returns an empty configuration
+func (*HeroList) EmptyConfig() interface{} {
+	return &heroListConfig{}
+}
+
 // DefaultConfig returns the default configuration
 func (*HeroList) DefaultConfig() interface{} {
 	return &heroListConfig{}
@@ -346,7 +356,12 @@ func (l *HeroList) SetConfig(config interface{}) {
 	l.config = config.(*heroListConfig)
 }
 
+// GetConfig retrieves the current configuration of the item.
+func (l *HeroList) GetConfig() interface{} {
+	return l.config
+}
+
 // NeedsTransition return true iff the group has been changed.
-func (l *HeroList) NeedsTransition(common *module.SceneCommon) bool {
-	return l.displayedGroup != common.ActiveGroup
+func (l *HeroList) NeedsTransition() bool {
+	return l.displayedGroup != l.common.ActiveGroup
 }

@@ -15,9 +15,9 @@ func init() {
 }
 
 func startTransition(m *moduleListItem, screen *Screen) {
-	transDur := m.module.InitTransition(&screen.SceneCommon)
+	transDur := m.module.InitTransition()
 	if transDur == 0 {
-		m.module.FinishTransition(&screen.SceneCommon)
+		m.module.FinishTransition()
 	} else if transDur > 0 {
 		screen.numTransitions++
 		m.transStart = time.Now()
@@ -104,7 +104,7 @@ Outer:
 							screen.modules.items[i].module.DefaultConfig(),
 							screen.modules.items[i].module, screen.ActiveSystem, screen.ActiveGroup)
 
-						if screen.modules.items[i].module.NeedsTransition(&screen.SceneCommon) {
+						if screen.modules.items[i].module.NeedsTransition() {
 							startTransition(&screen.modules.items[i], screen)
 							render = true
 						}
@@ -115,7 +115,7 @@ Outer:
 							screen.modules.items[i].module.DefaultConfig(),
 							screen.modules.items[i].module, screen.ActiveSystem, screen.ActiveGroup)
 
-						if screen.modules.items[i].module.NeedsTransition(&screen.SceneCommon) {
+						if screen.modules.items[i].module.NeedsTransition() {
 							startTransition(&screen.modules.items[i], screen)
 							render = true
 						}

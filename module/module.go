@@ -28,27 +28,27 @@ type Module interface {
 	// if 0 is returned, TransitionStep will never be called; if a negative value is returned, neither FinishTransition()
 	// nor Render() will be called.
 	// this function is called in the OpenGL thread.
-	InitTransition(common *SceneCommon) time.Duration
+	InitTransition() time.Duration
 	// implements transitions. use this function to collect requests given to EndpointHandler and update
 	// state data based on the elapsed time accordingly. don't render anything – Render() will always be
 	// called immediately after Animate().
 	//
 	// The given elapsed time is guaranteed to always be smaller than what was returned by InitTransition().
 	// this function is called in the OpenGL thread.
-	TransitionStep(common *SceneCommon, elapsed time.Duration)
+	TransitionStep(elapsed time.Duration)
 	// implements cleanup after transitions.
 	// will be called once after each time InitTransition() returns a non-negative value
 	// (but TransitionStep() and Render() may be called in between).
-	FinishTransition(common *SceneCommon)
+	FinishTransition()
 	// implements rendering of the module.
 	// this function is called in the OpenGL thread.
-	Render(common *SceneCommon)
+	Render()
 	// returns true iff the module needs a transition after the config has been
 	// updated.
-	NeedsTransition(common *SceneCommon) bool
+	NeedsTransition() bool
 
 	// returns partial HTML that creates the module's UI within the web interface.
-	UI(common *SceneCommon) template.HTML
+	UI() template.HTML
 	// implements handling for all endpoints of the module.
 	// will be called for requests on all paths starting with EndpointPath.
 	// returnPartial specifies whether a partial value may be returned (in case of AJAX requests).

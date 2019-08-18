@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/flyx/rpscreen/module"
 	"github.com/flyx/rpscreen/web"
@@ -77,7 +78,7 @@ func (sh *screenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	for index, item := range sh.screen.modules.items {
 		sh.data.Modules[index].Enabled = item.enabled
-		sh.data.Modules[index].UI = item.module.UI(&sh.screen.SceneCommon)
+		sh.data.Modules[index].UI = item.module.UI()
 	}
 	for index := range sh.data.Systems {
 		sh.data.Systems[index].Selected = sh.screen.ActiveSystem == index
@@ -102,6 +103,14 @@ func setupResourceHandler(server *http.Server, path string, contentType string) 
 			panic(err)
 		}
 	})
+}
+
+func nextPathItem(value string) (string, bool) {
+	pos := strings.Index(value, "/")
+	if pos == -1 {
+		return value, true
+	}
+	return value[0:pos], false
 }
 
 func startServer(screen *Screen) *http.Server {
@@ -152,7 +161,32 @@ func startServer(screen *Screen) *http.Server {
 		}
 	})
 	http.HandleFunc("/static.json", func(w http.ResponseWriter, r *http.Request) {
-		screen.SendJSON(w)
+		screen.SendJSON(w, screen.ActiveGroup, screen.ActiveSystem)
+	})
+	http.HandleFunc("/config/", func(w http.ResponseWriter, r *http.Request) {
+		item, isLast := nextPathItem(r.URL.Path[len("/config/"):])
+		switch item {
+		case "base.json":
+			if !isLast {
+				http.Error(w, "404: \""+item+"\" not found", http.StatusNotFound)
+			} else {
+				screen.SendBaseJSON(w)
+			}
+		case "group":
+			if isLast {
+				http.Error(w, "400: group missing", http.StatusBadRequest)
+			} else {
+				screen.SendGroupJSON(w, r.URL.Path[len("/config/group/"):])
+			}
+		case "system":
+			if isLast {
+				http.Error(w, "400: group missing", http.StatusBadRequest)
+			} else {
+				screen.SendGroupJSON(w, r.URL.Path[len("/config/system/"):])
+			}
+		default:
+			http.Error(w, "404: \""+r.URL.Path+"\" not found", http.StatusNotFound)
+		}
 	})
 
 	for index, item := range screen.modules.items {

@@ -9,16 +9,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flyx/rpscreen/data"
+
 	"github.com/flyx/rpscreen/module"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"gopkg.in/yaml.v3"
 )
 
-type titleConfig struct{}
+type titleConfig struct {
+	Font *data.SelectableFont `config:"Title Font"`
+}
 
 // The Title module draws a title box at the top of the screen.
 type Title struct {
+	common       *module.SceneCommon
 	config       *titleConfig
 	reqName      string
 	reqFontIndex int
@@ -31,6 +36,7 @@ type Title struct {
 
 // Init initializes the module.
 func (t *Title) Init(common *module.SceneCommon) error {
+	t.common = common
 	t.curTitle = nil
 	t.reqFontIndex = -1
 	t.fonts = common.Fonts
@@ -59,7 +65,7 @@ func (*Title) InternalName() string {
 }
 
 // UI generates the HTML UI of the module.
-func (t *Title) UI(common *module.SceneCommon) template.HTML {
+func (t *Title) UI() template.HTML {
 	var builder module.UIBuilder
 	shownIndex := t.reqFontIndex
 	if shownIndex == -1 {
@@ -121,24 +127,24 @@ func (t *Title) EndpointHandler(suffix string, values url.Values, w http.Respons
 }
 
 // InitTransition initializes a transition.
-func (t *Title) InitTransition(common *module.SceneCommon) time.Duration {
+func (t *Title) InitTransition() time.Duration {
 	var ret time.Duration = -1
 	if t.reqFontIndex != -1 {
-		font := common.Fonts[t.reqFontIndex].GetSize(common.DefaultHeadingTextSize)
-		face := font.GetFace(module.Standard)
+		font := t.common.Fonts[t.reqFontIndex].GetSize(t.common.DefaultHeadingTextSize)
+		face := font.GetFace(data.Standard)
 		surface, err := face.RenderUTF8Blended(
 			t.reqName, sdl.Color{R: 0, G: 0, B: 0, A: 230})
 		if err != nil {
 			log.Println(err)
 			return -1
 		}
-		textTexture, err := common.Renderer.CreateTextureFromSurface(surface)
+		textTexture, err := t.common.Renderer.CreateTextureFromSurface(surface)
 		if err != nil {
 			log.Println(err)
 			return -1
 		}
 		defer textTexture.Destroy()
-		winWidth, _ := common.Window.GetSize()
+		winWidth, _ := t.common.Window.GetSize()
 		textWidth := surface.W
 		textHeight := surface.H
 		surface.Free()
@@ -146,25 +152,25 @@ func (t *Title) InitTransition(common *module.SceneCommon) time.Duration {
 			textHeight = textHeight * (winWidth * 2 / 3) / textWidth
 			textWidth = winWidth * 2 / 3
 		}
-		border := common.DefaultBorderWidth
-		t.newTitle, err = common.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
+		border := t.common.DefaultBorderWidth
+		t.newTitle, err = t.common.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
 			textWidth+6*border, textHeight+2*border)
-		common.Renderer.SetRenderTarget(t.newTitle)
-		defer common.Renderer.SetRenderTarget(nil)
-		common.Renderer.Clear()
-		common.Renderer.SetDrawColor(0, 0, 0, 192)
-		common.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: int32(textWidth + 6*border), H: int32(textHeight) + 2*border})
-		common.Renderer.SetDrawColor(200, 173, 127, 255)
-		common.Renderer.FillRect(&sdl.Rect{X: border, Y: 0, W: int32(textWidth + 4*border), H: int32(textHeight + border)})
+		t.common.Renderer.SetRenderTarget(t.newTitle)
+		defer t.common.Renderer.SetRenderTarget(nil)
+		t.common.Renderer.Clear()
+		t.common.Renderer.SetDrawColor(0, 0, 0, 192)
+		t.common.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: int32(textWidth + 6*border), H: int32(textHeight) + 2*border})
+		t.common.Renderer.SetDrawColor(200, 173, 127, 255)
+		t.common.Renderer.FillRect(&sdl.Rect{X: border, Y: 0, W: int32(textWidth + 4*border), H: int32(textHeight + border)})
 		if t.mask != nil {
 			_, _, maskWidth, maskHeight, _ := t.mask.Query()
 			for x := int32(0); x < textWidth+6*border; x += maskWidth {
 				for y := int32(0); y < textHeight+2*border; y += maskHeight {
-					common.Renderer.Copy(t.mask, nil, &sdl.Rect{X: x, Y: y, W: maskWidth, H: maskHeight})
+					t.common.Renderer.Copy(t.mask, nil, &sdl.Rect{X: x, Y: y, W: maskWidth, H: maskHeight})
 				}
 			}
 		}
-		common.Renderer.Copy(textTexture, nil, &sdl.Rect{X: 3 * border, Y: 0, W: textWidth, H: textHeight})
+		t.common.Renderer.Copy(textTexture, nil, &sdl.Rect{X: 3 * border, Y: 0, W: textWidth, H: textHeight})
 
 		ret = time.Second*2/3 + time.Millisecond*100
 	}
@@ -172,7 +178,7 @@ func (t *Title) InitTransition(common *module.SceneCommon) time.Duration {
 }
 
 // TransitionStep advances the transition.
-func (t *Title) TransitionStep(common *module.SceneCommon, elapsed time.Duration) {
+func (t *Title) TransitionStep(elapsed time.Duration) {
 	if elapsed < time.Second/3 {
 		if t.curTitle != nil {
 			_, _, _, texHeight, _ := t.curTitle.Query()
@@ -197,27 +203,17 @@ func (t *Title) TransitionStep(common *module.SceneCommon, elapsed time.Duration
 }
 
 // FinishTransition finalizes the transition.
-func (t *Title) FinishTransition(common *module.SceneCommon) {
+func (t *Title) FinishTransition() {
 	t.curYOffset = 0
 }
 
 // Render renders the module.
-func (t *Title) Render(common *module.SceneCommon) {
-	winWidth, _ := common.Window.GetSize()
+func (t *Title) Render() {
+	winWidth, _ := t.common.Window.GetSize()
 	_, _, texWidth, texHeight, _ := t.curTitle.Query()
 
 	dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -t.curYOffset, W: texWidth, H: texHeight}
-	_ = common.Renderer.Copy(t.curTitle, nil, &dst)
-}
-
-// SystemChanged returns false.
-func (*Title) SystemChanged(common *module.SceneCommon) bool {
-	return false
-}
-
-// GroupChanged returns false.
-func (*Title) GroupChanged(common *module.SceneCommon) bool {
-	return false
+	_ = t.common.Renderer.Copy(t.curTitle, nil, &dst)
 }
 
 // ToConfig is not implemented yet.
@@ -225,9 +221,16 @@ func (*Title) ToConfig(node *yaml.Node) (interface{}, error) {
 	return &titleConfig{}, nil
 }
 
-// DefaultConfig returns the default configuration
-func (*Title) DefaultConfig() interface{} {
+// EmptyConfig returns an empty configuration
+func (*Title) EmptyConfig() interface{} {
 	return &titleConfig{}
+}
+
+// DefaultConfig returns the default configuration
+func (t *Title) DefaultConfig() interface{} {
+	return &titleConfig{Font: &data.SelectableFont{
+		Family: t.common.Fonts[0].Name, Size: data.HeadingFont,
+		Style: data.Bold}}
 }
 
 // SetConfig sets the module's configuration
@@ -235,7 +238,12 @@ func (t *Title) SetConfig(config interface{}) {
 	t.config = config.(*titleConfig)
 }
 
+// GetConfig retrieves the current configuration of the item.
+func (t *Title) GetConfig() interface{} {
+	return t.config
+}
+
 // NeedsTransition returns false
-func (*Title) NeedsTransition(common *module.SceneCommon) bool {
+func (*Title) NeedsTransition() bool {
 	return false
 }

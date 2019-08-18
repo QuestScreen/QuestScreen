@@ -18,6 +18,7 @@ type personsConfig struct{}
 
 // The Persons module can show pictures of persons and other stuff.
 type Persons struct {
+	common          *module.SceneCommon
 	config          *personsConfig
 	textures        []*sdl.Texture
 	textureScale    []float32
@@ -32,6 +33,7 @@ type Persons struct {
 
 // Init initializes the module.
 func (p *Persons) Init(common *module.SceneCommon) error {
+	p.common = common
 	p.files = common.ListFiles(p, "")
 	p.textures = make([]*sdl.Texture, len(p.files))
 	p.textureScale = make([]float32, len(p.files))
@@ -60,11 +62,11 @@ func (*Persons) InternalName() string {
 }
 
 // UI renders the HTML UI of the module.
-func (p *Persons) UI(common *module.SceneCommon) template.HTML {
+func (p *Persons) UI() template.HTML {
 	var builder module.UIBuilder
 
 	for index, file := range p.files {
-		if file.Enabled(&common.SharedData) {
+		if file.Enabled(&p.common.SharedData) {
 			builder.StartForm(p, "switch", "", true)
 			builder.HiddenValue("index", strconv.Itoa(index))
 			if p.shown[index] {
@@ -107,17 +109,17 @@ func (p *Persons) EndpointHandler(suffix string, values url.Values, w http.Respo
 }
 
 // InitTransition initializes a transition.
-func (p *Persons) InitTransition(common *module.SceneCommon) time.Duration {
+func (p *Persons) InitTransition() time.Duration {
 	var ret time.Duration = -1
 	if p.reqShow {
 		file := p.files[p.reqTextureIndex]
-		tex, err := img.LoadTexture(common.Renderer, file.Path)
+		tex, err := img.LoadTexture(p.common.Renderer, file.Path)
 		if err != nil {
 			log.Println(err)
 		} else {
 			p.textures[p.reqTextureIndex] = tex
 			_, _, texWidth, texHeight, _ := tex.Query()
-			winWidth, winHeight := common.Window.GetSize()
+			winWidth, winHeight := p.common.Window.GetSize()
 			targetScale := float32(1.0)
 			if texHeight > winHeight*2/3 {
 				targetScale = float32(winHeight*2/3) / float32(texHeight)
@@ -153,7 +155,7 @@ func (p *Persons) InitTransition(common *module.SceneCommon) time.Duration {
 }
 
 // TransitionStep advances the transition.
-func (p *Persons) TransitionStep(common *module.SceneCommon, elapsed time.Duration) {
+func (p *Persons) TransitionStep(elapsed time.Duration) {
 	if p.reqShow {
 		err := p.textures[p.reqTextureIndex].SetAlphaMod(uint8((elapsed * 255) / time.Second))
 		if err != nil {
@@ -168,10 +170,10 @@ func (p *Persons) TransitionStep(common *module.SceneCommon, elapsed time.Durati
 }
 
 // FinishTransition finalizes the transition.
-func (p *Persons) FinishTransition(common *module.SceneCommon) {
+func (p *Persons) FinishTransition() {
 	if !p.reqShow {
 		_, _, texWidth, _, _ := p.textures[p.reqTextureIndex].Query()
-		winWidth, _ := common.Window.GetSize()
+		winWidth, _ := p.common.Window.GetSize()
 		_ = p.textures[p.reqTextureIndex].Destroy()
 		p.textures[p.reqTextureIndex] = nil
 		p.curOrigWidth = p.curOrigWidth - int32(float32(texWidth)*p.textureScale[p.reqTextureIndex])
@@ -191,8 +193,8 @@ func (p *Persons) FinishTransition(common *module.SceneCommon) {
 }
 
 // Render renders the module.
-func (p *Persons) Render(common *module.SceneCommon) {
-	winWidth, winHeight := common.Window.GetSize()
+func (p *Persons) Render() {
+	winWidth, winHeight := p.common.Window.GetSize()
 	curX := (winWidth - int32(float32(p.curOrigWidth)*p.curScale)) / 2
 	for i := range p.textures {
 		if p.shown[i] || (i == p.reqTextureIndex && p.transitioning) {
@@ -201,7 +203,7 @@ func (p *Persons) Render(common *module.SceneCommon) {
 			targetWidth := int32(float32(texWidth) * p.textureScale[i] * p.curScale)
 			rect := sdl.Rect{X: curX, Y: winHeight - targetHeight, W: targetWidth, H: targetHeight}
 			curX += targetWidth
-			err := common.Renderer.Copy(p.textures[i], nil, &rect)
+			err := p.common.Renderer.Copy(p.textures[i], nil, &rect)
 			if err != nil {
 				log.Println(err)
 			}
@@ -209,19 +211,14 @@ func (p *Persons) Render(common *module.SceneCommon) {
 	}
 }
 
-// SystemChanged returns false
-func (*Persons) SystemChanged(common *module.SceneCommon) bool {
-	return false
-}
-
-// GroupChanged returns false
-func (*Persons) GroupChanged(common *module.SceneCommon) bool {
-	return false
-}
-
 // ToConfig is not implemented yet.
 func (*Persons) ToConfig(node *yaml.Node) (interface{}, error) {
 	return &personsConfig{}, nil
+}
+
+// EmptyConfig returns an empty configuration
+func (*Persons) EmptyConfig() interface{} {
+	return &personsConfig{}
 }
 
 // DefaultConfig returns the default configuration
@@ -234,7 +231,12 @@ func (p *Persons) SetConfig(config interface{}) {
 	p.config = config.(*personsConfig)
 }
 
+// GetConfig retrieves the current configuration of the item.
+func (p *Persons) GetConfig() interface{} {
+	return p.config
+}
+
 // NeedsTransition returns false
-func (*Persons) NeedsTransition(common *module.SceneCommon) bool {
+func (*Persons) NeedsTransition() bool {
 	return false
 }

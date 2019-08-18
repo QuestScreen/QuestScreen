@@ -18,6 +18,7 @@ type backgroundConfig struct{}
 
 // Background is a module for painting background images
 type Background struct {
+	common                           *module.SceneCommon
 	config                           *backgroundConfig
 	texture, newTexture              *sdl.Texture
 	reqTextureIndex, curTextureIndex int
@@ -27,6 +28,7 @@ type Background struct {
 
 // Init initializes the module
 func (bg *Background) Init(common *module.SceneCommon) error {
+	bg.common = common
 	bg.images = common.ListFiles(bg, "")
 	bg.texture = nil
 	bg.newTexture = nil
@@ -48,7 +50,7 @@ func (*Background) InternalName() string {
 }
 
 // UI renders the HTML UI of the module.
-func (bg *Background) UI(common *module.SceneCommon) template.HTML {
+func (bg *Background) UI() template.HTML {
 	var builder module.UIBuilder
 	shownIndex := bg.reqTextureIndex
 	if shownIndex == -1 {
@@ -58,7 +60,7 @@ func (bg *Background) UI(common *module.SceneCommon) template.HTML {
 	builder.StartSelect("", "image", "value")
 	builder.Option("", shownIndex == len(bg.images), "None")
 	for index, file := range bg.images {
-		if file.Enabled(&common.SharedData) {
+		if file.Enabled(&bg.common.SharedData) {
 			builder.Option(strconv.Itoa(index), shownIndex == index, file.Name)
 		}
 	}
@@ -110,13 +112,13 @@ func offsets(inRatio float32, outRatio float32, winWidth int32, winHeight int32)
 }
 
 // InitTransition initializes a transition
-func (bg *Background) InitTransition(common *module.SceneCommon) time.Duration {
+func (bg *Background) InitTransition() time.Duration {
 	var ret time.Duration = -1
 	if bg.reqTextureIndex != -1 {
 		if bg.reqTextureIndex != bg.curTextureIndex {
 			if bg.reqTextureIndex < len(bg.images) {
 				file := bg.images[bg.reqTextureIndex]
-				tex, err := img.LoadTexture(common.Renderer, file.Path)
+				tex, err := img.LoadTexture(bg.common.Renderer, file.Path)
 				if err != nil {
 					log.Println(err)
 					bg.newTexture = nil
@@ -126,20 +128,20 @@ func (bg *Background) InitTransition(common *module.SceneCommon) time.Duration {
 					if err != nil {
 						panic(err)
 					}
-					winWidth, winHeight := common.Window.GetSize()
-					bg.newTexture, err = common.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
+					winWidth, winHeight := bg.common.Window.GetSize()
+					bg.newTexture, err = bg.common.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
 						winWidth, winHeight)
 					if err != nil {
 						panic(err)
 					}
-					common.Renderer.SetRenderTarget(bg.newTexture)
-					defer common.Renderer.SetRenderTarget(nil)
-					common.Renderer.Clear()
-					common.Renderer.SetDrawColor(255, 255, 255, 255)
-					common.Renderer.FillRect(nil)
+					bg.common.Renderer.SetRenderTarget(bg.newTexture)
+					defer bg.common.Renderer.SetRenderTarget(nil)
+					bg.common.Renderer.Clear()
+					bg.common.Renderer.SetDrawColor(255, 255, 255, 255)
+					bg.common.Renderer.FillRect(nil)
 					dst := offsets(float32(texWidth)/float32(texHeight), float32(winWidth)/float32(winHeight),
 						winWidth, winHeight)
-					common.Renderer.Copy(tex, nil, &dst)
+					bg.common.Renderer.Copy(tex, nil, &dst)
 				}
 			}
 			bg.curTextureIndex = bg.reqTextureIndex
@@ -152,12 +154,12 @@ func (bg *Background) InitTransition(common *module.SceneCommon) time.Duration {
 }
 
 // TransitionStep advances the transition.
-func (bg *Background) TransitionStep(common *module.SceneCommon, elapsed time.Duration) {
+func (bg *Background) TransitionStep(elapsed time.Duration) {
 	bg.curTextureSplit = float32(elapsed) / float32(time.Second)
 }
 
 // FinishTransition finalizes the transition.
-func (bg *Background) FinishTransition(common *module.SceneCommon) {
+func (bg *Background) FinishTransition() {
 	if bg.texture != nil {
 		bg.texture.Destroy()
 	}
@@ -167,19 +169,24 @@ func (bg *Background) FinishTransition(common *module.SceneCommon) {
 }
 
 // Render renders the module
-func (bg *Background) Render(common *module.SceneCommon) {
+func (bg *Background) Render() {
 	if bg.texture != nil || bg.curTextureSplit != 0 {
-		winWidth, winHeight := common.Window.GetSize()
+		winWidth, winHeight := bg.common.Window.GetSize()
 		curSplit := int32(bg.curTextureSplit * float32(winWidth))
 		if bg.texture != nil {
 			rect := sdl.Rect{X: curSplit, Y: 0, W: winWidth - curSplit, H: winHeight}
-			common.Renderer.Copy(bg.texture, &rect, &rect)
+			bg.common.Renderer.Copy(bg.texture, &rect, &rect)
 		}
 		if bg.newTexture != nil {
 			rect := sdl.Rect{X: 0, Y: 0, W: curSplit, H: winHeight}
-			common.Renderer.Copy(bg.newTexture, &rect, &rect)
+			bg.common.Renderer.Copy(bg.newTexture, &rect, &rect)
 		}
 	}
+}
+
+// EmptyConfig returns an empty configuration
+func (*Background) EmptyConfig() interface{} {
+	return &backgroundConfig{}
 }
 
 // DefaultConfig returns the default configuration
@@ -192,6 +199,11 @@ func (bg *Background) SetConfig(config interface{}) {
 	bg.config = config.(*backgroundConfig)
 }
 
+// GetConfig retrieves the current configuration of the item.
+func (bg *Background) GetConfig() interface{} {
+	return bg.config
+}
+
 // ToConfig is not implemented yet.
 func (*Background) ToConfig(node *yaml.Node) (interface{}, error) {
 	// no config
@@ -199,6 +211,6 @@ func (*Background) ToConfig(node *yaml.Node) (interface{}, error) {
 }
 
 // NeedsTransition returns false
-func (*Background) NeedsTransition(common *module.SceneCommon) bool {
+func (*Background) NeedsTransition() bool {
 	return false
 }
