@@ -2,6 +2,12 @@ body {
     color: #777;
 }
 
+hr {
+    border: 0;
+    height: 1px;
+    background-color: #333;
+}
+
 .pure-img-responsive {
     max-width: 100%;
     height: auto;
@@ -222,6 +228,29 @@ small screens.
     margin-top: 0.6em;
 }
 
+.with-settings {
+    height: 2.2em; /* 1em + 2*padding */
+}
+
+.with-settings .pure-menu-link {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 2.2em;
+}
+
+.with-settings .settings-link {
+    position: absolute;
+    top: 0;
+    left: calc(100% - 2.2em);
+    bottom: 0;
+    right: 0;
+}
+
+#menu a.settings-link:not(:hover) {
+    color: #565d64;
+}
 
 /* -- Responsive Styles (Media Queries) ------------------------------------- */
 

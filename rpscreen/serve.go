@@ -117,10 +117,18 @@ func startServer(screen *Screen) *http.Server {
 	server := &http.Server{Addr: ":8080"}
 
 	http.Handle("/", newScreenHandler(screen))
-	setupResourceHandler(server, "/style/pure-min.css", "text/css")
-	setupResourceHandler(server, "/style/style.css", "text/css")
+	setupResourceHandler(server, "/css/pure-min.css", "text/css")
+	setupResourceHandler(server, "/css/grids-responsive-min.css", "text/css")
+	setupResourceHandler(server, "/css/style.css", "text/css")
+	setupResourceHandler(server, "/css/fontawesome.min.css", "text/css")
+	setupResourceHandler(server, "/css/solid.min.css", "text/css")
 	setupResourceHandler(server, "/js/ui.js", "application/javascript")
 	setupResourceHandler(server, "/js/sharedData.js", "application/javascript")
+	setupResourceHandler(server, "/webfonts/fa-solid-900.eot", "application/vnd.ms-fontobject")
+	setupResourceHandler(server, "/webfonts/fa-solid-900.svg", "image/svg+xml")
+	setupResourceHandler(server, "/webfonts/fa-solid-900.ttf", "font/ttf")
+	setupResourceHandler(server, "/webfonts/fa-solid-900.woff", "font/woff")
+	setupResourceHandler(server, "/webfonts/fa-solid-900.woff2", "font/woff2")
 
 	http.HandleFunc("/systems/", func(w http.ResponseWriter, r *http.Request) {
 		systemName := r.URL.Path[len("/systems/"):]
@@ -172,17 +180,17 @@ func startServer(screen *Screen) *http.Server {
 			} else {
 				screen.SendBaseJSON(w)
 			}
-		case "group":
+		case "groups":
 			if isLast {
 				http.Error(w, "400: group missing", http.StatusBadRequest)
 			} else {
-				screen.SendGroupJSON(w, r.URL.Path[len("/config/group/"):])
+				screen.SendGroupJSON(w, r.URL.Path[len("/config/groups/"):])
 			}
-		case "system":
+		case "systems":
 			if isLast {
 				http.Error(w, "400: group missing", http.StatusBadRequest)
 			} else {
-				screen.SendGroupJSON(w, r.URL.Path[len("/config/system/"):])
+				screen.SendSystemJSON(w, r.URL.Path[len("/config/systems/"):])
 			}
 		default:
 			http.Error(w, "404: \""+r.URL.Path+"\" not found", http.StatusNotFound)

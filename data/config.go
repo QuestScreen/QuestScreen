@@ -431,9 +431,16 @@ func (c *Config) SendJSON(w http.ResponseWriter, curGroup int, curSystem int) {
 		ActiveGroup: curGroup, ActiveSystem: curSystem})
 }
 
+type jsonConfigItem struct {
+	Type    string
+	Value   interface{}
+	Default interface{}
+}
+
 type jsonModuleConfig struct {
-	Value   *moduleConfig
-	Default *moduleConfig
+	State        configuredModuleState
+	DefaultState configuredModuleState
+	Config       map[string]jsonConfigItem
 }
 
 func (c *Config) sendModuleConfigJSON(
@@ -441,9 +448,20 @@ func (c *Config) sendModuleConfigJSON(
 	ret := make(map[string]jsonModuleConfig)
 	for i := 0; i < c.items.NumItems(); i++ {
 		item := c.items.ItemAt(i)
-		ret[item.Name()] = jsonModuleConfig{
-			Value:   config[item.Name()],
-			Default: &moduleConfig{Config: item.GetConfig()}}
+		curConfig := item.GetConfig()
+		itemConfig := config[item.Name()]
+		jsonConfig := jsonModuleConfig{
+			State: itemConfig.State, DefaultState: moduleEnabled,
+			Config: make(map[string]jsonConfigItem)}
+		itemValue := reflect.ValueOf(itemConfig.Config).Elem()
+		curValue := reflect.ValueOf(curConfig).Elem()
+		for i := 0; i < itemValue.NumField(); i++ {
+			jsonConfig.Config[itemValue.Type().Field(i).Name] = jsonConfigItem{
+				Type:    itemValue.Type().Field(i).Type.Elem().Name(),
+				Value:   itemValue.Field(i).Interface(),
+				Default: curValue.Field(i).Interface()}
+		}
+		ret[item.Name()] = jsonConfig
 	}
 	sendAsJSON(w, ret)
 }
