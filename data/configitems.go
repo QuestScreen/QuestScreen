@@ -125,8 +125,8 @@ func (fs *FontSize) MarshalYAML() (interface{}, error) {
 
 // SelectableFont is used to allow the user to select a font family.
 type SelectableFont struct {
-	Family string
-	Size   FontSize
-	Style  FontStyle
-	Index  int32 `yaml:"-"`
+	Family      string
+	FamilyIndex int32 `yaml:"-"`
+	Size        FontSize
+	Style       FontStyle
 }

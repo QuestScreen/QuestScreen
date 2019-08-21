@@ -204,9 +204,6 @@ func newScreen() (*Screen, error) {
 		return nil, err
 	}
 	width, height := screen.Window.GetSize()
-	screen.DefaultBorderWidth = height / 133
-	screen.DefaultHeadingTextSize = height / 13
-	screen.DefaultBodyTextSize = height / 27
 
 	screen.Renderer, err = sdl.CreateRenderer(screen.Window, -1,
 		sdl.RENDERER_ACCELERATED|sdl.RENDERER_TARGETTEXTURE)
@@ -216,12 +213,11 @@ func newScreen() (*Screen, error) {
 	}
 
 	screen.loadModules()
-	screen.SharedData.Init(&screen.modules)
+	screen.SharedData.Init(&screen.modules, width, height)
 	screen.numTransitions = 0
 	screen.moduleUpdateEventID = sdl.RegisterEvents(3)
 	screen.groupUpdateEventID = screen.moduleUpdateEventID + 1
 	screen.systemUpdateEventID = screen.moduleUpdateEventID + 2
-	screen.Fonts = module.CreateFontCatalog(&screen.SharedData, screen.DefaultBodyTextSize)
 
 	screen.initModules()
 	screen.genPopup(width, height)

@@ -41,12 +41,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	swapInteral, err := sdl.GLGetSwapInterval()
-	if err != nil {
-		panic(err)
+	if err := sdl.GLSetSwapInterval(-1); err != nil {
+		log.Println("Could not set swap interval to -1")
 	}
-	log.Printf("Swap interval: %d\n", swapInteral)
 
 	server := startServer(screen)
 

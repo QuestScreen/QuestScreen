@@ -383,36 +383,8 @@ func (c *Config) UpdateConfig(defaultValues interface{}, item ConfigurableItem,
 	item.SetConfig(result.Interface())
 }
 
-type jsonItem struct {
-	Name, DirName string
-}
-
-type jsonData struct {
-	Systems      []jsonItem
-	Groups       []jsonItem
-	ActiveGroup  int
-	ActiveSystem int
-}
-
-func (c *Config) jsonSystems() []jsonItem {
-	ret := make([]jsonItem, 0, c.NumSystems())
-	for i := 0; i < c.NumSystems(); i++ {
-		ret = append(ret, jsonItem{Name: c.SystemName(i),
-			DirName: c.SystemDirectory(i)})
-	}
-	return ret
-}
-
-func (c *Config) jsonGroups() []jsonItem {
-	ret := make([]jsonItem, 0, c.NumGroups())
-	for i := 0; i < c.NumGroups(); i++ {
-		ret = append(ret, jsonItem{Name: c.GroupName(i),
-			DirName: c.GroupDirectory(i)})
-	}
-	return ret
-}
-
-func sendAsJSON(w http.ResponseWriter, data interface{}) {
+// SendAsJSON sends the given data as JSON file
+func SendAsJSON(w http.ResponseWriter, data interface{}) {
 	b, err := json.Marshal(data)
 	if err == nil {
 		w.Header().Set("Content-Type", "application/json")
@@ -422,13 +394,6 @@ func sendAsJSON(w http.ResponseWriter, data interface{}) {
 	} else {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-}
-
-// SendJSON sends a JSON describing all systems and groups.
-func (c *Config) SendJSON(w http.ResponseWriter, curGroup int, curSystem int) {
-	sendAsJSON(w, jsonData{
-		Systems: c.jsonSystems(), Groups: c.jsonGroups(),
-		ActiveGroup: curGroup, ActiveSystem: curSystem})
 }
 
 type jsonConfigItem struct {
@@ -463,7 +428,7 @@ func (c *Config) sendModuleConfigJSON(
 		}
 		ret[item.Name()] = jsonConfig
 	}
-	sendAsJSON(w, ret)
+	SendAsJSON(w, ret)
 }
 
 // SendBaseJSON writes the base config as JSON to w

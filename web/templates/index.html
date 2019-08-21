@@ -61,20 +61,34 @@
 <template id="tmpl-settings-module">
     <hr class="pure-u-1"/>
     <div class="pure-u-1 pure-u-lg-1-4"><h3 id="module-settings-name"></h3></div>
-    <div class="pure-u-1 pure-u-lg-3-4" id="module-settings-content"></div>
+    <div class="pure-u-1 pure-u-lg-3-4 pure-form pure-form-aligned">
+        <fieldset id="module-settings-content"></fieldset>
+    </div>
 </template>
-<template id="tmpl-settings-fontchooser">
-    <div class="font-chooser">
-        <label id="setting-name"></label>
-        <select class="font-families"></select>
-        <select class="font-size">
-            <option value="0">Small</option>
-            <option value="1">Content</option>
-            <option value="2">Medium</option>
-            <option value="3">Heading</option>
-            <option value="4">Large</option>
-            <option value="5">Huge</option>
-        </select>
+
+<template id="tmpl-settings-item">
+    <div class="pure-control-group">
+        <label>
+            <input type="checkbox" class="settings-item-checkbox"/>
+            <span class="settings-item-name"></span>
+        </label>
+        <!-- setting contents goes here -->
+    </div>
+</template>
+
+<template id="tmpl-settings-selectable-font">
+    <select class="font-families"></select>
+    <select class="font-size">
+        <option value="0">Small</option>
+        <option value="1">Content</option>
+        <option value="2">Medium</option>
+        <option value="3">Heading</option>
+        <option value="4">Large</option>
+        <option value="5">Huge</option>
+    </select>
+    <div class="pure-button-group" role="group" aria-label="Font Faces" style="display: inline">
+        <button class="pure-button font-style-selector bold"><i class="fas fa-bold"></i></button>
+        <button class="pure-button font-style-selector italic"><i class="fas fa-italic"></i></button>
     </div>
 </template>
 
