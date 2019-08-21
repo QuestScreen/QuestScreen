@@ -150,11 +150,11 @@ func (l *HeroList) EndpointHandler(suffix string, values url.Values, w http.Resp
 }
 
 func renderText(text string, common *module.SceneCommon, fontIndex int32,
-	style data.FontStyle) *sdl.Texture {
+	style data.FontStyle, r uint8, g uint8, b uint8) *sdl.Texture {
 	face := common.Fonts[fontIndex].GetSize(common.DefaultBodyTextSize).GetFace(style)
 
 	surface, err := face.RenderUTF8Blended(
-		text, sdl.Color{R: 0, G: 0, B: 0, A: 230})
+		text, sdl.Color{R: r, G: g, B: b, A: 255})
 	if err != nil {
 		log.Println(err)
 		return nil
@@ -186,10 +186,14 @@ func (l *HeroList) rebuildHeroBoxes() {
 				l.boxWidth(), l.boxHeight())
 			if err == nil {
 				l.common.Renderer.SetRenderTarget(hero.tex)
-				name := renderText(l.common.Config.HeroName(l.common.ActiveGroup, index), l.common, 0, data.Standard)
+				name := renderText(l.common.Config.HeroName(l.common.ActiveGroup, index),
+					l.common, 0, data.Standard, 0, 0, 0)
 				_, _, nameWidth, nameHeight, _ := name.Query()
-				descr := renderText(l.common.Config.HeroDescription(l.common.ActiveGroup, index), l.common, 0, data.Standard)
+				name.SetBlendMode(sdl.BLENDMODE_BLEND)
+				descr := renderText(l.common.Config.HeroDescription(l.common.ActiveGroup, index),
+					l.common, 0, data.Standard, 50, 50, 50)
 				_, _, descrWidth, descrHeight, _ := descr.Query()
+				descr.SetBlendMode(sdl.BLENDMODE_BLEND)
 				l.common.Renderer.Clear()
 				l.common.Renderer.SetDrawColor(0, 0, 0, 192)
 				l.common.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: l.boxWidth(), H: l.boxHeight()})
@@ -197,8 +201,9 @@ func (l *HeroList) rebuildHeroBoxes() {
 				l.common.Renderer.FillRect(&sdl.Rect{X: 0, Y: l.borderWidth, W: int32(l.contentWidth + 4*l.borderWidth),
 					H: int32(l.contentHeight + 2*l.borderWidth)})
 				l.common.Renderer.Copy(name, nil, &sdl.Rect{X: 2 * l.borderWidth, Y: l.borderWidth, W: nameWidth, H: nameHeight})
+
 				l.common.Renderer.Copy(descr, nil, &sdl.Rect{X: 2 * l.borderWidth,
-					Y: l.contentHeight - l.borderWidth - descrHeight, W: descrWidth, H: descrHeight})
+					Y: l.boxHeight() - 2*l.borderWidth - descrHeight, W: descrWidth, H: descrHeight})
 				name.Destroy()
 				descr.Destroy()
 			} else {

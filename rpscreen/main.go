@@ -42,6 +42,12 @@ func main() {
 		panic(err)
 	}
 
+	swapInteral, err := sdl.GLGetSwapInterval()
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("Swap interval: %d\n", swapInteral)
+
 	server := startServer(screen)
 
 	render := true

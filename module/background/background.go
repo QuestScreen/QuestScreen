@@ -137,7 +137,7 @@ func (bg *Background) InitTransition() time.Duration {
 					bg.common.Renderer.SetRenderTarget(bg.newTexture)
 					defer bg.common.Renderer.SetRenderTarget(nil)
 					bg.common.Renderer.Clear()
-					bg.common.Renderer.SetDrawColor(255, 255, 255, 255)
+					bg.common.Renderer.SetDrawColor(0, 0, 0, 255)
 					bg.common.Renderer.FillRect(nil)
 					dst := offsets(float32(texWidth)/float32(texHeight), float32(winWidth)/float32(winHeight),
 						winWidth, winHeight)

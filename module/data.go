@@ -51,7 +51,7 @@ func (data *SharedData) Init(modules data.ConfigurableItemProvider) {
 // module's data are returned. Never returns directories.
 func (data *SharedData) ListFiles(module Module, subdir string) []Resource {
 	resources := make([]Resource, 0, 64)
-	resources = appendDir(resources, filepath.Join(data.Config.DataDir, "common", module.InternalName(), subdir), -1, -1)
+	resources = appendDir(resources, filepath.Join(data.Config.DataDir, "base", module.InternalName(), subdir), -1, -1)
 	for i := 0; i < data.Config.NumSystems(); i++ {
 		if data.Config.SystemDirectory(i) != "" {
 			resources = appendDir(resources, filepath.Join(data.Config.DataDir, "systems",
@@ -101,7 +101,7 @@ func (data *SharedData) GetFilePath(module Module, subdir string, filename strin
 			return path
 		}
 	}
-	path := filepath.Join(data.DataDir, "common", module.InternalName(), subdir, filename)
+	path := filepath.Join(data.DataDir, "base", module.InternalName(), subdir, filename)
 	if isProperFile(path) {
 		return path
 	}

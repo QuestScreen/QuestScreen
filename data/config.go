@@ -229,7 +229,7 @@ func (c *Config) Init(items ConfigurableItemProvider) {
 	c.groups = make([]group, 0, 16)
 	c.DataDir = filepath.Join(usr.HomeDir, ".local", "share", "rpscreen")
 
-	rawBaseConfig, err := ioutil.ReadFile(filepath.Join(c.DataDir, "config.yaml"))
+	rawBaseConfig, err := ioutil.ReadFile(filepath.Join(c.DataDir, "base", "config.yaml"))
 	if err != nil {
 		panic(err)
 	}
