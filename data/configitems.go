@@ -2,6 +2,8 @@ package data
 
 import (
 	"errors"
+	"net/http"
+	"reflect"
 	"strconv"
 )
 
@@ -125,8 +127,84 @@ func (fs *FontSize) MarshalYAML() (interface{}, error) {
 
 // SelectableFont is used to allow the user to select a font family.
 type SelectableFont struct {
-	Family      string
-	FamilyIndex int32 `yaml:"-"`
+	Family      string `json:"-"`
+	FamilyIndex int32  `yaml:"-"`
 	Size        FontSize
 	Style       FontStyle
+}
+
+func setInt(field *int, name string, json map[string]interface{},
+	w http.ResponseWriter) bool {
+	val, ok := json[name]
+	if !ok {
+		http.Error(w, "field \""+name+"\" missing!", http.StatusBadRequest)
+		return false
+	}
+	floatVal, ok := val.(float64)
+	if ok {
+		*field = int(floatVal)
+		return true
+	}
+	http.Error(w, "field \""+name+"\" must be a number!", http.StatusBadRequest)
+	return false
+}
+
+func setInt32(field *int32, name string, json map[string]interface{},
+	w http.ResponseWriter) bool {
+	val, ok := json[name]
+	if !ok {
+		http.Error(w, "field \""+name+"\" missing!", http.StatusBadRequest)
+		return false
+	}
+	floatVal, ok := val.(float64)
+	if ok {
+		*field = int32(floatVal)
+		return true
+	}
+	http.Error(w, "field \""+name+"\" must be a number!", http.StatusBadRequest)
+	return false
+}
+
+func (s *StaticData) setFromJSON(target interface{}, json map[string]interface{},
+	w http.ResponseWriter) bool {
+	// TODO: change code: set via reflection, then do post-processing based on
+	// the actual type. ensure all fields are set and no unknown fields are present.
+
+	switch v := target.(type) {
+	case *SelectableFont:
+		var found [3]bool
+		for key, value := range json {
+			switch key {
+			case "familyIndex":
+				if found[0] {
+					http.Error(w, "duplicate key: familyIndex", http.StatusBadRequest)
+					return false
+				}
+				found[0] = true
+
+			}
+		}
+
+		if !setInt32(&v.FamilyIndex, "FamilyIndex", json, w) {
+			return false
+		}
+		if v.FamilyIndex < 0 || v.FamilyIndex >= int32(len(s.Fonts)) {
+			http.Error(w, "font index out of range!", http.StatusBadRequest)
+			return false
+		}
+		v.Family = s.Fonts[v.FamilyIndex].Name
+		var sizeInt int
+		if !setInt(&sizeInt, "Size", json, w) {
+			return false
+		}
+		v.Size = FontSize(sizeInt)
+		var styleInt int
+		if !setInt(&styleInt, "Style", json, w) {
+			return false
+		}
+		v.Style = FontStyle(styleInt)
+	default:
+		panic("unknown type: " + reflect.TypeOf(target).Name())
+	}
+	return true
 }

@@ -14,12 +14,6 @@ type Module interface {
 	data.ConfigurableItem
 	// initialize the module.
 	Init(common *SceneCommon) error
-	// Alphanumeric name used for:
-	// * directories with module data
-	// * HTTP setter endpoints
-	// * IDs for menu setters
-	// May not contain whitespace or special characters. Must be unique among loaded modules.
-	InternalName() string
 	// collect requests given to EndpointHandler() and initializes a transition.
 	// returns the length of the transition animation.
 	// TransitionStep() and Render() will be invoked continuously until the returned time has been elapsed

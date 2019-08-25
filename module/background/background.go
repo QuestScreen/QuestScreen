@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/flyx/rpscreen/data"
 	"github.com/flyx/rpscreen/module"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
-	"gopkg.in/yaml.v3"
 )
 
 type backgroundConfig struct{}
@@ -22,7 +22,7 @@ type Background struct {
 	config                           *backgroundConfig
 	texture, newTexture              *sdl.Texture
 	reqTextureIndex, curTextureIndex int
-	images                           []module.Resource
+	images                           []data.Resource
 	curTextureSplit                  float32
 }
 
@@ -60,7 +60,7 @@ func (bg *Background) UI() template.HTML {
 	builder.StartSelect("", "image", "value")
 	builder.Option("", shownIndex == len(bg.images), "None")
 	for index, file := range bg.images {
-		if file.Enabled(&bg.common.SharedData) {
+		if file.Enabled(&bg.common.Store) {
 			builder.Option(strconv.Itoa(index), shownIndex == index, file.Name)
 		}
 	}
@@ -202,12 +202,6 @@ func (bg *Background) SetConfig(config interface{}) {
 // GetConfig retrieves the current configuration of the item.
 func (bg *Background) GetConfig() interface{} {
 	return bg.config
-}
-
-// ToConfig is not implemented yet.
-func (*Background) ToConfig(node *yaml.Node) (interface{}, error) {
-	// no config
-	return &backgroundConfig{}, nil
 }
 
 // NeedsTransition returns false

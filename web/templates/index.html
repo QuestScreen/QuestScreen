@@ -56,13 +56,21 @@
 <template id="tmpl-settings-page">
     <article class="pure-g">
         <h2 id="settings-heading" class="pure-u-1"></h2>
+        <hr class="pure-u-1" id="settings-control-sep" />
+        <div class="pure-u-1 pure-u-sm-1-2">
+            <p id="settings-changed" style="visibility: hidden;">Settings have been changed.</p>
+        </div>
+        <div class="pure-u-1 pure-u-sm-1-2">
+            <button class="pure-button" id="settings-cancel">Cancel</button>
+            <button class="pure-button pure-button-primary" id="settings-save">Save</button>
+        </div>
     </article>
 </template>
 <template id="tmpl-settings-module">
     <hr class="pure-u-1"/>
-    <div class="pure-u-1 pure-u-lg-1-4"><h3 id="module-settings-name"></h3></div>
-    <div class="pure-u-1 pure-u-lg-3-4 pure-form pure-form-aligned">
-        <fieldset id="module-settings-content"></fieldset>
+    <div class="pure-u-1 pure-u-md-1-5"><h3 id="module-settings-name"></h3></div>
+    <div class="pure-u-1 pure-u-md-4-5 pure-form pure-form-aligned">
+        <fieldset class="module-settings-content"></fieldset>
     </div>
 </template>
 

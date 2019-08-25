@@ -14,7 +14,6 @@ import (
 	"github.com/flyx/rpscreen/module"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
-	"gopkg.in/yaml.v3"
 )
 
 type titleConfig struct {
@@ -30,7 +29,7 @@ type Title struct {
 	curTitle     *sdl.Texture
 	newTitle     *sdl.Texture
 	mask         *sdl.Texture
-	fonts        []module.LoadedFontFamily
+	fonts        []data.LoadedFontFamily
 	curYOffset   int32
 }
 
@@ -214,11 +213,6 @@ func (t *Title) Render() {
 
 	dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -t.curYOffset, W: texWidth, H: texHeight}
 	_ = t.common.Renderer.Copy(t.curTitle, nil, &dst)
-}
-
-// ToConfig is not implemented yet.
-func (*Title) ToConfig(node *yaml.Node) (interface{}, error) {
-	return &titleConfig{}, nil
 }
 
 // EmptyConfig returns an empty configuration

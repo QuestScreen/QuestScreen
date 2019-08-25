@@ -1,11 +1,10 @@
-package module
+package data
 
 import (
 	"io/ioutil"
 	"log"
 	"path/filepath"
 
-	"github.com/flyx/rpscreen/data"
 	"github.com/veandco/go-sdl2/ttf"
 )
 
@@ -19,7 +18,7 @@ type LoadedFontFace struct {
 // LoadedFontSize is a font at a given size. At least one style has been loaded.
 type LoadedFontSize struct {
 	Size  int32
-	faces [data.NumFontStyles]LoadedFontFace
+	faces [NumFontStyles]LoadedFontFace
 }
 
 // LoadedFontFamily is a family font that has been loaded. At least one size
@@ -31,8 +30,8 @@ type LoadedFontFamily struct {
 }
 
 // CreateFontCatalog loads all the fonts in the fonts directory
-func CreateFontCatalog(common *SharedData, defaultSize int32) []LoadedFontFamily {
-	fontPath := filepath.Join(common.DataDir, "fonts")
+func CreateFontCatalog(dataDir string, defaultSize int32) []LoadedFontFamily {
+	fontPath := filepath.Join(dataDir, "fonts")
 	files, err := ioutil.ReadDir(fontPath)
 
 	if err == nil {
@@ -66,14 +65,14 @@ func CreateFontCatalog(common *SharedData, defaultSize int32) []LoadedFontFamily
 					}
 					if isBold {
 						if isItalic {
-							entry.faces[data.BoldItalic] = LoadedFontFace{font: font, path: path}
+							entry.faces[BoldItalic] = LoadedFontFace{font: font, path: path}
 						} else {
-							entry.faces[data.Bold] = LoadedFontFace{font: font, path: path}
+							entry.faces[Bold] = LoadedFontFace{font: font, path: path}
 						}
 					} else if isItalic {
-						entry.faces[data.Italic] = LoadedFontFace{font: font, path: path}
+						entry.faces[Italic] = LoadedFontFace{font: font, path: path}
 					} else {
-						entry.faces[data.Standard] = LoadedFontFace{font: font, path: path}
+						entry.faces[Standard] = LoadedFontFace{font: font, path: path}
 					}
 				}
 			}
@@ -107,7 +106,7 @@ func (family *LoadedFontFamily) GetSize(size int32) *LoadedFontSize {
 
 	*newLoaded = LoadedFontSize{Size: size}
 	base := &family.loadedSizes[family.baseIndex]
-	for i := data.Standard; i < data.NumFontStyles; i++ {
+	for i := Standard; i < NumFontStyles; i++ {
 		if base.faces[i].font != nil {
 			var err error
 			if newLoaded.faces[i].font, err = ttf.OpenFont(base.faces[i].path, int(size)); err != nil {
@@ -121,14 +120,14 @@ func (family *LoadedFontFamily) GetSize(size int32) *LoadedFontSize {
 // GetFace returns the font face with the requested style;
 // loads that style if it hasn't already been loaded.
 // Returns a fallback if the requested style isn't available.
-func (fs *LoadedFontSize) GetFace(style data.FontStyle) *ttf.Font {
-	var curStyle data.FontStyle
+func (fs *LoadedFontSize) GetFace(style FontStyle) *ttf.Font {
+	var curStyle FontStyle
 	for curStyle = style; curStyle >= 0; curStyle-- {
 		if fs.faces[curStyle].font != nil {
 			return fs.faces[curStyle].font
 		}
 	}
-	for curStyle = style + 1; curStyle < data.NumFontStyles; curStyle++ {
+	for curStyle = style + 1; curStyle < NumFontStyles; curStyle++ {
 		if fs.faces[curStyle].font != nil {
 			return fs.faces[curStyle].font
 		}

@@ -213,7 +213,7 @@ func newScreen() (*Screen, error) {
 	}
 
 	screen.loadModules()
-	screen.SharedData.Init(&screen.modules, width, height)
+	screen.Store.Init(&screen.modules, width, height)
 	screen.numTransitions = 0
 	screen.moduleUpdateEventID = sdl.RegisterEvents(3)
 	screen.groupUpdateEventID = screen.moduleUpdateEventID + 1

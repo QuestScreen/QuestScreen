@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os/user"
 	"path/filepath"
 	"reflect"
 
@@ -28,20 +27,10 @@ type moduleConfig struct {
 	Config interface{}
 }
 
-type transientModuleConfig struct {
-	State  configuredModuleState
-	Config yaml.Node
-}
-
 type systemConfig struct {
 	Name    string
 	DirName string `yaml:"-"`
 	Modules map[string]*moduleConfig
-}
-
-type transientSystemConfig struct {
-	Name    string
-	Modules map[string]transientModuleConfig
 }
 
 type groupConfig struct {
@@ -50,12 +39,6 @@ type groupConfig struct {
 	System      string
 	SystemIndex int `yaml:"-"`
 	Modules     map[string]*moduleConfig
-}
-
-type transientGroupConfig struct {
-	Name    string
-	System  string
-	Modules map[string]transientModuleConfig
 }
 
 type hero struct {
@@ -85,25 +68,25 @@ type Config struct {
 	baseConfigs map[string]*moduleConfig
 	systems     []systemConfig
 	groups      []group
-	DataDir     string
 }
 
 // ConfigurableItem describes an item that may be configured via a Config object
 type ConfigurableItem interface {
 	// Name gives the name of this item.
 	Name() string
+	// Alphanumeric name used for:
+	// * directories with module data
+	// * HTTP setter endpoints
+	// * IDs for menu setters
+	// May not contain whitespace or special characters. Must be unique among loaded modules.
+	InternalName() string
 	// returns an empty configuration
+	// The item defines the type of its configuration.
 	EmptyConfig() interface{}
 	// returns a configuration object with default values.
-	// The item defines the type of its configuration.
-	// The configuration object must be a pointer.
+	// The configuration object must be a pointer and must
 	DefaultConfig() interface{}
-	// ToConfig parses a YAML node inside config yaml and returns the result.
-	// The returned type is the same as that of DefaultConfig.
-	ToConfig(node *yaml.Node) (interface{}, error)
 	// SetConfig sets current configuration for the item.
-	// This configuration is to be merge from return values of ToConfig and
-	// DefaultConfig.
 	SetConfig(config interface{})
 	// GetConfig retrieves the current configuration of the item.
 	GetConfig() interface{}
@@ -190,21 +173,46 @@ func findItem(items ConfigurableItemProvider, name string) (ConfigurableItem, in
 	return nil, -1
 }
 
-func constructModuleConfigs(data map[string]*moduleConfig,
-	raw map[string]transientModuleConfig, items ConfigurableItemProvider) {
+// necessary to re-use the JSON deserialization funcs for loading YAML
+type dummyWriter struct {
+	headers http.Header
+}
+
+func createDummyWriter() *dummyWriter {
+	headers := make(http.Header)
+	return &dummyWriter{headers: headers}
+}
+
+func (d *dummyWriter) Header() http.Header {
+	return d.headers
+}
+
+func (d *dummyWriter) Write(data []byte) (int, error) {
+	log.Println(data)
+	return 0, nil
+}
+
+func (d *dummyWriter) WriteHeader(statusCode int) {}
+
+func (s *StaticData) constructModuleConfigs(data map[string]*moduleConfig,
+	raw map[string]*moduleConfig, items ConfigurableItemProvider) {
 	foundModules := make([]bool, items.NumItems())
+	dummy := createDummyWriter()
 	for name, node := range raw {
 		mod, index := findItem(items, name)
 		if mod == nil {
 			log.Println("Unknown module: " + name)
 		} else {
-			foundModules[index] = true
-			evaluated, err := mod.ToConfig(&node.Config)
-			if err == nil {
-				data[name] = &moduleConfig{
-					State: node.State, Config: &evaluated}
+			items, ok := node.Config.(map[string]interface{})
+			if ok {
+				target := mod.EmptyConfig()
+				if s.loadModuleConfigInto(target, items, name, dummy) {
+					foundModules[index] = true
+					data[name] = &moduleConfig{
+						State: node.State, Config: target}
+				}
 			} else {
-				log.Println(err)
+				log.Println("Value of module " + name + " is not a mapping!")
 			}
 		}
 	}
@@ -223,38 +231,36 @@ func constructModuleConfigs(data map[string]*moduleConfig,
 // logged and ignored.
 //
 // You must call Init before doing anything with a Config value.
-func (c *Config) Init(items ConfigurableItemProvider) {
+func (c *Config) Init(static *StaticData, items ConfigurableItemProvider) {
 	c.items = items
-	usr, _ := user.Current()
 	c.groups = make([]group, 0, 16)
-	c.DataDir = filepath.Join(usr.HomeDir, ".local", "share", "rpscreen")
 
-	rawBaseConfig, err := ioutil.ReadFile(filepath.Join(c.DataDir, "base", "config.yaml"))
+	rawBaseConfig, err := ioutil.ReadFile(filepath.Join(static.DataDir, "base", "config.yaml"))
 	if err != nil {
 		panic(err)
 	}
-	var nodes map[string]transientModuleConfig
+	var nodes map[string]*moduleConfig
 	err = yaml.Unmarshal(rawBaseConfig, &nodes)
 	if err != nil {
 		panic(err)
 	}
 	c.baseConfigs = make(map[string]*moduleConfig)
-	constructModuleConfigs(c.baseConfigs, nodes, items)
+	static.constructModuleConfigs(c.baseConfigs, nodes, items)
 
-	systemsDir := filepath.Join(c.DataDir, "systems")
+	systemsDir := filepath.Join(static.DataDir, "systems")
 	files, err := ioutil.ReadDir(systemsDir)
 	if err == nil {
 		for _, file := range files {
 			if file.IsDir() {
 				config, err := ioutil.ReadFile(filepath.Join(systemsDir, file.Name(), "config.yaml"))
 				if err == nil {
-					var tmp transientSystemConfig
+					var tmp systemConfig
 					err = yaml.Unmarshal(config, &tmp)
 					if err == nil {
 						finalConfig := systemConfig{
 							Name: tmp.Name, DirName: file.Name(),
 							Modules: make(map[string]*moduleConfig)}
-						constructModuleConfigs(finalConfig.Modules, tmp.Modules, items)
+						static.constructModuleConfigs(finalConfig.Modules, tmp.Modules, items)
 						c.systems = append(c.systems, finalConfig)
 					}
 				} else {
@@ -266,14 +272,14 @@ func (c *Config) Init(items ConfigurableItemProvider) {
 		log.Println(err)
 	}
 
-	groupsDir := filepath.Join(c.DataDir, "groups")
+	groupsDir := filepath.Join(static.DataDir, "groups")
 	files, err = ioutil.ReadDir(groupsDir)
 	if err == nil {
 		for _, file := range files {
 			if file.IsDir() {
 				config, err := ioutil.ReadFile(filepath.Join(groupsDir, file.Name(), "config.yaml"))
 				if err == nil {
-					var tmp transientGroupConfig
+					var tmp groupConfig
 					err = yaml.Unmarshal(config, &tmp)
 					if err == nil {
 						finalConfig := groupConfig{
@@ -291,7 +297,7 @@ func (c *Config) Init(items ConfigurableItemProvider) {
 								finalConfig.System = ""
 							}
 						}
-						constructModuleConfigs(finalConfig.Modules, tmp.Modules, items)
+						static.constructModuleConfigs(finalConfig.Modules, tmp.Modules, items)
 						c.groups = append(c.groups, group{
 							Config: finalConfig, Heroes: make([]hero, 0, 16)})
 					}
@@ -304,7 +310,7 @@ func (c *Config) Init(items ConfigurableItemProvider) {
 		log.Println(err)
 	}
 
-	heroesDir := filepath.Join(c.DataDir, "heroes")
+	heroesDir := filepath.Join(static.DataDir, "heroes")
 	files, err = ioutil.ReadDir(heroesDir)
 	if err == nil {
 		for _, file := range files {
@@ -347,6 +353,11 @@ func (c *Config) UpdateConfig(defaultValues interface{}, item ConfigurableItem,
 			panic("group config missing for " + item.Name())
 		}
 		val := reflect.ValueOf(conf.Config).Elem()
+		for ; val.Kind() == reflect.Interface || val.Kind() == reflect.Ptr; val = val.Elem() {
+		}
+		if val.Kind() != reflect.Struct {
+			panic("wrong kind of group value")
+		}
 		configStack[0] = &val
 	}
 	if systemIndex != -1 {
@@ -354,7 +365,13 @@ func (c *Config) UpdateConfig(defaultValues interface{}, item ConfigurableItem,
 		if !ok {
 			panic("system config missing for " + item.Name())
 		}
-		val := reflect.ValueOf(conf).Elem()
+		val := reflect.ValueOf(conf.Config).Elem()
+		for ; val.Kind() == reflect.Interface || val.Kind() == reflect.Ptr; val = val.Elem() {
+		}
+		if val.Kind() != reflect.Struct {
+			panic("wrong kind of system value")
+		}
+		log.Println(val.Kind())
 		configStack[1] = &val
 	}
 
@@ -373,10 +390,7 @@ func (c *Config) UpdateConfig(defaultValues interface{}, item ConfigurableItem,
 		for j := 0; j < 4; j++ {
 			if configStack[j] != nil {
 				field := configStack[j].Field(i)
-				if !field.IsNil() {
-					result.Elem().Field(i).Set(field)
-					break
-				}
+				result.Elem().Field(i).Set(field)
 			}
 		}
 	}
@@ -406,54 +420,4 @@ type jsonModuleConfig struct {
 	State        configuredModuleState
 	DefaultState configuredModuleState
 	Config       map[string]jsonConfigItem
-}
-
-func (c *Config) sendModuleConfigJSON(
-	w http.ResponseWriter, config map[string]*moduleConfig) {
-	ret := make(map[string]jsonModuleConfig)
-	for i := 0; i < c.items.NumItems(); i++ {
-		item := c.items.ItemAt(i)
-		curConfig := item.GetConfig()
-		itemConfig := config[item.Name()]
-		jsonConfig := jsonModuleConfig{
-			State: itemConfig.State, DefaultState: moduleEnabled,
-			Config: make(map[string]jsonConfigItem)}
-		itemValue := reflect.ValueOf(itemConfig.Config).Elem()
-		curValue := reflect.ValueOf(curConfig).Elem()
-		for i := 0; i < itemValue.NumField(); i++ {
-			jsonConfig.Config[itemValue.Type().Field(i).Name] = jsonConfigItem{
-				Type:    itemValue.Type().Field(i).Type.Elem().Name(),
-				Value:   itemValue.Field(i).Interface(),
-				Default: curValue.Field(i).Interface()}
-		}
-		ret[item.Name()] = jsonConfig
-	}
-	SendAsJSON(w, ret)
-}
-
-// SendBaseJSON writes the base config as JSON to w
-func (c *Config) SendBaseJSON(w http.ResponseWriter) {
-	c.sendModuleConfigJSON(w, c.baseConfigs)
-}
-
-// SendSystemJSON writes the config of the given system to w
-func (c *Config) SendSystemJSON(w http.ResponseWriter, system string) {
-	for i := range c.systems {
-		if c.systems[i].DirName == system {
-			c.sendModuleConfigJSON(w, c.systems[i].Modules)
-			return
-		}
-	}
-	http.Error(w, "404: unknown system \""+system+"\"", http.StatusNotFound)
-}
-
-// SendGroupJSON writes the config of the given group to w
-func (c *Config) SendGroupJSON(w http.ResponseWriter, group string) {
-	for i := range c.groups {
-		if c.groups[i].Config.DirName == group {
-			c.sendModuleConfigJSON(w, c.groups[i].Config.Modules)
-			return
-		}
-	}
-	http.Error(w, "404: unknown group \""+group+"\"", http.StatusNotFound)
 }

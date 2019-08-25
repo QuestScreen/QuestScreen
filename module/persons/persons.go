@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/flyx/rpscreen/data"
 	"github.com/flyx/rpscreen/module"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
-	"gopkg.in/yaml.v3"
 )
 
 type personsConfig struct{}
@@ -24,7 +24,7 @@ type Persons struct {
 	textureScale    []float32
 	reqTextureIndex int
 	reqShow         bool
-	files           []module.Resource
+	files           []data.Resource
 	shown           []bool
 	curScale        float32
 	curOrigWidth    int32
@@ -66,7 +66,7 @@ func (p *Persons) UI() template.HTML {
 	var builder module.UIBuilder
 
 	for index, file := range p.files {
-		if file.Enabled(&p.common.SharedData) {
+		if file.Enabled(&p.common.Store) {
 			builder.StartForm(p, "switch", "", true)
 			builder.HiddenValue("index", strconv.Itoa(index))
 			if p.shown[index] {
@@ -209,11 +209,6 @@ func (p *Persons) Render() {
 			}
 		}
 	}
-}
-
-// ToConfig is not implemented yet.
-func (*Persons) ToConfig(node *yaml.Node) (interface{}, error) {
-	return &personsConfig{}, nil
 }
 
 // EmptyConfig returns an empty configuration

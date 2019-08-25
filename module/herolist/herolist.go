@@ -11,7 +11,6 @@ import (
 	"github.com/flyx/rpscreen/data"
 	"github.com/flyx/rpscreen/module"
 	"github.com/veandco/go-sdl2/sdl"
-	"gopkg.in/yaml.v3"
 )
 
 type displayedHero struct {
@@ -339,11 +338,6 @@ func (l *HeroList) Render() {
 			shown++
 		}
 	}
-}
-
-// ToConfig is not implemented yet.
-func (*HeroList) ToConfig(node *yaml.Node) (interface{}, error) {
-	return &heroListConfig{}, nil
 }
 
 // EmptyConfig returns an empty configuration

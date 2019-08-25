@@ -169,28 +169,54 @@ func startServer(screen *Screen) *http.Server {
 		}
 	})
 	http.HandleFunc("/static.json", func(w http.ResponseWriter, r *http.Request) {
-		screen.SendJSON(w, screen.ActiveGroup, screen.ActiveSystem)
+		screen.SendJSON(w)
 	})
 	http.HandleFunc("/config/", func(w http.ResponseWriter, r *http.Request) {
+		post := false
+		switch r.Method {
+		case "GET":
+			break
+		case "POST":
+			post = true
+			break
+		default:
+			http.Error(w, "405: Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
 		item, isLast := nextPathItem(r.URL.Path[len("/config/"):])
 		switch item {
 		case "base.json":
 			if !isLast {
-				http.Error(w, "404: \""+item+"\" not found", http.StatusNotFound)
+				http.Error(w, "404: \""+r.URL.Path+"\" not found", http.StatusNotFound)
 			} else {
-				screen.SendBaseJSON(w)
+				if post {
+					screen.ReceiveBaseJSON(w, r.Body)
+				} else {
+					screen.SendBaseJSON(w)
+				}
 			}
 		case "groups":
 			if isLast {
 				http.Error(w, "400: group missing", http.StatusBadRequest)
 			} else {
-				screen.SendGroupJSON(w, r.URL.Path[len("/config/groups/"):])
+				groupName := r.URL.Path[len("/config/groups/"):]
+				if post {
+					screen.ReceiveGroupJSON(w, groupName, r.Body)
+				} else {
+					screen.SendGroupJSON(w, groupName)
+				}
 			}
 		case "systems":
 			if isLast {
 				http.Error(w, "400: group missing", http.StatusBadRequest)
 			} else {
-				screen.SendSystemJSON(w, r.URL.Path[len("/config/systems/"):])
+				systemName := r.URL.Path[len("/config/systems/"):]
+				if post {
+					screen.ReceiveSystemJSON(w, systemName, r.Body)
+				} else {
+					screen.SendSystemJSON(w, systemName)
+				}
 			}
 		default:
 			http.Error(w, "404: \""+r.URL.Path+"\" not found", http.StatusNotFound)

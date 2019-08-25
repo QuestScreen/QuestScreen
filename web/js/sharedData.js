@@ -1,11 +1,16 @@
 var fonts;
 
+function setChanged() {
+    document.querySelector("#settings-changed").style.visibility = "visible";
+}
+
 function swapButton() {
     if (this.classList.contains("pure-button-active")) {
         this.classList.remove("pure-button-active");
     } else {
         this.classList.add("pure-button-active");
     }
+    setChanged();
 }
 
 function swapSelectableFont() {
@@ -59,10 +64,57 @@ function swapSelectableFont() {
     }
 }
 
+function postConfig(e) {
+    let data = {};
+    document.querySelector("#main").querySelectorAll(".module-settings-content").forEach(function (item) {
+        let vals = {};
+        item.querySelectorAll(".pure-control-group").forEach(function (val) {
+            if (val.querySelector(".settings-item-checkbox").checked) {
+                let res = {};
+                switch(val.dataset.type) {
+                    case "SelectableFont":
+                        let families = val.querySelector(".font-families");
+                        let sizes = val.querySelector(".font-size");
+                        let styles = val.querySelector(".pure-button-group");
+                        res.FamilyIndex = parseInt(families.value, 10);
+                        res.Size = parseInt(sizes.value, 10);
+                        res.Style = 0;
+                        if (styles.querySelector(".bold.pure-button-active") != null) {
+                            res.Style = 1;
+                        }
+                        if (styles.querySelector(".italic.pure-button-active") != null) {
+                            res.Style += 2;
+                        }
+                        break;
+                }
+                vals[val.dataset.name] = res;
+            } else {
+                vals[val.dataset.name] = null;
+            }
+        });
+        data[item.dataset.name] = vals;
+    });
+
+    return fetch(this.dataset.link, {
+        method: 'POST', mode: 'no-cors', cache: 'no-cache', credentials: 'omit',
+        headers: { 'Content-Type': 'application/json' },
+        redirect: 'error', referrer: 'no-referrer',
+        body: JSON.stringify(data),
+    }).then(function (response) {
+        if (response.ok) {
+            document.querySelector("#settings-changed").style.visibility = "hidden";
+        } else {
+            alert(response);
+        }
+    });
+}
+
 function genConfigUI(name, data) {
     let ui = document.importNode(document.querySelector("#tmpl-settings-item").content, true);
     ui.querySelector(".settings-item-name").textContent = name;
     let container = ui.querySelector(".pure-control-group");
+    container.dataset.name = name;
+    container.dataset.type = data.Type;
     switch (data.Type) {
         case "SelectableFont":
             let fontUI = document.importNode(document.querySelector("#tmpl-settings-selectable-font").content, true);
@@ -103,6 +155,8 @@ function genConfigUI(name, data) {
             styles.querySelectorAll("button").forEach(function (item) {
                 item.addEventListener("click", swapButton);
             });
+            families.addEventListener("change", setChanged);
+            sizes.addEventListener("change", setChanged);
             break;
         default:
             let p = document.createElement("P");
@@ -115,6 +169,7 @@ function genConfigUI(name, data) {
 
 function showSettings(e) {
     let heading = this.dataset.name + " Settings";
+    let link = this.dataset.link;
     fetch(this.dataset.link).then(function (response) {
         if (response.ok) {
             return response.json();
@@ -125,19 +180,24 @@ function showSettings(e) {
         page.querySelector("#settings-heading").textContent = heading;
         let moduleTemplate = document.querySelector("#tmpl-settings-module");
         let container = page.querySelector("article");
+        let controlSep = container.querySelector("#settings-control-sep");
         for (var modName in data) {
             let modUI = document.importNode(moduleTemplate.content, true);
             let name = modUI.querySelector("#module-settings-name");
             name.removeAttribute("id");
             name.textContent = modName;
-            let settings = modUI.querySelector("#module-settings-content");
-            settings.removeAttribute("id");
+            let settings = modUI.querySelector(".module-settings-content");
+            settings.dataset.name = modName;
             let items = data[modName].Config;
             for (var configName in items) {
                 settings.appendChild(genConfigUI(configName, items[configName]));
             }
-            container.appendChild(modUI);
+            container.insertBefore(modUI, controlSep);
         }
+        let saveBtn = container.querySelector("#settings-save");
+        saveBtn.dataset.link = link;
+        saveBtn.addEventListener('click', postConfig);
+
         let main = document.querySelector("#main");
         let newMain = main.cloneNode(false);
         newMain.appendChild(page);
@@ -167,7 +227,7 @@ document.addEventListener("DOMContentLoaded", function () {
             let cog = entry.querySelector("a.settings-link");
             cog.addEventListener('click', showSettings);
             cog.dataset.link = "/config" + prefix + item.DirName;
-            cog.dataset.name = itemType + " „" + item.Name + " “"
+            cog.dataset.name = itemType + " „" + item.Name + "“"
 
             curLast.parentNode.insertBefore(entry, curLast.nextSibling);
             curLast = curLast.nextSibling;
