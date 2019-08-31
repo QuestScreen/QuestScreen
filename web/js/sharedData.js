@@ -76,14 +76,14 @@ function postConfig(e) {
                         let families = val.querySelector(".font-families");
                         let sizes = val.querySelector(".font-size");
                         let styles = val.querySelector(".pure-button-group");
-                        res.FamilyIndex = parseInt(families.value, 10);
-                        res.Size = parseInt(sizes.value, 10);
-                        res.Style = 0;
+                        res.familyIndex = parseInt(families.value, 10);
+                        res.size = parseInt(sizes.value, 10);
+                        res.style = 0;
                         if (styles.querySelector(".bold.pure-button-active") != null) {
-                            res.Style = 1;
+                            res.style = 1;
                         }
                         if (styles.querySelector(".italic.pure-button-active") != null) {
-                            res.Style += 2;
+                            res.style += 2;
                         }
                         break;
                 }
@@ -128,17 +128,17 @@ function genConfigUI(name, data) {
             let sizes = fontUI.querySelector(".font-size");
             let styles = fontUI.querySelector(".pure-button-group");
 
-            families.dataset.default = data.Default.FamilyIndex;
-            sizes.dataset.default = data.Default.Size;
-            styles.dataset.default = data.Default.Style;
+            families.dataset.default = data.Default.familyIndex;
+            sizes.dataset.default = data.Default.size;
+            styles.dataset.default = data.Default.style;
             if (data.Value == null) {
                 families.dataset.current = families.dataset.default;
                 sizes.dataset.current = sizes.dataset.default;
                 styles.dataset.current = styles.dataset.default;
             } else {
-                families.dataset.current = data.Value.FamilyIndex;
-                sizes.dataset.current = data.Value.Size;
-                styles.dataset.current = data.Value.Style;
+                families.dataset.current = data.Value.familyIndex;
+                sizes.dataset.current = data.Value.size;
+                styles.dataset.current = data.Value.style;
             }
 
             container.appendChild(fontUI);
@@ -188,7 +188,7 @@ function showSettings(e) {
             name.textContent = modName;
             let settings = modUI.querySelector(".module-settings-content");
             settings.dataset.name = modName;
-            let items = data[modName].Config;
+            let items = data[modName];
             for (var configName in items) {
                 settings.appendChild(genConfigUI(configName, items[configName]));
             }

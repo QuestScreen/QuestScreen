@@ -14,23 +14,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type configuredModuleState int32
-
-const (
-	moduleDisabled configuredModuleState = iota
-	moduleEnabled
-	moduleInherited
-)
-
-type moduleConfig struct {
-	State  configuredModuleState
-	Config interface{}
-}
-
 type systemConfig struct {
 	Name    string
 	DirName string `yaml:"-"`
-	Modules map[string]*moduleConfig
+	Modules map[string]interface{}
+}
+
+type rawSystemConfig struct {
+	Name    string
+	Modules map[string]map[string]interface{}
 }
 
 type groupConfig struct {
@@ -38,7 +30,15 @@ type groupConfig struct {
 	DirName     string `yaml:"-"`
 	System      string
 	SystemIndex int `yaml:"-"`
-	Modules     map[string]*moduleConfig
+	Modules     map[string]interface{}
+}
+
+type rawGroupConfig struct {
+	Name        string
+	DirName     string `yaml:"-"`
+	System      string
+	SystemIndex int `yaml:"-"`
+	Modules     map[string]map[string]interface{}
 }
 
 type hero struct {
@@ -65,7 +65,7 @@ type group struct {
 // whenever the configuration is edited (via web interface).
 type Config struct {
 	items       ConfigurableItemProvider
-	baseConfigs map[string]*moduleConfig
+	baseConfigs map[string]interface{}
 	systems     []systemConfig
 	groups      []group
 }
@@ -194,34 +194,26 @@ func (d *dummyWriter) Write(data []byte) (int, error) {
 
 func (d *dummyWriter) WriteHeader(statusCode int) {}
 
-func (s *StaticData) constructModuleConfigs(data map[string]*moduleConfig,
-	raw map[string]*moduleConfig, items ConfigurableItemProvider) {
+func (s *StaticData) constructModuleConfigs(data map[string]interface{},
+	raw map[string]map[string]interface{}, items ConfigurableItemProvider) {
 	foundModules := make([]bool, items.NumItems())
 	dummy := createDummyWriter()
-	for name, node := range raw {
+	for name, rawItems := range raw {
 		mod, index := findItem(items, name)
 		if mod == nil {
 			log.Println("Unknown module: " + name)
 		} else {
-			items, ok := node.Config.(map[string]interface{})
-			if ok {
-				target := mod.EmptyConfig()
-				if s.loadModuleConfigInto(target, items, name, dummy) {
-					foundModules[index] = true
-					data[name] = &moduleConfig{
-						State: node.State, Config: target}
-				}
-			} else {
-				log.Println("Value of module " + name + " is not a mapping!")
+			target := mod.EmptyConfig()
+			if s.loadModuleConfigInto(target, true, rawItems, name, dummy) {
+				foundModules[index] = true
+				data[name] = target
 			}
 		}
 	}
 	for i := 0; i < items.NumItems(); i++ {
 		if !foundModules[i] {
 			mod := items.ItemAt(i)
-			data[mod.Name()] = &moduleConfig{
-				State: moduleInherited, Config: mod.EmptyConfig(),
-			}
+			data[mod.Name()] = mod.EmptyConfig()
 		}
 	}
 }
@@ -239,12 +231,12 @@ func (c *Config) Init(static *StaticData, items ConfigurableItemProvider) {
 	if err != nil {
 		panic(err)
 	}
-	var nodes map[string]*moduleConfig
+	var nodes map[string]map[string]interface{}
 	err = yaml.Unmarshal(rawBaseConfig, &nodes)
 	if err != nil {
 		panic(err)
 	}
-	c.baseConfigs = make(map[string]*moduleConfig)
+	c.baseConfigs = make(map[string]interface{})
 	static.constructModuleConfigs(c.baseConfigs, nodes, items)
 
 	systemsDir := filepath.Join(static.DataDir, "systems")
@@ -254,12 +246,12 @@ func (c *Config) Init(static *StaticData, items ConfigurableItemProvider) {
 			if file.IsDir() {
 				config, err := ioutil.ReadFile(filepath.Join(systemsDir, file.Name(), "config.yaml"))
 				if err == nil {
-					var tmp systemConfig
+					var tmp rawSystemConfig
 					err = yaml.Unmarshal(config, &tmp)
 					if err == nil {
 						finalConfig := systemConfig{
 							Name: tmp.Name, DirName: file.Name(),
-							Modules: make(map[string]*moduleConfig)}
+							Modules: make(map[string]interface{})}
 						static.constructModuleConfigs(finalConfig.Modules, tmp.Modules, items)
 						c.systems = append(c.systems, finalConfig)
 					}
@@ -279,12 +271,12 @@ func (c *Config) Init(static *StaticData, items ConfigurableItemProvider) {
 			if file.IsDir() {
 				config, err := ioutil.ReadFile(filepath.Join(groupsDir, file.Name(), "config.yaml"))
 				if err == nil {
-					var tmp groupConfig
+					var tmp rawGroupConfig
 					err = yaml.Unmarshal(config, &tmp)
 					if err == nil {
 						finalConfig := groupConfig{
 							Name: tmp.Name, DirName: file.Name(), System: tmp.System,
-							SystemIndex: -1, Modules: make(map[string]*moduleConfig)}
+							SystemIndex: -1, Modules: make(map[string]interface{})}
 						if finalConfig.System != "" {
 							for i := range c.systems {
 								if c.systems[i].Name == finalConfig.System {
@@ -352,7 +344,7 @@ func (c *Config) UpdateConfig(defaultValues interface{}, item ConfigurableItem,
 		if !ok {
 			panic("group config missing for " + item.Name())
 		}
-		val := reflect.ValueOf(conf.Config).Elem()
+		val := reflect.ValueOf(conf).Elem()
 		for ; val.Kind() == reflect.Interface || val.Kind() == reflect.Ptr; val = val.Elem() {
 		}
 		if val.Kind() != reflect.Struct {
@@ -365,13 +357,12 @@ func (c *Config) UpdateConfig(defaultValues interface{}, item ConfigurableItem,
 		if !ok {
 			panic("system config missing for " + item.Name())
 		}
-		val := reflect.ValueOf(conf.Config).Elem()
+		val := reflect.ValueOf(conf).Elem()
 		for ; val.Kind() == reflect.Interface || val.Kind() == reflect.Ptr; val = val.Elem() {
 		}
 		if val.Kind() != reflect.Struct {
 			panic("wrong kind of system value")
 		}
-		log.Println(val.Kind())
 		configStack[1] = &val
 	}
 
@@ -379,7 +370,7 @@ func (c *Config) UpdateConfig(defaultValues interface{}, item ConfigurableItem,
 	if !ok {
 		panic("base config missing for " + item.Name())
 	}
-	baseValue := reflect.ValueOf(baseConf.Config).Elem()
+	baseValue := reflect.ValueOf(baseConf).Elem()
 	configStack[2] = &baseValue
 
 	defaultValue := reflect.ValueOf(defaultValues).Elem()
@@ -416,8 +407,4 @@ type jsonConfigItem struct {
 	Default interface{}
 }
 
-type jsonModuleConfig struct {
-	State        configuredModuleState
-	DefaultState configuredModuleState
-	Config       map[string]jsonConfigItem
-}
+type jsonModuleConfig map[string]jsonConfigItem

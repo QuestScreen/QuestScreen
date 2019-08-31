@@ -137,23 +137,21 @@ func (s *Store) SendJSON(w http.ResponseWriter) {
 }
 
 func (s *Store) sendModuleConfigJSON(
-	w http.ResponseWriter, config map[string]*moduleConfig) {
+	w http.ResponseWriter, config map[string]interface{}) {
 	ret := make(map[string]jsonModuleConfig)
 	for i := 0; i < s.items.NumItems(); i++ {
 		item := s.items.ItemAt(i)
 		itemConfig := config[item.Name()]
-		itemValue := reflect.ValueOf(itemConfig.Config).Elem()
+		itemValue := reflect.ValueOf(itemConfig).Elem()
 		for ; itemValue.Kind() == reflect.Interface ||
 			itemValue.Kind() == reflect.Ptr; itemValue = itemValue.Elem() {
 		}
 		if itemValue.NumField() > 0 {
 			curConfig := item.GetConfig()
-			jsonConfig := jsonModuleConfig{
-				State: itemConfig.State, DefaultState: moduleEnabled,
-				Config: make(map[string]jsonConfigItem)}
+			jsonConfig := make(jsonModuleConfig)
 			curValue := reflect.ValueOf(curConfig).Elem()
 			for i := 0; i < itemValue.NumField(); i++ {
-				jsonConfig.Config[itemValue.Type().Field(i).Name] = jsonConfigItem{
+				jsonConfig[itemValue.Type().Field(i).Name] = jsonConfigItem{
 					Type:    itemValue.Type().Field(i).Type.Elem().Name(),
 					Value:   itemValue.Field(i).Interface(),
 					Default: curValue.Field(i).Interface()}
@@ -165,6 +163,7 @@ func (s *Store) sendModuleConfigJSON(
 }
 
 func (s *StaticData) loadModuleConfigInto(target interface{},
+	fromYaml bool,
 	values map[string]interface{}, moduleName string, w http.ResponseWriter) bool {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
@@ -177,10 +176,24 @@ func (s *StaticData) loadModuleConfigInto(target interface{},
 		}
 		inModuleConfig, ok := inValue.(map[string]interface{})
 		if !ok {
-			http.Error(w, "value of "+moduleName+"."+
-				targetModuleType.Field(i).Name+" is not a JSON object",
-				http.StatusBadRequest)
-			return false
+			raw, ok := inValue.(map[interface{}]interface{})
+			if !ok {
+				http.Error(w, "value of "+moduleName+"."+
+					targetModuleType.Field(i).Name+" is not a JSON object",
+					http.StatusBadRequest)
+				return false
+			}
+			inModuleConfig = make(map[string]interface{})
+			for key, value := range raw {
+				stringKey, ok := key.(string)
+				if !ok {
+					http.Error(w, "value of"+moduleName+"."+
+						targetModuleType.Field(i).Name+" contains non-string key",
+						http.StatusBadRequest)
+					return false
+				}
+				inModuleConfig[stringKey] = value
+			}
 		}
 		wasNil := false
 		if targetModule.Field(i).IsNil() {
@@ -189,7 +202,7 @@ func (s *StaticData) loadModuleConfigInto(target interface{},
 		}
 		targetSetting := targetModule.Field(i).Interface()
 
-		if !s.setFromJSON(targetSetting, inModuleConfig, w) {
+		if !s.setModuleConfigFieldFrom(targetSetting, fromYaml, inModuleConfig, w) {
 			if wasNil {
 				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 			}
@@ -200,7 +213,7 @@ func (s *StaticData) loadModuleConfigInto(target interface{},
 }
 
 func (s *Store) receiveModuleConfigJSON(
-	w http.ResponseWriter, config map[string]*moduleConfig, reader io.Reader) bool {
+	w http.ResponseWriter, config map[string]interface{}, reader io.Reader) bool {
 	raw, _ := ioutil.ReadAll(reader)
 	var res map[string]interface{}
 	if err := json.Unmarshal(raw, &res); err != nil {
@@ -219,7 +232,7 @@ func (s *Store) receiveModuleConfigJSON(
 			http.Error(w, "unknown module: \""+key+"\"", http.StatusBadRequest)
 			return false
 		}
-		if !s.loadModuleConfigInto(conf.Config, valueMap, key, w) {
+		if !s.loadModuleConfigInto(conf, false, valueMap, key, w) {
 			return false
 		}
 	}

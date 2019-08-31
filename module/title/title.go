@@ -17,7 +17,7 @@ import (
 )
 
 type titleConfig struct {
-	Font *data.SelectableFont `config:"Title Font"`
+	Font *data.SelectableFont `config:"Font" yaml:"Font"`
 }
 
 // The Title module draws a title box at the top of the screen.

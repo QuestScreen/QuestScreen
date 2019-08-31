@@ -127,65 +127,24 @@ func (fs *FontSize) MarshalYAML() (interface{}, error) {
 
 // SelectableFont is used to allow the user to select a font family.
 type SelectableFont struct {
-	Family      string `json:"-"`
-	FamilyIndex int32  `yaml:"-"`
-	Size        FontSize
-	Style       FontStyle
+	Family      string    `json:"-" yaml:"family"`
+	FamilyIndex int32     `yaml:"-" json:"familyIndex"`
+	Size        FontSize  `json:"size" yaml:"size"`
+	Style       FontStyle `json:"style" yaml:"style"`
 }
 
-func setInt(field *int, name string, json map[string]interface{},
+func (s *StaticData) postProcess(target interface{}, fromYaml bool,
 	w http.ResponseWriter) bool {
-	val, ok := json[name]
-	if !ok {
-		http.Error(w, "field \""+name+"\" missing!", http.StatusBadRequest)
-		return false
-	}
-	floatVal, ok := val.(float64)
-	if ok {
-		*field = int(floatVal)
-		return true
-	}
-	http.Error(w, "field \""+name+"\" must be a number!", http.StatusBadRequest)
-	return false
-}
-
-func setInt32(field *int32, name string, json map[string]interface{},
-	w http.ResponseWriter) bool {
-	val, ok := json[name]
-	if !ok {
-		http.Error(w, "field \""+name+"\" missing!", http.StatusBadRequest)
-		return false
-	}
-	floatVal, ok := val.(float64)
-	if ok {
-		*field = int32(floatVal)
-		return true
-	}
-	http.Error(w, "field \""+name+"\" must be a number!", http.StatusBadRequest)
-	return false
-}
-
-func (s *StaticData) setFromJSON(target interface{}, json map[string]interface{},
-	w http.ResponseWriter) bool {
-	// TODO: change code: set via reflection, then do post-processing based on
-	// the actual type. ensure all fields are set and no unknown fields are present.
-
 	switch v := target.(type) {
 	case *SelectableFont:
-		var found [3]bool
-		for key, value := range json {
-			switch key {
-			case "familyIndex":
-				if found[0] {
-					http.Error(w, "duplicate key: familyIndex", http.StatusBadRequest)
-					return false
+		if fromYaml {
+			for i := range s.Fonts {
+				if v.Family == s.Fonts[i].Name {
+					v.FamilyIndex = int32(i)
+					return true
 				}
-				found[0] = true
-
 			}
-		}
-
-		if !setInt32(&v.FamilyIndex, "FamilyIndex", json, w) {
+			http.Error(w, "unknown font \""+v.Family+"\"", http.StatusBadRequest)
 			return false
 		}
 		if v.FamilyIndex < 0 || v.FamilyIndex >= int32(len(s.Fonts)) {
@@ -193,18 +152,99 @@ func (s *StaticData) setFromJSON(target interface{}, json map[string]interface{}
 			return false
 		}
 		v.Family = s.Fonts[v.FamilyIndex].Name
-		var sizeInt int
-		if !setInt(&sizeInt, "Size", json, w) {
-			return false
-		}
-		v.Size = FontSize(sizeInt)
-		var styleInt int
-		if !setInt(&styleInt, "Style", json, w) {
-			return false
-		}
-		v.Style = FontStyle(styleInt)
-	default:
-		panic("unknown type: " + reflect.TypeOf(target).Name())
 	}
 	return true
+}
+
+func (s *StaticData) setModuleConfigFieldFrom(target interface{},
+	fromYaml bool, data map[string]interface{},
+	w http.ResponseWriter) bool {
+	settingType := reflect.TypeOf(target)
+	value := reflect.ValueOf(target)
+	for settingType.Kind() == reflect.Interface ||
+		settingType.Kind() == reflect.Ptr {
+		settingType = settingType.Elem()
+		value = value.Elem()
+	}
+	if settingType.Kind() != reflect.Struct || value.Kind() != reflect.Struct {
+		panic("setting type is not a struct!")
+	}
+	for i := 0; i < settingType.NumField(); i++ {
+		tagName := "json"
+		if fromYaml {
+			tagName = "yaml"
+		}
+		tagVal, ok := settingType.Field(i).Tag.Lookup(tagName)
+		fieldName := settingType.Field(i).Name
+		if ok {
+			if tagVal == "-" {
+				continue
+			}
+			fieldName = tagVal
+		}
+
+		newVal, ok := data[fieldName]
+		if !ok {
+			http.Error(w, "field \""+fieldName+"\" missing!",
+				http.StatusBadRequest)
+			return false
+		}
+		field := value.Field(i)
+
+		switch field.Type().Kind() {
+		case reflect.Int8, reflect.Int16, reflect.Int, reflect.Int32, reflect.Int64:
+			if fromYaml {
+				intVal, ok := newVal.(int)
+				if !ok {
+					http.Error(w, "field \""+fieldName+"\" must be a number!",
+						http.StatusBadRequest)
+					return false
+				}
+				field.SetInt(int64(intVal))
+			} else {
+				floatVal, ok := newVal.(float64)
+				if !ok {
+					http.Error(w, "field \""+fieldName+"\" must be a number!",
+						http.StatusBadRequest)
+					return false
+				}
+				field.SetInt(int64(floatVal))
+			}
+		case reflect.Uint8, reflect.Uint16, reflect.Uint, reflect.Uint32, reflect.Uint64:
+			if fromYaml {
+				floatVal, ok := newVal.(float64)
+				if !ok {
+					http.Error(w, "field \""+fieldName+"\" must be a number!",
+						http.StatusBadRequest)
+					return false
+				}
+				field.SetUint(uint64(floatVal))
+			} else {
+				intVal, ok := newVal.(int)
+				if !ok {
+					http.Error(w, "field \""+fieldName+"\" must be a number!",
+						http.StatusBadRequest)
+					return false
+				}
+				field.SetUint(uint64(intVal))
+			}
+		case reflect.String:
+			stringVal, ok := newVal.(string)
+			if !ok {
+				http.Error(w, "field \""+fieldName+"\" must be a string!",
+					http.StatusBadRequest)
+				return false
+			}
+			field.SetString(stringVal)
+		default:
+			panic("field \"" + fieldName + "\" has unsupported type " + field.Type().Kind().String())
+		}
+		delete(data, fieldName)
+	}
+	for key := range data {
+		http.Error(w, "Unknown field \""+key+"\"", http.StatusBadRequest)
+		return false
+	}
+
+	return s.postProcess(target, fromYaml, w)
 }
