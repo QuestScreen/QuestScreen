@@ -37,6 +37,11 @@ type screenHandler struct {
 	data   uiData
 }
 
+type moduleConfigUpdate struct {
+	moduleIndex int
+	config      interface{}
+}
+
 func newScreenHandler(screen *Screen) *screenHandler {
 	handler := new(screenHandler)
 	handler.screen = screen
@@ -113,7 +118,17 @@ func nextPathItem(value string) (string, bool) {
 	return value[0:pos], false
 }
 
-func startServer(screen *Screen) *http.Server {
+func mergeAndSendConfigs(moduleConfigChan chan<- moduleConfigUpdate,
+	screen *Screen) {
+	for i := range screen.modules.items {
+		moduleConfigChan <- moduleConfigUpdate{moduleIndex: i,
+			config: screen.Config.MergeConfig(screen.modules.items[i].module,
+				screen.ActiveSystem, screen.ActiveGroup)}
+	}
+	sdl.PushEvent(&sdl.UserEvent{Type: screen.moduleConfigEventID})
+}
+
+func startServer(screen *Screen, moduleConfigChan chan<- moduleConfigUpdate) *http.Server {
 	server := &http.Server{Addr: ":8080"}
 
 	http.Handle("/", newScreenHandler(screen))
@@ -142,7 +157,7 @@ func startServer(screen *Screen) *http.Server {
 		if newSystemIndex != -2 {
 			if newSystemIndex != screen.ActiveSystem {
 				screen.ActiveSystem = newSystemIndex
-				sdl.PushEvent(&sdl.UserEvent{Type: screen.systemUpdateEventID})
+				mergeAndSendConfigs(moduleConfigChan, screen)
 			}
 			module.WriteEndpointHeader(w, module.EndpointReturnRedirect)
 		} else {
@@ -161,7 +176,8 @@ func startServer(screen *Screen) *http.Server {
 		if newGroupIndex != -2 {
 			if screen.ActiveGroup != newGroupIndex {
 				screen.ActiveGroup = newGroupIndex
-				sdl.PushEvent(&sdl.UserEvent{Type: screen.groupUpdateEventID, Code: 0})
+				mergeAndSendConfigs(moduleConfigChan, screen)
+
 			}
 			module.WriteEndpointHeader(w, module.EndpointReturnRedirect)
 		} else {
@@ -202,7 +218,9 @@ func startServer(screen *Screen) *http.Server {
 			} else {
 				groupName := r.URL.Path[len("/config/groups/"):]
 				if post {
-					screen.ReceiveGroupJSON(w, groupName, r.Body)
+					if screen.ReceiveGroupJSON(w, groupName, r.Body) {
+						mergeAndSendConfigs(moduleConfigChan, screen)
+					}
 				} else {
 					screen.SendGroupJSON(w, groupName)
 				}
@@ -213,7 +231,9 @@ func startServer(screen *Screen) *http.Server {
 			} else {
 				systemName := r.URL.Path[len("/config/systems/"):]
 				if post {
-					screen.ReceiveSystemJSON(w, systemName, r.Body)
+					if screen.ReceiveSystemJSON(w, systemName, r.Body) {
+						mergeAndSendConfigs(moduleConfigChan, screen)
+					}
 				} else {
 					screen.SendSystemJSON(w, systemName)
 				}

@@ -267,19 +267,22 @@ func (s *Store) SendSystemJSON(w http.ResponseWriter, system string) {
 
 // ReceiveSystemJSON parses the given config as JSON, updates the internal
 // config and writes it to the system's config.yaml file
+// returns true iff the config has been successfully parsed.
 func (s *Store) ReceiveSystemJSON(w http.ResponseWriter, system string,
-	reader io.Reader) {
+	reader io.Reader) bool {
 	for i := range s.systems {
 		if s.systems[i].DirName == system {
 			if s.receiveModuleConfigJSON(w, s.systems[i].Modules, reader) {
 				path := filepath.Join(s.DataDir, "systems", s.systems[i].DirName, "config.yaml")
 				raw, _ := yaml.Marshal(s.systems[i])
 				ioutil.WriteFile(path, raw, 0644)
+				return true
 			}
-			return
+			return false
 		}
 	}
 	http.Error(w, "404: unknown system \""+system+"\"", http.StatusNotFound)
+	return false
 }
 
 // SendGroupJSON writes the config of the given group to w
@@ -294,18 +297,21 @@ func (s *Store) SendGroupJSON(w http.ResponseWriter, group string) {
 }
 
 // ReceiveGroupJSON parses the given config as JSON, updates the internal
-// config and writes it to the group's config.yaml file
+// config and writes it to the group's config.yaml file.
+// returns true iff the config has been successfully parsed.
 func (s *Store) ReceiveGroupJSON(w http.ResponseWriter, group string,
-	reader io.Reader) {
+	reader io.Reader) bool {
 	for i := range s.groups {
 		if s.groups[i].Config.DirName == group {
 			if s.receiveModuleConfigJSON(w, s.groups[i].Config.Modules, reader) {
 				path := filepath.Join(s.DataDir, "groups", s.groups[i].Config.DirName, "config.yaml")
 				raw, _ := yaml.Marshal(s.systems[i])
 				ioutil.WriteFile(path, raw, 0644)
+				return true
 			}
-			return
+			return false
 		}
 	}
 	http.Error(w, "404: unknown group \""+group+"\"", http.StatusNotFound)
+	return false
 }

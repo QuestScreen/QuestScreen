@@ -332,11 +332,13 @@ func (c *Config) Init(static *StaticData, items ConfigurableItemProvider) {
 	}
 }
 
-// UpdateConfig sets the configuration of the given module.
-// It merges the default config with the configs from current system and group.
-func (c *Config) UpdateConfig(defaultValues interface{}, item ConfigurableItem,
-	systemIndex int, groupIndex int) {
+// MergeConfig merges the item's default configuration with the values
+// configured in its base config and the current system and group config.
+// It returns the resulting configuration.
+func (c *Config) MergeConfig(item ConfigurableItem, systemIndex int, groupIndex int) interface{} {
 	var configStack [4]*reflect.Value
+
+	defaultValues := item.DefaultConfig()
 	configType := reflect.TypeOf(defaultValues).Elem()
 
 	if groupIndex != -1 {
@@ -381,11 +383,14 @@ func (c *Config) UpdateConfig(defaultValues interface{}, item ConfigurableItem,
 		for j := 0; j < 4; j++ {
 			if configStack[j] != nil {
 				field := configStack[j].Field(i)
-				result.Elem().Field(i).Set(field)
+				if !field.IsNil() {
+					result.Elem().Field(i).Set(field)
+					break
+				}
 			}
 		}
 	}
-	item.SetConfig(result.Interface())
+	return result.Interface()
 }
 
 // SendAsJSON sends the given data as JSON file

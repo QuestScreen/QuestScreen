@@ -45,7 +45,8 @@ func main() {
 		log.Println("Could not set swap interval to -1")
 	}
 
-	server := startServer(screen)
+	moduleConfigChan := make(chan moduleConfigUpdate, screen.modules.NumItems())
+	server := startServer(screen, moduleConfigChan)
 
 	render := true
 	popup := false
@@ -101,26 +102,19 @@ Outer:
 				case screen.moduleUpdateEventID:
 					startTransition(&screen.modules.items[e.Code], screen)
 					render = true
-				case screen.systemUpdateEventID:
-					for i := range screen.modules.items {
-						screen.Config.UpdateConfig(
-							screen.modules.items[i].module.DefaultConfig(),
-							screen.modules.items[i].module, screen.ActiveSystem, screen.ActiveGroup)
-
-						if screen.modules.items[i].module.NeedsTransition() {
-							startTransition(&screen.modules.items[i], screen)
-							render = true
-						}
-					}
-				case screen.groupUpdateEventID:
-					for i := range screen.modules.items {
-						screen.Config.UpdateConfig(
-							screen.modules.items[i].module.DefaultConfig(),
-							screen.modules.items[i].module, screen.ActiveSystem, screen.ActiveGroup)
-
-						if screen.modules.items[i].module.NeedsTransition() {
-							startTransition(&screen.modules.items[i], screen)
-							render = true
+				case screen.moduleConfigEventID:
+				outer:
+					for {
+						select {
+						case data := <-moduleConfigChan:
+							item := &screen.modules.items[data.moduleIndex]
+							item.module.SetConfig(data.config)
+							if item.module.NeedsTransition() {
+								startTransition(item, screen)
+								render = true
+							}
+						default:
+							break outer
 						}
 					}
 				}

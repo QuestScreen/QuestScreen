@@ -40,8 +40,7 @@ type Screen struct {
 	modules             moduleList
 	numTransitions      int32
 	moduleUpdateEventID uint32
-	groupUpdateEventID  uint32
-	systemUpdateEventID uint32
+	moduleConfigEventID uint32
 	popupTexture        *sdl.Texture
 }
 
@@ -68,7 +67,9 @@ func shrinkTo(rect *sdl.Rect, w int32, h int32) {
 
 func (s *Screen) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error {
 	surfaces := make([]*sdl.Surface, len(options))
-	fontFace := s.Fonts[0].GetSize(s.DefaultBodyTextSize).GetFace(data.Standard)
+	fontDef := data.SelectableFont{Size: data.ContentFont, Style: data.Standard,
+		FamilyIndex: 0, Family: s.Fonts[0].Name}
+	fontFace := s.GetFontFace(&fontDef)
 	var err error
 	var bottomText *sdl.Surface
 	if bottomText, err = fontFace.RenderUTF8Blended(
@@ -187,8 +188,8 @@ func (s *Screen) initModules() {
 				s.modules.items[i].module.Name(), err)
 		} else {
 			s.modules.items[i].enabled = true
-			s.Config.UpdateConfig(s.modules.items[i].module.DefaultConfig(),
-				s.modules.items[i].module, -1, -1)
+			merged := s.Config.MergeConfig(s.modules.items[i].module, -1, -1)
+			s.modules.items[i].module.SetConfig(merged)
 		}
 	}
 }
@@ -215,9 +216,8 @@ func newScreen() (*Screen, error) {
 	screen.loadModules()
 	screen.Store.Init(&screen.modules, width, height)
 	screen.numTransitions = 0
-	screen.moduleUpdateEventID = sdl.RegisterEvents(3)
-	screen.groupUpdateEventID = screen.moduleUpdateEventID + 1
-	screen.systemUpdateEventID = screen.moduleUpdateEventID + 2
+	screen.moduleUpdateEventID = sdl.RegisterEvents(2)
+	screen.moduleConfigEventID = screen.moduleUpdateEventID + 1
 
 	screen.initModules()
 	screen.genPopup(width, height)

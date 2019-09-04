@@ -78,6 +78,8 @@ const (
 	// HugeFont is the largest font; usually used for displaying a single word
 	// on the screen.
 	HugeFont
+	// NumFontSizes is not a valid size, but used for iterating
+	NumFontSizes
 )
 
 // UnmarshalYAML sets the font size from a YAML scalar

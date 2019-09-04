@@ -150,7 +150,9 @@ func (l *HeroList) EndpointHandler(suffix string, values url.Values, w http.Resp
 
 func renderText(text string, common *module.SceneCommon, fontIndex int32,
 	style data.FontStyle, r uint8, g uint8, b uint8) *sdl.Texture {
-	face := common.Fonts[fontIndex].GetSize(common.DefaultBodyTextSize).GetFace(style)
+	fontDef := data.SelectableFont{Size: data.ContentFont, Style: style,
+		FamilyIndex: fontIndex, Family: common.Fonts[fontIndex].Name}
+	face := common.GetFontFace(&fontDef)
 
 	surface, err := face.RenderUTF8Blended(
 		text, sdl.Color{R: r, G: g, B: b, A: 255})
