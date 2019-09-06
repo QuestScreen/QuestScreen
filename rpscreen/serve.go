@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/flyx/rpscreen/module"
+	"github.com/flyx/rpscreen/data"
+	"github.com/flyx/rpscreen/display"
+
 	"github.com/flyx/rpscreen/web"
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -32,19 +34,18 @@ type uiData struct {
 }
 
 type screenHandler struct {
-	screen *Screen
+	store  *data.Store
+	items  data.ConfigurableItemProvider
+	events display.Events
 	index  *template.Template
 	data   uiData
 }
 
-type moduleConfigUpdate struct {
-	moduleIndex int
-	config      interface{}
-}
-
-func newScreenHandler(screen *Screen) *screenHandler {
+func newScreenHandler(store *data.Store, items data.ConfigurableItemProvider, events display.Events) *screenHandler {
 	handler := new(screenHandler)
-	handler.screen = screen
+	handler.store = store
+	handler.items = items
+	handler.events = events
 
 	raw, err := web.Asset("web/templates/index.html")
 	if err != nil {
@@ -55,18 +56,18 @@ func newScreenHandler(screen *Screen) *screenHandler {
 		panic(err)
 	}
 
-	handler.data = uiData{Modules: make([]uiModuleData, 0, screen.modules.NumItems()),
-		Systems: make([]uiSystemData, 0, screen.Config.NumSystems()),
-		Groups:  make([]uiGroupData, 0, screen.Config.NumGroups())}
-	for _, item := range screen.modules.items {
+	handler.data = uiData{Modules: make([]uiModuleData, 0, items.NumItems()),
+		Systems: make([]uiSystemData, 0, store.Config.NumSystems()),
+		Groups:  make([]uiGroupData, 0, store.Config.NumGroups())}
+	for i := 0; i < items.NumItems(); i++ {
 		handler.data.Modules = append(handler.data.Modules,
-			uiModuleData{Name: item.module.Name(), Enabled: false})
+			uiModuleData{Name: items.ItemAt(i).Name(), Enabled: false})
 	}
-	for i := 0; i < screen.Config.NumSystems(); i++ {
+	for i := 0; i < store.Config.NumSystems(); i++ {
 		handler.data.Systems = append(handler.data.Systems,
 			uiSystemData{Selected: false})
 	}
-	for i := 0; i < screen.Config.NumGroups(); i++ {
+	for i := 0; i < store.Config.NumGroups(); i++ {
 		handler.data.Groups = append(handler.data.Groups,
 			uiGroupData{Selected: false})
 	}
@@ -81,15 +82,15 @@ func (sh *screenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for index, item := range sh.screen.modules.items {
-		sh.data.Modules[index].Enabled = item.enabled
-		sh.data.Modules[index].UI = item.module.UI()
+	for i := 0; i < sh.items.NumItems(); i++ {
+		sh.data.Modules[i].Enabled = true
+		sh.data.Modules[i].UI = sh.items.ItemAt(i).(display.Module).UI()
 	}
 	for index := range sh.data.Systems {
-		sh.data.Systems[index].Selected = sh.screen.ActiveSystem == index
+		sh.data.Systems[index].Selected = sh.store.ActiveSystem == index
 	}
 	for index := range sh.data.Groups {
-		sh.data.Groups[index].Selected = sh.screen.ActiveGroup == index
+		sh.data.Groups[index].Selected = sh.store.ActiveGroup == index
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := sh.index.Execute(w, sh.data); err != nil {
@@ -118,20 +119,21 @@ func nextPathItem(value string) (string, bool) {
 	return value[0:pos], false
 }
 
-func mergeAndSendConfigs(moduleConfigChan chan<- moduleConfigUpdate,
-	screen *Screen) {
-	for i := range screen.modules.items {
-		moduleConfigChan <- moduleConfigUpdate{moduleIndex: i,
-			config: screen.Config.MergeConfig(screen.modules.items[i].module,
-				screen.ActiveSystem, screen.ActiveGroup)}
+func (sh *screenHandler) mergeAndSendConfigs(moduleConfigChan chan<- display.ItemConfigUpdate) {
+	for i := 0; i < sh.items.NumItems(); i++ {
+		moduleConfigChan <- display.ItemConfigUpdate{ItemIndex: i,
+			Config: sh.store.Config.MergeConfig(sh.items.ItemAt(i),
+				sh.store.ActiveSystem, sh.store.ActiveGroup)}
 	}
-	sdl.PushEvent(&sdl.UserEvent{Type: screen.moduleConfigEventID})
+	sdl.PushEvent(&sdl.UserEvent{Type: sh.events.ModuleConfigID})
 }
 
-func startServer(screen *Screen, moduleConfigChan chan<- moduleConfigUpdate) *http.Server {
+func startServer(store *data.Store, items data.ConfigurableItemProvider,
+	itemConfigChan chan<- display.ItemConfigUpdate, events display.Events) *http.Server {
 	server := &http.Server{Addr: ":8080"}
 
-	http.Handle("/", newScreenHandler(screen))
+	handler := newScreenHandler(store, items, events)
+	http.Handle("/", handler)
 	setupResourceHandler(server, "/css/pure-min.css", "text/css")
 	setupResourceHandler(server, "/css/grids-responsive-min.css", "text/css")
 	setupResourceHandler(server, "/css/style.css", "text/css")
@@ -148,18 +150,18 @@ func startServer(screen *Screen, moduleConfigChan chan<- moduleConfigUpdate) *ht
 	http.HandleFunc("/systems/", func(w http.ResponseWriter, r *http.Request) {
 		systemName := r.URL.Path[len("/systems/"):]
 		newSystemIndex := -2
-		for i := 0; i < screen.Config.NumSystems(); i++ {
-			if screen.Config.SystemDirectory(i) == systemName {
+		for i := 0; i < store.Config.NumSystems(); i++ {
+			if store.Config.SystemDirectory(i) == systemName {
 				newSystemIndex = i
 				break
 			}
 		}
 		if newSystemIndex != -2 {
-			if newSystemIndex != screen.ActiveSystem {
-				screen.ActiveSystem = newSystemIndex
-				mergeAndSendConfigs(moduleConfigChan, screen)
+			if newSystemIndex != store.ActiveSystem {
+				store.ActiveSystem = newSystemIndex
+				handler.mergeAndSendConfigs(itemConfigChan)
 			}
-			module.WriteEndpointHeader(w, module.EndpointReturnRedirect)
+			display.WriteEndpointHeader(w, display.EndpointReturnRedirect)
 		} else {
 			http.Error(w, "404: unknown system \""+systemName+"\"", http.StatusNotFound)
 		}
@@ -167,25 +169,25 @@ func startServer(screen *Screen, moduleConfigChan chan<- moduleConfigUpdate) *ht
 	http.HandleFunc("/groups/", func(w http.ResponseWriter, r *http.Request) {
 		groupName := r.URL.Path[len("/groups/"):]
 		newGroupIndex := -2
-		for i := 0; i < screen.Config.NumGroups(); i++ {
-			if screen.Config.GroupDirectory(i) == groupName {
+		for i := 0; i < store.Config.NumGroups(); i++ {
+			if store.Config.GroupDirectory(i) == groupName {
 				newGroupIndex = i
 				break
 			}
 		}
 		if newGroupIndex != -2 {
-			if screen.ActiveGroup != newGroupIndex {
-				screen.ActiveGroup = newGroupIndex
-				mergeAndSendConfigs(moduleConfigChan, screen)
+			if store.ActiveGroup != newGroupIndex {
+				store.ActiveGroup = newGroupIndex
+				handler.mergeAndSendConfigs(itemConfigChan)
 
 			}
-			module.WriteEndpointHeader(w, module.EndpointReturnRedirect)
+			display.WriteEndpointHeader(w, display.EndpointReturnRedirect)
 		} else {
 			http.Error(w, "404: unknown group \""+groupName+"\"", http.StatusNotFound)
 		}
 	})
 	http.HandleFunc("/static.json", func(w http.ResponseWriter, r *http.Request) {
-		screen.SendJSON(w)
+		store.SendJSON(w)
 	})
 	http.HandleFunc("/config/", func(w http.ResponseWriter, r *http.Request) {
 		post := false
@@ -207,9 +209,9 @@ func startServer(screen *Screen, moduleConfigChan chan<- moduleConfigUpdate) *ht
 				http.Error(w, "404: \""+r.URL.Path+"\" not found", http.StatusNotFound)
 			} else {
 				if post {
-					screen.ReceiveBaseJSON(w, r.Body)
+					store.ReceiveBaseJSON(w, r.Body)
 				} else {
-					screen.SendBaseJSON(w)
+					store.SendBaseJSON(w)
 				}
 			}
 		case "groups":
@@ -218,11 +220,11 @@ func startServer(screen *Screen, moduleConfigChan chan<- moduleConfigUpdate) *ht
 			} else {
 				groupName := r.URL.Path[len("/config/groups/"):]
 				if post {
-					if screen.ReceiveGroupJSON(w, groupName, r.Body) {
-						mergeAndSendConfigs(moduleConfigChan, screen)
+					if store.ReceiveGroupJSON(w, groupName, r.Body) {
+						handler.mergeAndSendConfigs(itemConfigChan)
 					}
 				} else {
-					screen.SendGroupJSON(w, groupName)
+					store.SendGroupJSON(w, groupName)
 				}
 			}
 		case "systems":
@@ -231,11 +233,11 @@ func startServer(screen *Screen, moduleConfigChan chan<- moduleConfigUpdate) *ht
 			} else {
 				systemName := r.URL.Path[len("/config/systems/"):]
 				if post {
-					if screen.ReceiveSystemJSON(w, systemName, r.Body) {
-						mergeAndSendConfigs(moduleConfigChan, screen)
+					if store.ReceiveSystemJSON(w, systemName, r.Body) {
+						handler.mergeAndSendConfigs(itemConfigChan)
 					}
 				} else {
-					screen.SendSystemJSON(w, systemName)
+					store.SendSystemJSON(w, systemName)
 				}
 			}
 		default:
@@ -243,21 +245,19 @@ func startServer(screen *Screen, moduleConfigChan chan<- moduleConfigUpdate) *ht
 		}
 	})
 
-	for index, item := range screen.modules.items {
+	for i := 0; i < items.NumItems(); i++ {
 		// needed to avoid closure over loop variable (which doesn't work)
-		curIndex := index
-		curItem := item
-		http.HandleFunc("/"+curItem.module.InternalName()+"/", func(w http.ResponseWriter, r *http.Request) {
+		curIndex := i
+		curItem := items.ItemAt(i)
+		http.HandleFunc("/"+curItem.InternalName()+"/", func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != "POST" {
 				http.Error(w, "400: module endpoints only take POST requests", http.StatusBadRequest)
-			} else if !curItem.enabled {
-				http.Error(w, "400: module is not enabled", http.StatusBadRequest)
 			} else {
 				returnPartial := r.PostFormValue("redirect") != "1"
-				res := curItem.module.EndpointHandler(r.URL.Path[len(curItem.module.InternalName())+2:],
+				res := curItem.(display.Module).EndpointHandler(r.URL.Path[len(curItem.InternalName())+2:],
 					r.PostForm, w, returnPartial)
 				if res {
-					sdl.PushEvent(&sdl.UserEvent{Type: screen.moduleUpdateEventID, Code: int32(curIndex)})
+					sdl.PushEvent(&sdl.UserEvent{Type: events.ModuleUpdateID, Code: int32(curIndex)})
 				}
 			}
 		})

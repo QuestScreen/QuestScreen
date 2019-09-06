@@ -1,4 +1,4 @@
-package module
+package display
 
 import (
 	"github.com/veandco/go-sdl2/img"

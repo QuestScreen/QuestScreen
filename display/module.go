@@ -1,4 +1,4 @@
-package module
+package display
 
 import (
 	"html/template"
@@ -13,7 +13,7 @@ import (
 type Module interface {
 	data.ConfigurableItem
 	// initialize the module.
-	Init(common *SceneCommon) error
+	Init(display *Display, store *data.Store) error
 	// collect requests given to EndpointHandler() and initializes a transition.
 	// returns the length of the transition animation.
 	// TransitionStep() and Render() will be invoked continuously until the returned time has been elapsed

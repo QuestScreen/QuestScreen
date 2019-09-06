@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/flyx/rpscreen/data"
-	"github.com/flyx/rpscreen/module"
+	"github.com/flyx/rpscreen/display"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -18,7 +18,9 @@ type personsConfig struct{}
 
 // The Persons module can show pictures of persons and other stuff.
 type Persons struct {
-	common          *module.SceneCommon
+	display *display.Display
+	// TODO: remove
+	store           *data.Store
 	config          *personsConfig
 	textures        []*sdl.Texture
 	textureScale    []float32
@@ -32,9 +34,10 @@ type Persons struct {
 }
 
 // Init initializes the module.
-func (p *Persons) Init(common *module.SceneCommon) error {
-	p.common = common
-	p.files = common.ListFiles(p, "")
+func (p *Persons) Init(display *display.Display, store *data.Store) error {
+	p.display = display
+	p.store = store
+	p.files = store.ListFiles(p, "")
 	p.textures = make([]*sdl.Texture, len(p.files))
 	p.textureScale = make([]float32, len(p.files))
 	for index := range p.textures {
@@ -63,10 +66,10 @@ func (*Persons) InternalName() string {
 
 // UI renders the HTML UI of the module.
 func (p *Persons) UI() template.HTML {
-	var builder module.UIBuilder
+	var builder display.UIBuilder
 
 	for index, file := range p.files {
-		if file.Enabled(&p.common.Store) {
+		if file.Enabled(p.store) {
 			builder.StartForm(p, "switch", "", true)
 			builder.HiddenValue("index", strconv.Itoa(index))
 			if p.shown[index] {
@@ -95,13 +98,13 @@ func (p *Persons) EndpointHandler(suffix string, values url.Values, w http.Respo
 		p.reqShow = !p.shown[index]
 		p.shown[index] = true
 
-		var returns module.EndpointReturn
+		var returns display.EndpointReturn
 		if returnPartial {
-			returns = module.EndpointReturnEmpty
+			returns = display.EndpointReturnEmpty
 		} else {
-			returns = module.EndpointReturnRedirect
+			returns = display.EndpointReturnRedirect
 		}
-		module.WriteEndpointHeader(w, returns)
+		display.WriteEndpointHeader(w, returns)
 		return true
 	}
 	http.Error(w, "404 not found: "+suffix, http.StatusNotFound)
@@ -113,13 +116,13 @@ func (p *Persons) InitTransition() time.Duration {
 	var ret time.Duration = -1
 	if p.reqShow {
 		file := p.files[p.reqTextureIndex]
-		tex, err := img.LoadTexture(p.common.Renderer, file.Path)
+		tex, err := img.LoadTexture(p.display.Renderer, file.Path)
 		if err != nil {
 			log.Println(err)
 		} else {
 			p.textures[p.reqTextureIndex] = tex
 			_, _, texWidth, texHeight, _ := tex.Query()
-			winWidth, winHeight := p.common.Window.GetSize()
+			winWidth, winHeight := p.display.Window.GetSize()
 			targetScale := float32(1.0)
 			if texHeight > winHeight*2/3 {
 				targetScale = float32(winHeight*2/3) / float32(texHeight)
@@ -173,7 +176,7 @@ func (p *Persons) TransitionStep(elapsed time.Duration) {
 func (p *Persons) FinishTransition() {
 	if !p.reqShow {
 		_, _, texWidth, _, _ := p.textures[p.reqTextureIndex].Query()
-		winWidth, _ := p.common.Window.GetSize()
+		winWidth, _ := p.display.Window.GetSize()
 		_ = p.textures[p.reqTextureIndex].Destroy()
 		p.textures[p.reqTextureIndex] = nil
 		p.curOrigWidth = p.curOrigWidth - int32(float32(texWidth)*p.textureScale[p.reqTextureIndex])
@@ -194,7 +197,7 @@ func (p *Persons) FinishTransition() {
 
 // Render renders the module.
 func (p *Persons) Render() {
-	winWidth, winHeight := p.common.Window.GetSize()
+	winWidth, winHeight := p.display.Window.GetSize()
 	curX := (winWidth - int32(float32(p.curOrigWidth)*p.curScale)) / 2
 	for i := range p.textures {
 		if p.shown[i] || (i == p.reqTextureIndex && p.transitioning) {
@@ -203,7 +206,7 @@ func (p *Persons) Render() {
 			targetWidth := int32(float32(texWidth) * p.textureScale[i] * p.curScale)
 			rect := sdl.Rect{X: curX, Y: winHeight - targetHeight, W: targetWidth, H: targetHeight}
 			curX += targetWidth
-			err := p.common.Renderer.Copy(p.textures[i], nil, &rect)
+			err := p.display.Renderer.Copy(p.textures[i], nil, &rect)
 			if err != nil {
 				log.Println(err)
 			}

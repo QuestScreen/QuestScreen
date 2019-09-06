@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/flyx/rpscreen/data"
-	"github.com/flyx/rpscreen/module"
+	"github.com/flyx/rpscreen/display"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -18,7 +18,9 @@ type backgroundConfig struct{}
 
 // Background is a module for painting background images
 type Background struct {
-	common                           *module.SceneCommon
+	display *display.Display
+	// TODO: remove
+	store                            *data.Store
 	config                           *backgroundConfig
 	texture, newTexture              *sdl.Texture
 	reqTextureIndex, curTextureIndex int
@@ -27,9 +29,10 @@ type Background struct {
 }
 
 // Init initializes the module
-func (bg *Background) Init(common *module.SceneCommon) error {
-	bg.common = common
-	bg.images = common.ListFiles(bg, "")
+func (bg *Background) Init(display *display.Display, store *data.Store) error {
+	bg.display = display
+	bg.store = store
+	bg.images = store.ListFiles(bg, "")
 	bg.texture = nil
 	bg.newTexture = nil
 
@@ -51,7 +54,7 @@ func (*Background) InternalName() string {
 
 // UI renders the HTML UI of the module.
 func (bg *Background) UI() template.HTML {
-	var builder module.UIBuilder
+	var builder display.UIBuilder
 	shownIndex := bg.reqTextureIndex
 	if shownIndex == -1 {
 		shownIndex = bg.curTextureIndex
@@ -60,7 +63,7 @@ func (bg *Background) UI() template.HTML {
 	builder.StartSelect("", "image", "value")
 	builder.Option("", shownIndex == len(bg.images), "None")
 	for index, file := range bg.images {
-		if file.Enabled(&bg.common.Store) {
+		if file.Enabled(bg.store) {
 			builder.Option(strconv.Itoa(index), shownIndex == index, file.Name)
 		}
 	}
@@ -89,13 +92,13 @@ func (bg *Background) EndpointHandler(suffix string, values url.Values, w http.R
 			}
 			bg.reqTextureIndex = index
 		}
-		var returns module.EndpointReturn
+		var returns display.EndpointReturn
 		if returnPartial {
-			returns = module.EndpointReturnEmpty
+			returns = display.EndpointReturnEmpty
 		} else {
-			returns = module.EndpointReturnRedirect
+			returns = display.EndpointReturnRedirect
 		}
-		module.WriteEndpointHeader(w, returns)
+		display.WriteEndpointHeader(w, returns)
 		return true
 	}
 	http.Error(w, "404 not found: "+suffix, http.StatusNotFound)
@@ -118,7 +121,7 @@ func (bg *Background) InitTransition() time.Duration {
 		if bg.reqTextureIndex != bg.curTextureIndex {
 			if bg.reqTextureIndex < len(bg.images) {
 				file := bg.images[bg.reqTextureIndex]
-				tex, err := img.LoadTexture(bg.common.Renderer, file.Path)
+				tex, err := img.LoadTexture(bg.display.Renderer, file.Path)
 				if err != nil {
 					log.Println(err)
 					bg.newTexture = nil
@@ -128,20 +131,20 @@ func (bg *Background) InitTransition() time.Duration {
 					if err != nil {
 						panic(err)
 					}
-					winWidth, winHeight := bg.common.Window.GetSize()
-					bg.newTexture, err = bg.common.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
+					winWidth, winHeight := bg.display.Window.GetSize()
+					bg.newTexture, err = bg.display.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
 						winWidth, winHeight)
 					if err != nil {
 						panic(err)
 					}
-					bg.common.Renderer.SetRenderTarget(bg.newTexture)
-					defer bg.common.Renderer.SetRenderTarget(nil)
-					bg.common.Renderer.Clear()
-					bg.common.Renderer.SetDrawColor(0, 0, 0, 255)
-					bg.common.Renderer.FillRect(nil)
+					bg.display.Renderer.SetRenderTarget(bg.newTexture)
+					defer bg.display.Renderer.SetRenderTarget(nil)
+					bg.display.Renderer.Clear()
+					bg.display.Renderer.SetDrawColor(0, 0, 0, 255)
+					bg.display.Renderer.FillRect(nil)
 					dst := offsets(float32(texWidth)/float32(texHeight), float32(winWidth)/float32(winHeight),
 						winWidth, winHeight)
-					bg.common.Renderer.Copy(tex, nil, &dst)
+					bg.display.Renderer.Copy(tex, nil, &dst)
 				}
 			}
 			bg.curTextureIndex = bg.reqTextureIndex
@@ -171,15 +174,15 @@ func (bg *Background) FinishTransition() {
 // Render renders the module
 func (bg *Background) Render() {
 	if bg.texture != nil || bg.curTextureSplit != 0 {
-		winWidth, winHeight := bg.common.Window.GetSize()
+		winWidth, winHeight := bg.display.Window.GetSize()
 		curSplit := int32(bg.curTextureSplit * float32(winWidth))
 		if bg.texture != nil {
 			rect := sdl.Rect{X: curSplit, Y: 0, W: winWidth - curSplit, H: winHeight}
-			bg.common.Renderer.Copy(bg.texture, &rect, &rect)
+			bg.display.Renderer.Copy(bg.texture, &rect, &rect)
 		}
 		if bg.newTexture != nil {
 			rect := sdl.Rect{X: 0, Y: 0, W: curSplit, H: winHeight}
-			bg.common.Renderer.Copy(bg.newTexture, &rect, &rect)
+			bg.display.Renderer.Copy(bg.newTexture, &rect, &rect)
 		}
 	}
 }
