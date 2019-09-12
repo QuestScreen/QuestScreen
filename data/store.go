@@ -22,8 +22,8 @@ type Store struct {
 
 // Init initializes the SharedData, including loading the configuration files.
 func (s *Store) Init(modules ConfigurableItemProvider, width int32, height int32) {
-	s.StaticData.Init(width, height)
-	s.Config.Init(&s.StaticData, modules)
+	s.StaticData.Init(width, height, modules)
+	s.Config.Init(&s.StaticData)
 	s.ActiveGroup = -1
 	s.ActiveSystem = -1
 }

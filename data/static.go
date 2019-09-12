@@ -15,16 +15,18 @@ type StaticData struct {
 	Fonts              []LoadedFontFamily
 	DefaultBorderWidth int32
 	DefaultTextSizes   [6]int32
+	items              ConfigurableItemProvider
 }
 
 // Init initializes the static data
-func (s *StaticData) Init(width int32, height int32) {
+func (s *StaticData) Init(width int32, height int32, items ConfigurableItemProvider) {
 	usr, _ := user.Current()
 	s.DataDir = filepath.Join(usr.HomeDir, ".local", "share", "rpscreen")
 	s.DefaultBorderWidth = height / 133
 	s.DefaultTextSizes = [6]int32{height / 37, height / 27, height / 19,
 		height / 13, height / 8, height / 4}
 	s.Fonts = CreateFontCatalog(s.DataDir, s.DefaultTextSizes[ContentFont])
+	s.items = items
 }
 
 // A Resource is a file in the file system.

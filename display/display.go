@@ -86,7 +86,6 @@ func NewDisplay(events Events) (*Display, error) {
 		return nil, err
 	}
 	width, height := display.Window.GetSize()
-	display.StaticData.Init(width, height)
 
 	display.Renderer, err = sdl.CreateRenderer(display.Window, -1,
 		sdl.RENDERER_ACCELERATED|sdl.RENDERER_TARGETTEXTURE)
@@ -96,6 +95,7 @@ func NewDisplay(events Events) (*Display, error) {
 	}
 
 	display.modules = moduleList{items: make([]moduleListItem, 0, 16)}
+	display.StaticData.Init(width, height, &display.modules)
 	display.numTransitions = 0
 
 	display.genPopup(width, height)

@@ -64,7 +64,6 @@ type group struct {
 // Configuration is rebuilt whenever the selected group or system changes and
 // whenever the configuration is edited (via web interface).
 type Config struct {
-	items       ConfigurableItemProvider
 	baseConfigs map[string]interface{}
 	systems     []systemConfig
 	groups      []group
@@ -223,8 +222,7 @@ func (s *StaticData) constructModuleConfigs(data map[string]interface{},
 // logged and ignored.
 //
 // You must call Init before doing anything with a Config value.
-func (c *Config) Init(static *StaticData, items ConfigurableItemProvider) {
-	c.items = items
+func (c *Config) Init(static *StaticData) {
 	c.groups = make([]group, 0, 16)
 
 	rawBaseConfig, err := ioutil.ReadFile(filepath.Join(static.DataDir, "base", "config.yaml"))
@@ -237,7 +235,7 @@ func (c *Config) Init(static *StaticData, items ConfigurableItemProvider) {
 		panic(err)
 	}
 	c.baseConfigs = make(map[string]interface{})
-	static.constructModuleConfigs(c.baseConfigs, nodes, items)
+	static.constructModuleConfigs(c.baseConfigs, nodes, static.items)
 
 	systemsDir := filepath.Join(static.DataDir, "systems")
 	files, err := ioutil.ReadDir(systemsDir)
@@ -252,7 +250,7 @@ func (c *Config) Init(static *StaticData, items ConfigurableItemProvider) {
 						finalConfig := systemConfig{
 							Name: tmp.Name, DirName: file.Name(),
 							Modules: make(map[string]interface{})}
-						static.constructModuleConfigs(finalConfig.Modules, tmp.Modules, items)
+						static.constructModuleConfigs(finalConfig.Modules, tmp.Modules, static.items)
 						c.systems = append(c.systems, finalConfig)
 					}
 				} else {
@@ -289,7 +287,7 @@ func (c *Config) Init(static *StaticData, items ConfigurableItemProvider) {
 								finalConfig.System = ""
 							}
 						}
-						static.constructModuleConfigs(finalConfig.Modules, tmp.Modules, items)
+						static.constructModuleConfigs(finalConfig.Modules, tmp.Modules, static.items)
 						c.groups = append(c.groups, group{
 							Config: finalConfig, Heroes: make([]hero, 0, 16)})
 					}
