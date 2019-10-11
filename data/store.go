@@ -1,15 +1,13 @@
 package data
 
 import (
-	"encoding/json"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
-
-	"gopkg.in/yaml.v3"
 )
 
 // Store keeps all config & state data of the application
@@ -91,7 +89,18 @@ func (s *Store) GetFilePath(item ConfigurableItem, subdir string, filename strin
 }
 
 type jsonItem struct {
-	Name, DirName string
+	Name    string `json:"name"`
+	DirName string `json:"dirName"`
+}
+
+type jsonModuleSetting struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+type jsonModuleDesc struct {
+	Name   string              `json:"name"`
+	Config []jsonModuleSetting `json:"config"`
 }
 
 func (s *Store) jsonSystems() []jsonItem {
@@ -120,137 +129,60 @@ func (s *Store) jsonFonts() []string {
 	return ret
 }
 
-type jsonData struct {
-	Systems      []jsonItem
-	Groups       []jsonItem
-	Fonts        []string
-	ActiveGroup  int
-	ActiveSystem int
-}
-
-// SendJSON sends a JSON describing all systems groups and fonts.
-func (s *Store) SendJSON(w http.ResponseWriter) {
-	SendAsJSON(w, jsonData{
-		Systems: s.jsonSystems(), Groups: s.jsonGroups(),
-		Fonts:       s.jsonFonts(),
-		ActiveGroup: s.ActiveGroup, ActiveSystem: s.ActiveSystem})
-}
-
-func (s *Store) sendModuleConfigJSON(
-	w http.ResponseWriter, config map[string]interface{}) {
-	ret := make(map[string]jsonModuleConfig)
+func (s *Store) jsonModules() []jsonModuleDesc {
+	ret := make([]jsonModuleDesc, 0, s.items.NumItems())
 	for i := 0; i < s.items.NumItems(); i++ {
 		item := s.items.ItemAt(i)
-		itemConfig := config[item.Name()]
+		itemConfig := s.baseConfigs[i]
 		itemValue := reflect.ValueOf(itemConfig).Elem()
 		for ; itemValue.Kind() == reflect.Interface ||
 			itemValue.Kind() == reflect.Ptr; itemValue = itemValue.Elem() {
 		}
-		if itemValue.NumField() > 0 {
-			curConfig := item.GetConfig()
-			jsonConfig := make(jsonModuleConfig)
-			curValue := reflect.ValueOf(curConfig).Elem()
-			for i := 0; i < itemValue.NumField(); i++ {
-				jsonConfig[itemValue.Type().Field(i).Name] = jsonConfigItem{
-					Type:    itemValue.Type().Field(i).Type.Elem().Name(),
-					Value:   itemValue.Field(i).Interface(),
-					Default: curValue.Field(i).Interface()}
-			}
-			ret[item.Name()] = jsonConfig
+		cur := jsonModuleDesc{
+			Name:   item.Name(),
+			Config: make([]jsonModuleSetting, 0, itemValue.NumField())}
+		for j := 0; j < itemValue.NumField(); j++ {
+			cur.Config = append(cur.Config, jsonModuleSetting{
+				Name: itemValue.Type().Field(j).Name,
+				Type: itemValue.Type().Field(j).Type.Elem().Name()})
 		}
+		ret = append(ret, cur)
 	}
-	SendAsJSON(w, ret)
+	return ret
 }
 
-func (s *StaticData) loadModuleConfigInto(target interface{},
-	fromYaml bool,
-	values map[string]interface{}, moduleName string, w http.ResponseWriter) bool {
-	targetModule := reflect.ValueOf(target).Elem()
-	targetModuleType := targetModule.Type()
-	for i := 0; i < targetModuleType.NumField(); i++ {
-		inValue, ok := values[targetModuleType.Field(i).Name]
-		if !ok {
-			http.Error(w, "value missing for "+moduleName+"."+
-				targetModuleType.Field(i).Name, http.StatusBadRequest)
-			return false
-		}
-		inModuleConfig, ok := inValue.(map[string]interface{})
-		if !ok {
-			raw, ok := inValue.(map[interface{}]interface{})
-			if !ok {
-				http.Error(w, "value of "+moduleName+"."+
-					targetModuleType.Field(i).Name+" is not a JSON object",
-					http.StatusBadRequest)
-				return false
-			}
-			inModuleConfig = make(map[string]interface{})
-			for key, value := range raw {
-				stringKey, ok := key.(string)
-				if !ok {
-					http.Error(w, "value of"+moduleName+"."+
-						targetModuleType.Field(i).Name+" contains non-string key",
-						http.StatusBadRequest)
-					return false
-				}
-				inModuleConfig[stringKey] = value
-			}
-		}
-		wasNil := false
-		if targetModule.Field(i).IsNil() {
-			targetModule.Field(i).Set(reflect.New(targetModuleType.Field(i).Type.Elem()))
-			wasNil = true
-		}
-		targetSetting := targetModule.Field(i).Interface()
-
-		if !s.setModuleConfigFieldFrom(targetSetting, fromYaml, inModuleConfig, w) {
-			if wasNil {
-				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
-			}
-			return false
-		}
-	}
-	return true
+type jsonGlobal struct {
+	Systems      []jsonItem       `json:"systems"`
+	Groups       []jsonItem       `json:"groups"`
+	Fonts        []string         `json:"fonts"`
+	Modules      []jsonModuleDesc `json:"modules"`
+	ActiveGroup  int              `json:"activeGroup"`
+	ActiveSystem int              `json:"activeSystem"`
 }
 
-func (s *Store) receiveModuleConfigJSON(
-	w http.ResponseWriter, config map[string]interface{}, reader io.Reader) bool {
-	raw, _ := ioutil.ReadAll(reader)
-	var res map[string]interface{}
-	if err := json.Unmarshal(raw, &res); err != nil {
-		http.Error(w, "invalid JSON: "+err.Error(), http.StatusBadRequest)
-		return false
-	}
-	for key, value := range res {
-		valueMap, ok := value.(map[string]interface{})
-		if !ok {
-			http.Error(w, "data of module \""+key+"\" is not a JSON object!",
-				http.StatusBadRequest)
-			return false
-		}
-		conf, ok := config[key]
-		if !ok {
-			http.Error(w, "unknown module: \""+key+"\"", http.StatusBadRequest)
-			return false
-		}
-		if !s.loadModuleConfigInto(conf, false, valueMap, key, w) {
-			return false
-		}
-	}
-	return true
+// SendGlobalJSON sends a JSON describing all systems, groups, fonts and modules.
+func (s *Store) SendGlobalJSON(w http.ResponseWriter) {
+	SendAsJSON(w, jsonGlobal{
+		Systems: s.jsonSystems(), Groups: s.jsonGroups(),
+		Fonts:       s.jsonFonts(),
+		Modules:     s.jsonModules(),
+		ActiveGroup: s.ActiveGroup, ActiveSystem: s.ActiveSystem})
 }
 
 // SendBaseJSON writes the base config as JSON to w
 func (s *Store) SendBaseJSON(w http.ResponseWriter) {
-	s.sendModuleConfigJSON(w, s.baseConfigs)
+	SendAsJSON(w, s.buildModuleConfigJSON(s.baseConfigs))
 }
 
 // ReceiveBaseJSON parses the given config as JSON, updates the internal
 // config and writes it to the base/config.yaml file
 func (s *Store) ReceiveBaseJSON(w http.ResponseWriter, reader io.Reader) {
-	if s.receiveModuleConfigJSON(w, s.baseConfigs, reader) {
-		path := filepath.Join(s.DataDir, "base", "config.yaml")
-		raw, _ := yaml.Marshal(s.baseConfigs)
-		ioutil.WriteFile(path, raw, 0644)
+	raw, _ := ioutil.ReadAll(reader)
+	if err := s.loadJSONModuleConfigs(raw, s.baseConfigs); err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	} else {
+		s.writeYamlBaseConfig(s.baseConfigs)
 	}
 }
 
@@ -258,7 +190,7 @@ func (s *Store) ReceiveBaseJSON(w http.ResponseWriter, reader io.Reader) {
 func (s *Store) SendSystemJSON(w http.ResponseWriter, system string) {
 	for i := range s.systems {
 		if s.systems[i].DirName == system {
-			s.sendModuleConfigJSON(w, s.systems[i].Modules)
+			SendAsJSON(w, s.buildModuleConfigJSON(s.systems[i].Modules))
 			return
 		}
 	}
@@ -272,13 +204,14 @@ func (s *Store) ReceiveSystemJSON(w http.ResponseWriter, system string,
 	reader io.Reader) bool {
 	for i := range s.systems {
 		if s.systems[i].DirName == system {
-			if s.receiveModuleConfigJSON(w, s.systems[i].Modules, reader) {
-				path := filepath.Join(s.DataDir, "systems", s.systems[i].DirName, "config.yaml")
-				raw, _ := yaml.Marshal(s.systems[i])
-				ioutil.WriteFile(path, raw, 0644)
-				return true
+			raw, _ := ioutil.ReadAll(reader)
+			if err := s.loadJSONModuleConfigs(raw, s.systems[i].Modules); err != nil {
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return false
 			}
-			return false
+			s.writeYamlSystemConfig(s.systems[i])
+			return true
 		}
 	}
 	http.Error(w, "404: unknown system \""+system+"\"", http.StatusNotFound)
@@ -289,7 +222,7 @@ func (s *Store) ReceiveSystemJSON(w http.ResponseWriter, system string,
 func (s *Store) SendGroupJSON(w http.ResponseWriter, group string) {
 	for i := range s.groups {
 		if s.groups[i].Config.DirName == group {
-			s.sendModuleConfigJSON(w, s.groups[i].Config.Modules)
+			SendAsJSON(w, s.buildModuleConfigJSON(s.groups[i].Config.Modules))
 			return
 		}
 	}
@@ -303,13 +236,14 @@ func (s *Store) ReceiveGroupJSON(w http.ResponseWriter, group string,
 	reader io.Reader) bool {
 	for i := range s.groups {
 		if s.groups[i].Config.DirName == group {
-			if s.receiveModuleConfigJSON(w, s.groups[i].Config.Modules, reader) {
-				path := filepath.Join(s.DataDir, "groups", s.groups[i].Config.DirName, "config.yaml")
-				raw, _ := yaml.Marshal(s.systems[i])
-				ioutil.WriteFile(path, raw, 0644)
-				return true
+			raw, _ := ioutil.ReadAll(reader)
+			if err := s.loadJSONModuleConfigs(raw, s.groups[i].Config.Modules); err != nil {
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return false
 			}
-			return false
+			s.writeYamlGroupConfig(s.groups[i].Config, s.systems)
+			return true
 		}
 	}
 	http.Error(w, "404: unknown group \""+group+"\"", http.StatusNotFound)

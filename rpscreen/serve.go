@@ -122,7 +122,7 @@ func nextPathItem(value string) (string, bool) {
 func (sh *screenHandler) mergeAndSendConfigs(moduleConfigChan chan<- display.ItemConfigUpdate) {
 	for i := 0; i < sh.items.NumItems(); i++ {
 		moduleConfigChan <- display.ItemConfigUpdate{ItemIndex: i,
-			Config: sh.store.Config.MergeConfig(sh.items.ItemAt(i),
+			Config: sh.store.Config.MergeConfig(&sh.store.StaticData, i,
 				sh.store.ActiveSystem, sh.store.ActiveGroup)}
 	}
 	sdl.PushEvent(&sdl.UserEvent{Type: sh.events.ModuleConfigID})
@@ -187,7 +187,7 @@ func startServer(store *data.Store, items data.ConfigurableItemProvider,
 		}
 	})
 	http.HandleFunc("/static.json", func(w http.ResponseWriter, r *http.Request) {
-		store.SendJSON(w)
+		store.SendGlobalJSON(w)
 	})
 	http.HandleFunc("/config/", func(w http.ResponseWriter, r *http.Request) {
 		post := false

@@ -1,4 +1,10 @@
-var fonts;
+var data;
+
+const ItemKind = {
+  System: 0,
+  Group: 1,
+  Hero: 2
+}
 
 function setChanged() {
     document.querySelector("#settings-changed").style.visibility = "visible";
@@ -65,9 +71,10 @@ function swapSelectableFont() {
 }
 
 function postConfig(e) {
-    let data = {};
-    document.querySelector("#main").querySelectorAll(".module-settings-content").forEach(function (item) {
-        let vals = {};
+    let jsonConfig = [];
+    document.querySelector("#main").querySelectorAll(".module-settings-content"
+            ).forEach(function (item) {
+        let vals = [];
         item.querySelectorAll(".pure-control-group").forEach(function (val) {
             if (val.querySelector(".settings-item-checkbox").checked) {
                 let res = {};
@@ -87,64 +94,67 @@ function postConfig(e) {
                         }
                         break;
                 }
-                vals[val.dataset.name] = res;
+                vals.push(res);
             } else {
-                vals[val.dataset.name] = null;
+                vals.push(null);
             }
         });
-        data[item.dataset.name] = vals;
+        jsonConfig.push(vals);
     });
 
     return fetch(this.dataset.link, {
         method: 'POST', mode: 'no-cors', cache: 'no-cache', credentials: 'omit',
         headers: { 'Content-Type': 'application/json' },
         redirect: 'error', referrer: 'no-referrer',
-        body: JSON.stringify(data),
+        body: JSON.stringify(jsonConfig),
     }).then(function (response) {
         if (response.ok) {
             document.querySelector("#settings-changed").style.visibility = "hidden";
         } else {
-            alert(response);
+            console.log(response);
+            alert("Settings update failed!");
         }
     });
 }
 
-function genConfigUI(name, data) {
-    let ui = document.importNode(document.querySelector("#tmpl-settings-item").content, true);
-    ui.querySelector(".settings-item-name").textContent = name;
+function genConfigUI(index, settingDef, curValue) {
+    let ui = document.importNode(document.querySelector("#tmpl-settings-item"
+        ).content, true);
+    ui.querySelector(".settings-item-name").textContent = settingDef.name;
     let container = ui.querySelector(".pure-control-group");
-    container.dataset.name = name;
-    container.dataset.type = data.Type;
-    switch (data.Type) {
+    container.dataset.name = settingDef.name;
+    container.dataset.type = settingDef.type;
+    switch (settingDef.type) {
         case "SelectableFont":
-            let fontUI = document.importNode(document.querySelector("#tmpl-settings-selectable-font").content, true);
+            let fontUI = document.importNode(document.querySelector(
+                "#tmpl-settings-selectable-font").content, true);
             let families = fontUI.querySelector(".font-families");
-            for (var i = 0; i < fonts.length; i++) {
+            for (var i = 0; i < data.fonts.length; i++) {
                 let option = document.createElement("OPTION");
                 option.value = i;
-                option.textContent = fonts[i];
+                option.textContent = data.fonts[i];
                 families.appendChild(option);
             }
             let sizes = fontUI.querySelector(".font-size");
             let styles = fontUI.querySelector(".pure-button-group");
 
-            families.dataset.default = data.Default.familyIndex;
-            sizes.dataset.default = data.Default.size;
-            styles.dataset.default = data.Default.style;
-            if (data.Value == null) {
+            families.dataset.default = curValue.default.familyIndex;
+            sizes.dataset.default = curValue.default.size;
+            styles.dataset.default = curValue.default.style;
+            if (curValue.value == null) {
                 families.dataset.current = families.dataset.default;
                 sizes.dataset.current = sizes.dataset.default;
                 styles.dataset.current = styles.dataset.default;
             } else {
-                families.dataset.current = data.Value.familyIndex;
-                sizes.dataset.current = data.Value.size;
-                styles.dataset.current = data.Value.style;
+                families.dataset.current = curValue.value.familyIndex;
+                sizes.dataset.current = curValue.value.size;
+                styles.dataset.current = curValue.value.style;
             }
 
             container.appendChild(fontUI);
             let checkbox = container.querySelector(".settings-item-checkbox");
             checkbox.checked = true;
-            if (data.Value == null) {
+            if (curValue.value == null) {
                 // initialize UI elements to reflect current value, so that they
                 // are stored when disabling.
                 swapSelectableFont.call(checkbox);
@@ -160,37 +170,62 @@ function genConfigUI(name, data) {
             break;
         default:
             let p = document.createElement("P");
-            p.textContent = "Unknown setting type: `" + data.Type + "`";
+            p.textContent = "Unknown setting type: `" + settingDef.type + "`";
             container.appendChild(p);
             break;
     }
     return ui;
 }
 
+function getSubject(kind, index) {
+    switch (kind) {
+        case ItemKind.System: {
+            let item = data.systems[index];
+            return {
+                item: item,
+                title: "System „" + item.name + "“",
+                link: "/systems/" + item.dirName
+            };
+        }
+        case ItemKind.Group: {
+            let item = data.groups[index];
+            return {
+                item: item,
+                title: "Group „" + item.name + "“",
+                link: "/groups/" + item.dirName
+            };
+        }
+        default:
+            return null;
+    }
+}
+
 function showSettings(e) {
-    let heading = this.dataset.name + " Settings";
-    let link = this.dataset.link;
-    fetch(this.dataset.link).then(function (response) {
+    let subject = getSubject(parseInt(this.dataset.kind), this.dataset.index);
+    let heading = subject.title + " Settings";
+    let link = "/config" + subject.link;
+    fetch(link).then(function (response) {
         if (response.ok) {
             return response.json();
         }
         throw Error("Could not get " + response.url);
-    }).then(function (data) {
-        let page = document.importNode(document.querySelector("#tmpl-settings-page").content, true);
+    }).then(function (values) {
+        let page = document.importNode(document.querySelector(
+            "#tmpl-settings-page").content, true);
         page.querySelector("#settings-heading").textContent = heading;
         let moduleTemplate = document.querySelector("#tmpl-settings-module");
         let container = page.querySelector("article");
         let controlSep = container.querySelector("#settings-control-sep");
-        for (var modName in data) {
+        for (var i = 0; i < data.modules.length; i++) {
+            let mod = data.modules[i];
             let modUI = document.importNode(moduleTemplate.content, true);
             let name = modUI.querySelector("#module-settings-name");
             name.removeAttribute("id");
-            name.textContent = modName;
+            name.textContent = mod.name;
             let settings = modUI.querySelector(".module-settings-content");
-            settings.dataset.name = modName;
-            let items = data[modName];
-            for (var configName in items) {
-                settings.appendChild(genConfigUI(configName, items[configName]));
+            settings.dataset.index = i;
+            for (var j = 0; j < mod.config.length; j++) {
+                settings.appendChild(genConfigUI(j, mod.config[j], values[i][j]));
             }
             container.insertBefore(modUI, controlSep);
         }
@@ -213,37 +248,49 @@ document.addEventListener("DOMContentLoaded", function () {
             return response.json();
         }
         throw Error("Could not get static.json");
-    }).then(function (data) {
+    }).then(function (received) {
         let curLast = document.querySelector("#rp-menu-system-heading");
+        data = received;
 
-        function appendMenuEntry(template, selected, prefix, item, itemType) {
+        function appendMenuEntry(template, index, selectedIndex, item, kind) {
             let entry = document.importNode(template.content, true);
-            if (selected) {
+            if (index == selectedIndex) {
                 entry.querySelector("li").classList.add("pure-menu-selected");
             }
             let link = entry.querySelector("a.pure-menu-link");
-            link.href = prefix + item.DirName;
-            link.textContent = item.Name;
+            switch (kind) {
+                case ItemKind.System:
+                    link.href = "/systems/" + item.dirName;
+                    break;
+                case ItemKind.Group:
+                    link.href = "/groups/" + item.dirName;
+                    break;
+                case ItemKind.Hero:
+                    link.href = "/heroes/" + item.dirName;
+                    break;
+            }
+            link.textContent = item.name;
             let cog = entry.querySelector("a.settings-link");
             cog.addEventListener('click', showSettings);
-            cog.dataset.link = "/config" + prefix + item.DirName;
-            cog.dataset.name = itemType + " „" + item.Name + "“"
+            cog.dataset.kind = kind;
+            cog.dataset.index = index;
+            /*cog.dataset.link = "/config" + prefix + item.dirName;
+            cog.dataset.name = itemType + " „" + item.name + "“"*/
 
             curLast.parentNode.insertBefore(entry, curLast.nextSibling);
             curLast = curLast.nextSibling;
         }
 
         let systemTemplate = document.querySelector("#tmpl-system-entry");
-        data.Systems.forEach(function (system, index) {
-            appendMenuEntry(systemTemplate, index === data.ActiveSystem, "/systems/", system, "System");
+        data.systems.forEach(function (system, index) {
+            appendMenuEntry(systemTemplate, index, data.curActiveSystem, system, ItemKind.System);
         });
 
         let groupTemplate = document.querySelector("#tmpl-group-entry");
         curLast = document.querySelector("#rp-menu-group-heading");
-        data.Groups.forEach(function (group, index) {
-            appendMenuEntry(groupTemplate, index === data.ActiveGroup, "/groups/", group, "Group");
+        data.groups.forEach(function (group, index) {
+            appendMenuEntry(groupTemplate, index, data.curActiveGroup, group, ItemKind.Group);
         });
-        fonts = data.Fonts;
         document.querySelector("#rp-menu-list").style.visibility = "visible";
     }).catch(function (error) {
         console.log(error);

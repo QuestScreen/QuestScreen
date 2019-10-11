@@ -63,7 +63,7 @@ func (d *Display) InitModuleConfigs(store *data.Store) {
 			continue
 		}
 		module.SetConfig(
-			store.Config.MergeConfig(module, -1, -1))
+			store.Config.MergeConfig(&store.StaticData, i, -1, -1))
 		d.modules.items[i].enabled = true
 	}
 }

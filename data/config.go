@@ -16,29 +16,15 @@ import (
 
 type systemConfig struct {
 	Name    string
-	DirName string `yaml:"-"`
-	Modules map[string]interface{}
-}
-
-type rawSystemConfig struct {
-	Name    string
-	Modules map[string]map[string]interface{}
+	DirName string
+	Modules []interface{}
 }
 
 type groupConfig struct {
 	Name        string
-	DirName     string `yaml:"-"`
-	System      string
-	SystemIndex int `yaml:"-"`
-	Modules     map[string]interface{}
-}
-
-type rawGroupConfig struct {
-	Name        string
-	DirName     string `yaml:"-"`
-	System      string
-	SystemIndex int `yaml:"-"`
-	Modules     map[string]map[string]interface{}
+	DirName     string
+	SystemIndex int
+	Modules     []interface{}
 }
 
 type hero struct {
@@ -64,7 +50,7 @@ type group struct {
 // Configuration is rebuilt whenever the selected group or system changes and
 // whenever the configuration is edited (via web interface).
 type Config struct {
-	baseConfigs map[string]interface{}
+	baseConfigs []interface{}
 	systems     []systemConfig
 	groups      []group
 }
@@ -172,28 +158,7 @@ func findItem(items ConfigurableItemProvider, name string) (ConfigurableItem, in
 	return nil, -1
 }
 
-// necessary to re-use the JSON deserialization funcs for loading YAML
-type dummyWriter struct {
-	headers http.Header
-}
-
-func createDummyWriter() *dummyWriter {
-	headers := make(http.Header)
-	return &dummyWriter{headers: headers}
-}
-
-func (d *dummyWriter) Header() http.Header {
-	return d.headers
-}
-
-func (d *dummyWriter) Write(data []byte) (int, error) {
-	log.Println(data)
-	return 0, nil
-}
-
-func (d *dummyWriter) WriteHeader(statusCode int) {}
-
-func (s *StaticData) constructModuleConfigs(data map[string]interface{},
+/*func (s *StaticData) constructModuleConfigs(data []interface{},
 	raw map[string]map[string]interface{}, items ConfigurableItemProvider) {
 	foundModules := make([]bool, items.NumItems())
 	dummy := createDummyWriter()
@@ -215,7 +180,7 @@ func (s *StaticData) constructModuleConfigs(data map[string]interface{},
 			data[mod.Name()] = mod.EmptyConfig()
 		}
 	}
-}
+}*/
 
 // Init loads all config.yaml files and parses them according to the module's
 // config types. Parsing errors lead to a panic while structural errors are
@@ -223,20 +188,13 @@ func (s *StaticData) constructModuleConfigs(data map[string]interface{},
 //
 // You must call Init before doing anything with a Config value.
 func (c *Config) Init(static *StaticData) {
-	c.groups = make([]group, 0, 16)
-
 	rawBaseConfig, err := ioutil.ReadFile(filepath.Join(static.DataDir, "base", "config.yaml"))
 	if err != nil {
 		panic(err)
 	}
-	var nodes map[string]map[string]interface{}
-	err = yaml.Unmarshal(rawBaseConfig, &nodes)
-	if err != nil {
-		panic(err)
-	}
-	c.baseConfigs = make(map[string]interface{})
-	static.constructModuleConfigs(c.baseConfigs, nodes, static.items)
+	c.baseConfigs = static.loadYamlBaseConfig(rawBaseConfig)
 
+	c.systems = make([]systemConfig, 0, 16)
 	systemsDir := filepath.Join(static.DataDir, "systems")
 	files, err := ioutil.ReadDir(systemsDir)
 	if err == nil {
@@ -244,15 +202,7 @@ func (c *Config) Init(static *StaticData) {
 			if file.IsDir() {
 				config, err := ioutil.ReadFile(filepath.Join(systemsDir, file.Name(), "config.yaml"))
 				if err == nil {
-					var tmp rawSystemConfig
-					err = yaml.Unmarshal(config, &tmp)
-					if err == nil {
-						finalConfig := systemConfig{
-							Name: tmp.Name, DirName: file.Name(),
-							Modules: make(map[string]interface{})}
-						static.constructModuleConfigs(finalConfig.Modules, tmp.Modules, static.items)
-						c.systems = append(c.systems, finalConfig)
-					}
+					c.systems = append(c.systems, static.loadYamlSystemConfig(config, file.Name()))
 				} else {
 					log.Println(err)
 				}
@@ -262,6 +212,7 @@ func (c *Config) Init(static *StaticData) {
 		log.Println(err)
 	}
 
+	c.groups = make([]group, 0, 16)
 	groupsDir := filepath.Join(static.DataDir, "groups")
 	files, err = ioutil.ReadDir(groupsDir)
 	if err == nil {
@@ -269,28 +220,11 @@ func (c *Config) Init(static *StaticData) {
 			if file.IsDir() {
 				config, err := ioutil.ReadFile(filepath.Join(groupsDir, file.Name(), "config.yaml"))
 				if err == nil {
-					var tmp rawGroupConfig
-					err = yaml.Unmarshal(config, &tmp)
-					if err == nil {
-						finalConfig := groupConfig{
-							Name: tmp.Name, DirName: file.Name(), System: tmp.System,
-							SystemIndex: -1, Modules: make(map[string]interface{})}
-						if finalConfig.System != "" {
-							for i := range c.systems {
-								if c.systems[i].Name == finalConfig.System {
-									finalConfig.SystemIndex = i
-									break
-								}
-							}
-							if finalConfig.SystemIndex == -1 {
-								log.Println("unknown system name: " + finalConfig.System)
-								finalConfig.System = ""
-							}
-						}
-						static.constructModuleConfigs(finalConfig.Modules, tmp.Modules, static.items)
-						c.groups = append(c.groups, group{
-							Config: finalConfig, Heroes: make([]hero, 0, 16)})
-					}
+					config := static.loadYamlGroupConfig(config, file.Name(), c.systems)
+					c.groups = append(c.groups, group{
+						Config: config,
+						Heroes: make([]hero, 0, 16),
+					})
 				} else {
 					log.Println(err)
 				}
@@ -333,15 +267,17 @@ func (c *Config) Init(static *StaticData) {
 // MergeConfig merges the item's default configuration with the values
 // configured in its base config and the current system and group config.
 // It returns the resulting configuration.
-func (c *Config) MergeConfig(item ConfigurableItem, systemIndex int, groupIndex int) interface{} {
+func (c *Config) MergeConfig(staticData *StaticData,
+	itemIndex int, systemIndex int, groupIndex int) interface{} {
 	var configStack [4]*reflect.Value
+	item := staticData.items.ItemAt(itemIndex)
 
 	defaultValues := item.DefaultConfig()
 	configType := reflect.TypeOf(defaultValues).Elem()
 
 	if groupIndex != -1 {
-		conf, ok := c.groups[groupIndex].Config.Modules[item.Name()]
-		if !ok {
+		conf := c.groups[groupIndex].Config.Modules[itemIndex]
+		if conf == nil {
 			panic("group config missing for " + item.Name())
 		}
 		val := reflect.ValueOf(conf).Elem()
@@ -353,8 +289,8 @@ func (c *Config) MergeConfig(item ConfigurableItem, systemIndex int, groupIndex 
 		configStack[0] = &val
 	}
 	if systemIndex != -1 {
-		conf, ok := c.systems[systemIndex].Modules[item.Name()]
-		if !ok {
+		conf := c.systems[systemIndex].Modules[itemIndex]
+		if conf == nil {
 			panic("system config missing for " + item.Name())
 		}
 		val := reflect.ValueOf(conf).Elem()
@@ -366,8 +302,8 @@ func (c *Config) MergeConfig(item ConfigurableItem, systemIndex int, groupIndex 
 		configStack[1] = &val
 	}
 
-	baseConf, ok := c.baseConfigs[item.Name()]
-	if !ok {
+	baseConf := c.baseConfigs[itemIndex]
+	if baseConf == nil {
 		panic("base config missing for " + item.Name())
 	}
 	baseValue := reflect.ValueOf(baseConf).Elem()
@@ -403,11 +339,3 @@ func SendAsJSON(w http.ResponseWriter, data interface{}) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
-
-type jsonConfigItem struct {
-	Type    string
-	Value   interface{}
-	Default interface{}
-}
-
-type jsonModuleConfig map[string]jsonConfigItem

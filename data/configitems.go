@@ -2,7 +2,6 @@ package data
 
 import (
 	"errors"
-	"net/http"
 	"reflect"
 	"strconv"
 )
@@ -135,32 +134,28 @@ type SelectableFont struct {
 	Style       FontStyle `json:"style" yaml:"style"`
 }
 
-func (s *StaticData) postProcess(target interface{}, fromYaml bool,
-	w http.ResponseWriter) bool {
+func (s *StaticData) postProcess(target interface{}, fromYaml bool) error {
 	switch v := target.(type) {
 	case *SelectableFont:
 		if fromYaml {
 			for i := range s.Fonts {
 				if v.Family == s.Fonts[i].Name {
 					v.FamilyIndex = int32(i)
-					return true
+					return nil
 				}
 			}
-			http.Error(w, "unknown font \""+v.Family+"\"", http.StatusBadRequest)
-			return false
+			return errors.New("unknown font \"" + v.Family + "\"")
 		}
 		if v.FamilyIndex < 0 || v.FamilyIndex >= int32(len(s.Fonts)) {
-			http.Error(w, "font index out of range!", http.StatusBadRequest)
-			return false
+			return errors.New("font index out of range")
 		}
 		v.Family = s.Fonts[v.FamilyIndex].Name
 	}
-	return true
+	return nil
 }
 
 func (s *StaticData) setModuleConfigFieldFrom(target interface{},
-	fromYaml bool, data map[string]interface{},
-	w http.ResponseWriter) bool {
+	fromYaml bool, data map[string]interface{}) error {
 	settingType := reflect.TypeOf(target)
 	value := reflect.ValueOf(target)
 	for settingType.Kind() == reflect.Interface ||
@@ -187,9 +182,7 @@ func (s *StaticData) setModuleConfigFieldFrom(target interface{},
 
 		newVal, ok := data[fieldName]
 		if !ok {
-			http.Error(w, "field \""+fieldName+"\" missing!",
-				http.StatusBadRequest)
-			return false
+			return errors.New("field \"" + fieldName + "\" missing!")
 		}
 		field := value.Field(i)
 
@@ -198,17 +191,13 @@ func (s *StaticData) setModuleConfigFieldFrom(target interface{},
 			if fromYaml {
 				intVal, ok := newVal.(int)
 				if !ok {
-					http.Error(w, "field \""+fieldName+"\" must be a number!",
-						http.StatusBadRequest)
-					return false
+					return errors.New("field \"" + fieldName + "\" must be a number!")
 				}
 				field.SetInt(int64(intVal))
 			} else {
 				floatVal, ok := newVal.(float64)
 				if !ok {
-					http.Error(w, "field \""+fieldName+"\" must be a number!",
-						http.StatusBadRequest)
-					return false
+					return errors.New("field \"" + fieldName + "\" must be a number!")
 				}
 				field.SetInt(int64(floatVal))
 			}
@@ -216,26 +205,20 @@ func (s *StaticData) setModuleConfigFieldFrom(target interface{},
 			if fromYaml {
 				floatVal, ok := newVal.(float64)
 				if !ok {
-					http.Error(w, "field \""+fieldName+"\" must be a number!",
-						http.StatusBadRequest)
-					return false
+					return errors.New("field \"" + fieldName + "\" must be a number!")
 				}
 				field.SetUint(uint64(floatVal))
 			} else {
 				intVal, ok := newVal.(int)
 				if !ok {
-					http.Error(w, "field \""+fieldName+"\" must be a number!",
-						http.StatusBadRequest)
-					return false
+					return errors.New("field \"" + fieldName + "\" must be a number!")
 				}
 				field.SetUint(uint64(intVal))
 			}
 		case reflect.String:
 			stringVal, ok := newVal.(string)
 			if !ok {
-				http.Error(w, "field \""+fieldName+"\" must be a string!",
-					http.StatusBadRequest)
-				return false
+				return errors.New("field \"" + fieldName + "\" must be a string!")
 			}
 			field.SetString(stringVal)
 		default:
@@ -244,9 +227,8 @@ func (s *StaticData) setModuleConfigFieldFrom(target interface{},
 		delete(data, fieldName)
 	}
 	for key := range data {
-		http.Error(w, "Unknown field \""+key+"\"", http.StatusBadRequest)
-		return false
+		return errors.New("Unknown field \"" + key + "\"")
 	}
 
-	return s.postProcess(target, fromYaml, w)
+	return s.postProcess(target, fromYaml)
 }
