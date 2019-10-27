@@ -1,11 +1,8 @@
 package herolist
 
 import (
-	"html/template"
 	"log"
-	"net/http"
-	"net/url"
-	"strconv"
+	"sync"
 	"time"
 
 	"github.com/flyx/rpscreen/data"
@@ -28,19 +25,36 @@ const (
 	hidingHero
 )
 
-type heroListConfig struct{}
+type config struct{}
+
+type requestKind int
+
+const (
+	noRequest requestKind = iota
+	globalRequest
+	heroRequest
+	stateRequest
+)
+
+type requests struct {
+	mutex         sync.Mutex
+	kind          requestKind
+	globalVisible bool
+	heroIndex     int32
+	heroVisible   bool
+	heroes        []bool
+}
 
 // HeroList is a module for displaying a list of heroes.
 type HeroList struct {
-	display *display.Display
-	// TODO: remove
+	*config
+	state
+	requests
 	store                       *data.Store
-	config                      *heroListConfig
+	display                     *display.Display
 	heroes                      []displayedHero
-	displayedGroup              int
-	hidden                      bool
-	reqSwitch                   int32
-	reqHidden                   bool
+	curGlobalVisible            bool
+	curHero                     int32
 	curXOffset, curYOffset      int32
 	contentWidth, contentHeight int32
 	borderWidth                 int32
@@ -49,12 +63,10 @@ type HeroList struct {
 
 // Init initializes the module.
 func (l *HeroList) Init(display *display.Display, store *data.Store) error {
-	l.display = display
+	l.state.owner = l
 	l.store = store
-	l.displayedGroup = -1
-	l.hidden = false
-	l.reqHidden = false
-	l.reqSwitch = -1
+	l.display = display
+	l.curGlobalVisible = false
 	l.curXOffset = 0
 	l.curYOffset = 0
 	winWidth, winHeight := display.Window.GetSize()
@@ -83,74 +95,6 @@ func (l *HeroList) boxHeight() int32 {
 	return l.contentHeight + 4*l.borderWidth
 }
 
-// UI constructs the HTML UI of the modules
-func (l *HeroList) UI() template.HTML {
-	var builder display.UIBuilder
-
-	builder.StartForm(l, "switchHidden", "", true)
-	if l.reqHidden {
-		builder.SubmitButton("Show", "Complete List", true)
-	} else {
-		builder.SubmitButton("Hide", "Complete List", true)
-	}
-	builder.EndForm()
-
-	if l.displayedGroup >= 0 {
-		for i := 0; i < l.store.Config.NumHeroes(l.displayedGroup); i++ {
-			builder.StartForm(l, "switchHero", "", true)
-			builder.HiddenValue("index", strconv.Itoa(i))
-			shown := l.heroes[i].shown
-			if shown {
-				builder.SubmitButton("Hide",
-					l.store.Config.HeroName(l.displayedGroup, i), !l.reqHidden)
-			} else {
-				builder.SecondarySubmitButton("Show",
-					l.store.Config.HeroName(l.displayedGroup, i), !l.reqHidden)
-			}
-			builder.EndForm()
-		}
-	}
-	return builder.Finish()
-}
-
-// EndpointHandler implement the module's endpoint handler.
-func (l *HeroList) EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool {
-	if suffix == "switchHidden" {
-		l.reqHidden = !l.hidden
-		var returns display.EndpointReturn
-		if returnPartial {
-			returns = display.EndpointReturnEmpty
-		} else {
-			returns = display.EndpointReturnRedirect
-		}
-		display.WriteEndpointHeader(w, returns)
-		return true
-	} else if suffix == "switchHero" {
-		index, err := strconv.Atoi(values["index"][0])
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return false
-		} else if index < 0 || index >= len(l.heroes) {
-			http.Error(w, "index out of range", http.StatusBadRequest)
-			return false
-		}
-		l.reqSwitch = int32(index)
-		l.heroes[l.reqSwitch].shown = !l.heroes[l.reqSwitch].shown
-
-		var returns display.EndpointReturn
-		if returnPartial {
-			returns = display.EndpointReturnEmpty
-		} else {
-			returns = display.EndpointReturnRedirect
-		}
-		display.WriteEndpointHeader(w, returns)
-		return true
-	} else {
-		http.Error(w, "404 not found: "+suffix, http.StatusNotFound)
-		return false
-	}
-}
-
 func renderText(text string, display *display.Display, fontIndex int32,
 	style data.FontStyle, r uint8, g uint8, b uint8) *sdl.Texture {
 	fontDef := data.SelectableFont{Size: data.ContentFont, Style: style,
@@ -173,15 +117,15 @@ func renderText(text string, display *display.Display, fontIndex int32,
 }
 
 func (l *HeroList) rebuildHeroBoxes() {
-	if l.displayedGroup != -1 {
+	if l.heroes != nil {
 		for _, hero := range l.heroes {
 			hero.tex.Destroy()
 		}
 	}
-	if l.store.ActiveGroup == -1 {
+	if l.store.GetActiveGroup() == -1 {
 		l.heroes = nil
 	} else {
-		l.heroes = make([]displayedHero, l.store.Config.NumHeroes(l.store.ActiveGroup))
+		l.heroes = make([]displayedHero, l.store.Config.NumHeroes(l.store.GetActiveGroup()))
 		var err error
 		for index := range l.heroes {
 			hero := &l.heroes[index]
@@ -190,11 +134,11 @@ func (l *HeroList) rebuildHeroBoxes() {
 				l.boxWidth(), l.boxHeight())
 			if err == nil {
 				l.display.Renderer.SetRenderTarget(hero.tex)
-				name := renderText(l.store.Config.HeroName(l.store.ActiveGroup, index),
+				name := renderText(l.store.Config.HeroName(l.store.GetActiveGroup(), index),
 					l.display, 0, data.Standard, 0, 0, 0)
 				_, _, nameWidth, nameHeight, _ := name.Query()
 				name.SetBlendMode(sdl.BLENDMODE_BLEND)
-				descr := renderText(l.store.Config.HeroDescription(l.store.ActiveGroup, index),
+				descr := renderText(l.store.Config.HeroDescription(l.store.GetActiveGroup(), index),
 					l.display, 0, data.Standard, 50, 50, 50)
 				_, _, descrWidth, descrHeight, _ := descr.Query()
 				descr.SetBlendMode(sdl.BLENDMODE_BLEND)
@@ -220,69 +164,55 @@ func (l *HeroList) rebuildHeroBoxes() {
 
 // InitTransition starts a transition
 func (l *HeroList) InitTransition() time.Duration {
-	if l.store.ActiveGroup != l.displayedGroup {
-		if l.displayedGroup == -1 {
-			l.rebuildHeroBoxes()
-			l.status = showingAll
+	l.requests.mutex.Lock()
+	defer l.requests.mutex.Unlock()
+	curRequest := l.requests.kind
+	l.requests.kind = noRequest
+	switch curRequest {
+	case noRequest:
+		return -1
+	case globalRequest:
+		if l.requests.globalVisible != l.curGlobalVisible {
+			if l.requests.globalVisible {
+				l.status = showingAll
+			} else {
+				l.status = hidingAll
+			}
 			return time.Second
-		} else if l.store.ActiveGroup == -1 {
-			l.status = hidingAll
+		}
+	case heroRequest:
+		if l.heroes[l.requests.heroIndex].shown != l.requests.heroVisible {
+			if l.requests.heroVisible {
+				l.status = showingHero
+			} else {
+				l.status = hidingHero
+			}
+			l.heroes[l.requests.heroIndex].tex.SetBlendMode(sdl.BLENDMODE_BLEND)
+			l.curHero = l.requests.heroIndex
 			return time.Second
-		} else {
-			l.status = hidingAll
-			return time.Second * 2
 		}
-	} else if l.reqHidden != l.hidden {
-		if l.hidden {
-			l.status = showingAll
-		} else {
-			l.status = hidingAll
-		}
-		return time.Second
+	case stateRequest:
+		return -1
 	}
 
-	if l.heroes[l.reqSwitch].shown {
-		l.status = hidingHero
-	} else {
-		l.status = showingHero
-	}
-	l.heroes[l.reqSwitch].tex.SetBlendMode(sdl.BLENDMODE_BLEND)
-	return time.Second
+	return -1
 }
 
 // TransitionStep advances the transition
 func (l *HeroList) TransitionStep(elapsed time.Duration) {
-	if l.store.ActiveGroup != l.displayedGroup {
-		if l.displayedGroup == -1 {
-			l.curXOffset = int32(((time.Second - elapsed) * time.Duration(l.boxWidth())) / time.Second)
-		} else if l.store.ActiveGroup == -1 {
-			l.curXOffset = int32((elapsed * time.Duration(l.boxWidth())) / time.Second)
-		} else {
-			if elapsed >= time.Second {
-				if l.status == hidingAll {
-					l.rebuildHeroBoxes()
-				}
-				l.curXOffset = int32(((time.Second*2 - elapsed) * time.Duration(l.boxWidth())) / time.Second)
-			} else {
-				l.curXOffset = int32((elapsed * time.Duration(l.boxWidth())) / time.Second)
-			}
-		}
-	} else if l.reqHidden != l.hidden {
-		if l.status == showingAll {
-			l.curXOffset = int32(((time.Second - elapsed) * time.Duration(l.boxWidth())) / time.Second)
-		} else {
-			l.curXOffset = int32((elapsed * time.Duration(l.boxWidth())) / time.Second)
-		}
-	} else {
-		if l.status == showingHero {
-			l.curXOffset = int32((elapsed * time.Duration(l.boxWidth())) / time.Second)
-			l.curYOffset = int32(((time.Second - elapsed) * time.Duration(l.boxHeight()+l.contentHeight/4)) / time.Second)
-			l.heroes[l.reqSwitch].tex.SetAlphaMod(uint8(((time.Second - elapsed) * 255) / time.Second))
-		} else {
-			l.curXOffset = int32(((time.Second - elapsed) * time.Duration(l.boxWidth())) / time.Second)
-			l.curYOffset = int32((elapsed * time.Duration(l.boxHeight()+l.contentHeight/4)) / time.Second)
-			l.heroes[l.reqSwitch].tex.SetAlphaMod(uint8((elapsed * 255) / time.Second))
-		}
+	switch l.status {
+	case showingAll:
+		l.curXOffset = int32(((time.Second - elapsed) * time.Duration(l.boxWidth())) / time.Second)
+	case hidingAll:
+		l.curXOffset = int32((elapsed * time.Duration(l.boxWidth())) / time.Second)
+	case showingHero:
+		l.curXOffset = int32((elapsed * time.Duration(l.boxWidth())) / time.Second)
+		l.curYOffset = int32(((time.Second - elapsed) * time.Duration(l.boxHeight()+l.contentHeight/4)) / time.Second)
+		l.heroes[l.curHero].tex.SetAlphaMod(uint8(((time.Second - elapsed) * 255) / time.Second))
+	case hidingHero:
+		l.curXOffset = int32(((time.Second - elapsed) * time.Duration(l.boxWidth())) / time.Second)
+		l.curYOffset = int32((elapsed * time.Duration(l.boxHeight()+l.contentHeight/4)) / time.Second)
+		l.heroes[l.curHero].tex.SetAlphaMod(uint8((elapsed * 255) / time.Second))
 	}
 }
 
@@ -291,34 +221,31 @@ func (l *HeroList) FinishTransition() {
 	l.curXOffset = 0
 	l.curYOffset = 0
 	l.status = resting
-	if l.reqSwitch != -1 {
-		l.heroes[l.reqSwitch].tex.SetAlphaMod(255)
-		l.heroes[l.reqSwitch].tex.SetBlendMode(sdl.BLENDMODE_NONE)
+	switch l.status {
+	case showingHero, hidingHero:
+		l.heroes[l.curHero].tex.SetAlphaMod(255)
+		l.heroes[l.curHero].tex.SetBlendMode(sdl.BLENDMODE_NONE)
+	case hidingAll:
+		l.curGlobalVisible = false
+	case showingAll:
+		l.curGlobalVisible = true
 	}
-	l.reqSwitch = -1
-	l.hidden = l.reqHidden
-	if l.store.ActiveGroup == -1 {
-		for i := range l.heroes {
-			l.heroes[i].tex.Destroy()
-		}
-	}
-	l.displayedGroup = l.store.ActiveGroup
 }
 
 // Render renders the current state of the HeroList
 func (l *HeroList) Render() {
 	shown := int32(0)
 	additionalYOffset := int32(0)
-	if l.hidden && l.status == resting {
+	if !l.curGlobalVisible && l.status == resting {
 		return
 	}
 	for i := range l.heroes {
-		if l.reqSwitch != int32(i) && !l.heroes[i].shown {
+		if !l.heroes[i].shown && (l.curHero != int32(i) || (l.status != showingHero && l.status != hidingHero)) {
 			continue
 		}
 		xOffset := int32(0)
 		if l.status == showingAll || l.status == hidingAll ||
-			((l.status == showingHero || l.status == hidingHero) && l.reqSwitch == int32(i)) {
+			((l.status == showingHero || l.status == hidingHero) && l.curHero == int32(i)) {
 			xOffset = l.curXOffset
 		}
 		_, winHeight := l.display.Window.GetSize()
@@ -337,7 +264,7 @@ func (l *HeroList) Render() {
 			}
 		}
 
-		if (l.status == showingHero || l.status == hidingHero) && l.reqSwitch == int32(i) {
+		if (l.status == showingHero || l.status == hidingHero) && l.curHero == int32(i) {
 			additionalYOffset = l.curYOffset
 		} else {
 			shown++
@@ -347,17 +274,18 @@ func (l *HeroList) Render() {
 
 // EmptyConfig returns an empty configuration
 func (*HeroList) EmptyConfig() interface{} {
-	return &heroListConfig{}
+	return &config{}
 }
 
 // DefaultConfig returns the default configuration
 func (*HeroList) DefaultConfig() interface{} {
-	return &heroListConfig{}
+	return &config{}
 }
 
 // SetConfig sets the module's configuration
-func (l *HeroList) SetConfig(config interface{}) {
-	l.config = config.(*heroListConfig)
+func (l *HeroList) SetConfig(value interface{}) bool {
+	l.config = value.(*config)
+	return true
 }
 
 // GetConfig retrieves the current configuration of the item.
@@ -365,7 +293,24 @@ func (l *HeroList) GetConfig() interface{} {
 	return l.config
 }
 
-// NeedsTransition return true iff the group has been changed.
-func (l *HeroList) NeedsTransition() bool {
-	return l.displayedGroup != l.store.ActiveGroup
+// GetState returns the current state.
+func (l *HeroList) GetState() data.ModuleState {
+	return &l.state
+}
+
+// RebuildState queries the new state through the channel and immediately
+// updates everything.
+func (l *HeroList) RebuildState() {
+	l.rebuildHeroBoxes()
+	l.requests.mutex.Lock()
+	defer l.requests.mutex.Unlock()
+	if l.requests.kind != stateRequest {
+		panic("got something else than stateRequest on RebuildState")
+	}
+	for i := range l.requests.heroes {
+		l.heroes[i].shown = l.requests.heroes[i]
+	}
+	l.curGlobalVisible = l.requests.globalVisible
+	l.status = resting
+	l.requests.kind = noRequest
 }

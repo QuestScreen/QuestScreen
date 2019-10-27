@@ -202,7 +202,54 @@ func (s *StaticData) writeYamlGroupConfig(group groupConfig, systems []systemCon
 		System:  systems[group.SystemIndex].Name,
 		Modules: s.toYamlStructure(group.Modules),
 	}
-	path := filepath.Join(s.DataDir, "systems", group.DirName, "config.yaml")
+	path := filepath.Join(s.DataDir, "groups", group.DirName, "config.yaml")
 	raw, _ := yaml.Marshal(data)
 	ioutil.WriteFile(path, raw, 0644)
+}
+
+// module name -> state value
+type yamlGroupState map[string]interface{}
+
+func (s *Store) loadYamlGroupState(yamlInput []byte) {
+	var data yamlGroupState
+	if err := yaml.Unmarshal(yamlInput, &data); err != nil {
+		panic("while parsing group state: " + err.Error())
+	}
+	ret := make([]bool, s.items.NumItems())
+	for k, v := range data {
+		found := false
+		for i := 0; i < s.items.NumItems(); i++ {
+			if k == s.items.ItemAt(i).Name() {
+				if err := s.items.ItemAt(i).GetState().LoadFrom(v, s); err != nil {
+					log.Println("Could not load state", k, ":", err.Error())
+				} else {
+					ret[i] = true
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Println("while loading state: unknown module \"", k, "\"")
+		}
+	}
+	for i := range ret {
+		if !ret[i] {
+			log.Println("missing state for module", s.items.ItemAt(i).Name(),
+				", loading default")
+			s.items.ItemAt(i).GetState().LoadFrom(nil, s)
+		}
+	}
+}
+
+// GenGroupStateYaml writes YAML output describing the state of the current
+// module.
+func (s *Store) GenGroupStateYaml() []byte {
+	structure := make(yamlGroupState)
+	for i := 0; i < s.items.NumItems(); i++ {
+		item := s.items.ItemAt(i)
+		structure[item.Name()] = item.GetState().ToYAML(s)
+	}
+	ret, _ := yaml.Marshal(structure)
+	return ret
 }

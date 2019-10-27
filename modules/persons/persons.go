@@ -1,11 +1,8 @@
 package persons
 
 import (
-	"html/template"
 	"log"
-	"net/http"
-	"net/url"
-	"strconv"
+	"sync"
 	"time"
 
 	"github.com/flyx/rpscreen/data"
@@ -14,43 +11,58 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-type personsConfig struct{}
+type config struct{}
+
+type textureData struct {
+	tex   *sdl.Texture
+	scale float32
+	shown bool
+}
+
+type status int
+
+const (
+	resting status = iota
+	fadeIn
+	fadeOut
+)
+
+type requestKind int
+
+const (
+	noRequest requestKind = iota
+	itemRequest
+	stateRequest
+)
+
+type requests struct {
+	mutex     sync.Mutex
+	kind      requestKind
+	itemIndex int
+	itemShown bool
+	state     []bool
+}
 
 // The Persons module can show pictures of persons and other stuff.
 type Persons struct {
-	display *display.Display
-	// TODO: remove
-	store           *data.Store
-	config          *personsConfig
-	textures        []*sdl.Texture
-	textureScale    []float32
-	reqTextureIndex int
-	reqShow         bool
-	files           []data.Resource
-	shown           []bool
-	curScale        float32
-	curOrigWidth    int32
-	transitioning   bool
+	*config
+	state
+	status
+	requests
+
+	display      *display.Display
+	textures     []textureData
+	curIndex     int
+	curScale     float32
+	curOrigWidth int32
 }
 
 // Init initializes the module.
 func (p *Persons) Init(display *display.Display, store *data.Store) error {
 	p.display = display
-	p.store = store
-	p.files = store.ListFiles(p, "")
-	p.textures = make([]*sdl.Texture, len(p.files))
-	p.textureScale = make([]float32, len(p.files))
-	for index := range p.textures {
-		p.textures[index] = nil
-		p.textureScale[index] = 1
-	}
-
-	p.reqTextureIndex = -1
 	p.curScale = 1
-	p.shown = make([]bool, len(p.files))
-	for index := range p.shown {
-		p.shown[index] = false
-	}
+	p.status = resting
+	p.state.owner = p
 	return nil
 }
 
@@ -64,108 +76,77 @@ func (*Persons) InternalName() string {
 	return "persons"
 }
 
-// UI renders the HTML UI of the module.
-func (p *Persons) UI() template.HTML {
-	var builder display.UIBuilder
-
-	for index, file := range p.files {
-		if file.Enabled(p.store) {
-			builder.StartForm(p, "switch", "", true)
-			builder.HiddenValue("index", strconv.Itoa(index))
-			if p.shown[index] {
-				builder.SubmitButton("Hide", file.Name, true)
-			} else {
-				builder.SecondarySubmitButton("Show", file.Name, true)
-			}
-			builder.EndForm()
-		}
+func (p *Persons) loadTexture(index int) textureData {
+	file := p.state.resources[index]
+	tex, err := img.LoadTexture(p.display.Renderer, file.Path)
+	if err != nil {
+		log.Println(err)
+		return textureData{tex: nil, shown: true, scale: 1}
 	}
-	return builder.Finish()
-}
-
-// EndpointHandler implements the endpoint handler of the module.
-func (p *Persons) EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool {
-	if suffix == "switch" {
-		index, err := strconv.Atoi(values["index"][0])
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return false
-		} else if index < 0 || index >= len(p.files) {
-			http.Error(w, "index out of range", http.StatusBadRequest)
-			return false
-		}
-		p.reqTextureIndex = index
-		p.reqShow = !p.shown[index]
-		p.shown[index] = true
-
-		var returns display.EndpointReturn
-		if returnPartial {
-			returns = display.EndpointReturnEmpty
-		} else {
-			returns = display.EndpointReturnRedirect
-		}
-		display.WriteEndpointHeader(w, returns)
-		return true
+	_, _, texWidth, texHeight, _ := tex.Query()
+	winWidth, winHeight := p.display.Window.GetSize()
+	targetScale := float32(1.0)
+	if texHeight > winHeight*2/3 {
+		targetScale = float32(winHeight*2/3) / float32(texHeight)
+	} else if texHeight < winHeight/2 {
+		targetScale = float32(winHeight/2) / float32(texHeight)
 	}
-	http.Error(w, "404 not found: "+suffix, http.StatusNotFound)
-	return false
+	if (float32(texWidth) * targetScale) > float32(winWidth/2) {
+		targetScale = float32(winWidth/2) / (float32(texWidth) * targetScale)
+	}
+	p.curOrigWidth = p.curOrigWidth + int32(float32(texWidth)*targetScale)
+	if p.curOrigWidth > winWidth*9/10 {
+		p.curScale = float32(winWidth*9/10) / float32(p.curOrigWidth)
+	} else {
+		p.curScale = 1
+	}
+	return textureData{tex: tex, shown: true, scale: targetScale}
 }
 
 // InitTransition initializes a transition.
 func (p *Persons) InitTransition() time.Duration {
-	var ret time.Duration = -1
-	if p.reqShow {
-		file := p.files[p.reqTextureIndex]
-		tex, err := img.LoadTexture(p.display.Renderer, file.Path)
-		if err != nil {
-			log.Println(err)
-		} else {
-			p.textures[p.reqTextureIndex] = tex
-			_, _, texWidth, texHeight, _ := tex.Query()
-			winWidth, winHeight := p.display.Window.GetSize()
-			targetScale := float32(1.0)
-			if texHeight > winHeight*2/3 {
-				targetScale = float32(winHeight*2/3) / float32(texHeight)
-			} else if texHeight < winHeight/2 {
-				targetScale = float32(winHeight/2) / float32(texHeight)
-			}
-			if (float32(texWidth) * targetScale) > float32(winWidth/2) {
-				targetScale = float32(winWidth/2) / (float32(texWidth) * targetScale)
-			}
-			p.textureScale[p.reqTextureIndex] = targetScale
-			p.curOrigWidth = p.curOrigWidth + int32(float32(texWidth)*targetScale)
-			if p.curOrigWidth > winWidth*9/10 {
-				p.curScale = float32(winWidth*9/10) / float32(p.curOrigWidth)
-			} else {
-				p.curScale = 1
-			}
-			ret = time.Second
-			p.transitioning = true
-			if err := p.textures[p.reqTextureIndex].SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
-				log.Println(err)
-			}
-			p.shown[p.reqTextureIndex] = true
-		}
-	} else {
-		ret = time.Second
-		p.transitioning = true
-		if err := p.textures[p.reqTextureIndex].SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
-			log.Println(err)
-		}
-		p.shown[p.reqTextureIndex] = false
+	p.requests.mutex.Lock()
+	if p.requests.kind != itemRequest {
+		p.requests.mutex.Unlock()
+		return -1
 	}
-	return ret
+	p.requests.kind = noRequest
+	index := p.requests.itemIndex
+	shown := p.requests.itemShown
+	p.requests.mutex.Unlock()
+	if shown {
+		p.textures[index] = p.loadTexture(index)
+		p.status = fadeIn
+		if err := p.textures[index].tex.SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
+			log.Println(err)
+		}
+		p.textures[index].shown = true
+		p.curIndex = index
+	} else {
+		if p.textures[index].tex != nil {
+			p.textures[index].tex.Destroy()
+			p.textures[index].tex = nil
+		}
+		p.textures[index].shown = false
+		p.status = fadeOut
+		if err := p.textures[index].tex.SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
+			log.Println(err)
+		}
+		p.textures[index].shown = false
+		p.curIndex = index
+	}
+	return time.Second
 }
 
 // TransitionStep advances the transition.
 func (p *Persons) TransitionStep(elapsed time.Duration) {
-	if p.reqShow {
-		err := p.textures[p.reqTextureIndex].SetAlphaMod(uint8((elapsed * 255) / time.Second))
+	if p.status == fadeIn {
+		err := p.textures[p.curIndex].tex.SetAlphaMod(uint8((elapsed * 255) / time.Second))
 		if err != nil {
 			log.Println(err)
 		}
 	} else {
-		err := p.textures[p.reqTextureIndex].SetAlphaMod(255 - uint8((elapsed*255)/time.Second))
+		err := p.textures[p.curIndex].tex.SetAlphaMod(255 - uint8((elapsed*255)/time.Second))
 		if err != nil {
 			log.Println(err)
 		}
@@ -174,25 +155,25 @@ func (p *Persons) TransitionStep(elapsed time.Duration) {
 
 // FinishTransition finalizes the transition.
 func (p *Persons) FinishTransition() {
-	if !p.reqShow {
-		_, _, texWidth, _, _ := p.textures[p.reqTextureIndex].Query()
+	if p.status == fadeOut {
+		_, _, texWidth, _, _ := p.textures[p.curIndex].tex.Query()
 		winWidth, _ := p.display.Window.GetSize()
-		_ = p.textures[p.reqTextureIndex].Destroy()
-		p.textures[p.reqTextureIndex] = nil
-		p.curOrigWidth = p.curOrigWidth - int32(float32(texWidth)*p.textureScale[p.reqTextureIndex])
+		_ = p.textures[p.curIndex].tex.Destroy()
+		p.textures[p.curIndex].tex = nil
+		p.curOrigWidth = p.curOrigWidth - int32(float32(texWidth)*p.textures[p.curIndex].scale)
 		if p.curOrigWidth > winWidth*9/10 {
 			p.curScale = float32(winWidth*9/10) / float32(p.curOrigWidth)
 		} else {
 			p.curScale = 1
 		}
 	}
-	if err := p.textures[p.reqTextureIndex].SetBlendMode(sdl.BLENDMODE_NONE); err != nil {
+	if err := p.textures[p.curIndex].tex.SetBlendMode(sdl.BLENDMODE_NONE); err != nil {
 		log.Println(err)
 	}
-	if err := p.textures[p.reqTextureIndex].SetAlphaMod(255); err != nil {
+	if err := p.textures[p.curIndex].tex.SetAlphaMod(255); err != nil {
 		log.Println(err)
 	}
-	p.transitioning = false
+	p.status = resting
 }
 
 // Render renders the module.
@@ -200,13 +181,13 @@ func (p *Persons) Render() {
 	winWidth, winHeight := p.display.Window.GetSize()
 	curX := (winWidth - int32(float32(p.curOrigWidth)*p.curScale)) / 2
 	for i := range p.textures {
-		if p.shown[i] || (i == p.reqTextureIndex && p.transitioning) {
-			_, _, texWidth, texHeight, _ := p.textures[i].Query()
-			targetHeight := int32(float32(texHeight) * p.textureScale[i] * p.curScale)
-			targetWidth := int32(float32(texWidth) * p.textureScale[i] * p.curScale)
+		if p.textures[i].shown || (i == p.curIndex && p.status != resting) {
+			_, _, texWidth, texHeight, _ := p.textures[i].tex.Query()
+			targetHeight := int32(float32(texHeight) * p.textures[i].scale * p.curScale)
+			targetWidth := int32(float32(texWidth) * p.textures[i].scale * p.curScale)
 			rect := sdl.Rect{X: curX, Y: winHeight - targetHeight, W: targetWidth, H: targetHeight}
 			curX += targetWidth
-			err := p.display.Renderer.Copy(p.textures[i], nil, &rect)
+			err := p.display.Renderer.Copy(p.textures[i].tex, nil, &rect)
 			if err != nil {
 				log.Println(err)
 			}
@@ -216,17 +197,18 @@ func (p *Persons) Render() {
 
 // EmptyConfig returns an empty configuration
 func (*Persons) EmptyConfig() interface{} {
-	return &personsConfig{}
+	return &config{}
 }
 
 // DefaultConfig returns the default configuration
 func (*Persons) DefaultConfig() interface{} {
-	return &personsConfig{}
+	return &config{}
 }
 
 // SetConfig sets the module's configuration
-func (p *Persons) SetConfig(config interface{}) {
-	p.config = config.(*personsConfig)
+func (p *Persons) SetConfig(value interface{}) bool {
+	p.config = value.(*config)
+	return false
 }
 
 // GetConfig retrieves the current configuration of the item.
@@ -234,7 +216,35 @@ func (p *Persons) GetConfig() interface{} {
 	return p.config
 }
 
-// NeedsTransition returns false
-func (*Persons) NeedsTransition() bool {
-	return false
+// GetState returns the current state.
+func (p *Persons) GetState() data.ModuleState {
+	return &p.state
+}
+
+// RebuildState queries the new state through the channel and immediately
+// updates everything.
+func (p *Persons) RebuildState() {
+	p.requests.mutex.Lock()
+	if p.requests.kind != stateRequest {
+		panic("RebuildState() called on something which is not stateRequest")
+	}
+	newState := p.requests.state
+	p.requests.kind = noRequest
+	p.requests.mutex.Unlock()
+	p.curOrigWidth = 0
+	p.curScale = 1
+	for i := range p.textures {
+		if p.textures[i].tex != nil {
+			p.textures[i].tex.Destroy()
+		}
+	}
+	p.textures = make([]textureData, len(newState))
+	for i := range p.textures {
+		if newState[i] {
+			p.textures[i] = p.loadTexture(i)
+		} else {
+			p.textures[i].scale = 1
+			p.textures[i].shown = false
+		}
+	}
 }

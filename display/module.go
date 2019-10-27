@@ -1,9 +1,6 @@
 package display
 
 import (
-	"html/template"
-	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/flyx/rpscreen/data"
@@ -37,41 +34,7 @@ type Module interface {
 	// implements rendering of the module.
 	// this function is called in the OpenGL thread.
 	Render()
-	// returns true iff the module needs a transition after the config has been
-	// updated.
-	NeedsTransition() bool
-
-	// returns partial HTML that creates the module's UI within the web interface.
-	UI() template.HTML
-	// implements handling for all endpoints of the module.
-	// will be called for requests on all paths starting with EndpointPath.
-	// returnPartial specifies whether a partial value may be returned (in case of AJAX requests).
-	// on success, use WriteEndpointHeader, giving EndpointReturnRedirect if returnPartial is true.
-	// on failure, write the appropriate HTTP return code.
-	// this function will be called in the web server thread and may not call OpenGL functions.
-	// if it returns true, InitTransition() will be called in the OpenGL thread and any OpenGL action
-	// must be relayed there. return true only if calling InitTransition() will be necessary to update
-	// the display.
-	EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool
-}
-
-type EndpointReturn int
-
-const (
-	EndpointReturnEmpty EndpointReturn = iota
-	EndpointReturnPartial
-	EndpointReturnRedirect
-)
-
-func WriteEndpointHeader(w http.ResponseWriter, returns EndpointReturn) {
-	switch returns {
-	case EndpointReturnPartial:
-		w.Header().Set("Content-Type", "text/xml")
-		w.WriteHeader(http.StatusOK)
-	case EndpointReturnEmpty:
-		w.WriteHeader(http.StatusNoContent)
-	case EndpointReturnRedirect:
-		w.Header().Set("Location", "/")
-		w.WriteHeader(http.StatusSeeOther)
-	}
+	// to be called in the OpenGL thread after group has been changed in the web
+	// server thread. Updates the display to the loaded state.
+	RebuildState()
 }

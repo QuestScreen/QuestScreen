@@ -1,6 +1,7 @@
 package data
 
 import (
+	"errors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -14,16 +15,16 @@ import (
 type Store struct {
 	StaticData
 	Config
-	ActiveGroup  int
-	ActiveSystem int
+	activeGroup  int
+	activeSystem int
 }
 
 // Init initializes the SharedData, including loading the configuration files.
 func (s *Store) Init(modules ConfigurableItemProvider, width int32, height int32) {
 	s.StaticData.Init(width, height, modules)
 	s.Config.Init(&s.StaticData)
-	s.ActiveGroup = -1
-	s.ActiveSystem = -1
+	s.activeGroup = -1
+	s.activeSystem = -1
 }
 
 // ListFiles queries the list of all files existing in the given subdirectory of
@@ -50,8 +51,8 @@ func (s *Store) ListFiles(item ConfigurableItem, subdir string) []Resource {
 // Enabled checks whether a resource is currently enabled based on the group
 // and system selection in sd.
 func (res *Resource) Enabled(store *Store) bool {
-	return (res.Group == -1 || res.Group == store.ActiveGroup) &&
-		(res.System == -1 || res.System == store.ActiveSystem)
+	return (res.Group == -1 || res.Group == store.activeGroup) &&
+		(res.System == -1 || res.System == store.activeSystem)
 }
 
 func isProperFile(path string) bool {
@@ -67,15 +68,15 @@ func isProperFile(path string) bool {
 // sd, then in the common sd. The first file found will be returned.
 // If no file has been found, the empty string is returned.
 func (s *Store) GetFilePath(item ConfigurableItem, subdir string, filename string) string {
-	if s.ActiveGroup != -1 && s.Config.GroupDirectory(s.ActiveGroup) != "" {
-		path := filepath.Join(s.DataDir, "groups", s.Config.GroupDirectory(s.ActiveGroup),
+	if s.activeGroup != -1 && s.Config.GroupDirectory(s.activeGroup) != "" {
+		path := filepath.Join(s.DataDir, "groups", s.Config.GroupDirectory(s.activeGroup),
 			item.InternalName(), subdir, filename)
 		if isProperFile(path) {
 			return path
 		}
 	}
-	if s.ActiveSystem != -1 && s.Config.SystemDirectory(s.ActiveSystem) != "" {
-		path := filepath.Join(s.DataDir, "systems", s.Config.SystemDirectory(s.ActiveSystem),
+	if s.activeSystem != -1 && s.Config.SystemDirectory(s.activeSystem) != "" {
+		path := filepath.Join(s.DataDir, "systems", s.Config.SystemDirectory(s.activeSystem),
 			item.InternalName(), subdir, filename)
 		if isProperFile(path) {
 			return path
@@ -99,8 +100,9 @@ type jsonModuleSetting struct {
 }
 
 type jsonModuleDesc struct {
-	Name   string              `json:"name"`
-	Config []jsonModuleSetting `json:"config"`
+	Name    string              `json:"name"`
+	DirName string              `json:"dirName"`
+	Config  []jsonModuleSetting `json:"config"`
 }
 
 func (s *Store) jsonSystems() []jsonItem {
@@ -139,8 +141,9 @@ func (s *Store) jsonModules() []jsonModuleDesc {
 			itemValue.Kind() == reflect.Ptr; itemValue = itemValue.Elem() {
 		}
 		cur := jsonModuleDesc{
-			Name:   item.Name(),
-			Config: make([]jsonModuleSetting, 0, itemValue.NumField())}
+			Name:    item.Name(),
+			DirName: item.InternalName(),
+			Config:  make([]jsonModuleSetting, 0, itemValue.NumField())}
 		for j := 0; j < itemValue.NumField(); j++ {
 			cur.Config = append(cur.Config, jsonModuleSetting{
 				Name: itemValue.Type().Field(j).Name,
@@ -152,26 +155,28 @@ func (s *Store) jsonModules() []jsonModuleDesc {
 }
 
 type jsonGlobal struct {
-	Systems      []jsonItem       `json:"systems"`
-	Groups       []jsonItem       `json:"groups"`
-	Fonts        []string         `json:"fonts"`
-	Modules      []jsonModuleDesc `json:"modules"`
-	ActiveGroup  int              `json:"activeGroup"`
-	ActiveSystem int              `json:"activeSystem"`
+	Systems []jsonItem       `json:"systems"`
+	Groups  []jsonItem       `json:"groups"`
+	Fonts   []string         `json:"fonts"`
+	Modules []jsonModuleDesc `json:"modules"`
 }
 
 // SendGlobalJSON sends a JSON describing all systems, groups, fonts and modules.
 func (s *Store) SendGlobalJSON(w http.ResponseWriter) {
 	SendAsJSON(w, jsonGlobal{
 		Systems: s.jsonSystems(), Groups: s.jsonGroups(),
-		Fonts:       s.jsonFonts(),
-		Modules:     s.jsonModules(),
-		ActiveGroup: s.ActiveGroup, ActiveSystem: s.ActiveSystem})
+		Fonts:   s.jsonFonts(),
+		Modules: s.jsonModules()})
 }
 
 // SendBaseJSON writes the base config as JSON to w
 func (s *Store) SendBaseJSON(w http.ResponseWriter) {
 	SendAsJSON(w, s.buildModuleConfigJSON(s.baseConfigs))
+}
+
+// SendStateJSON writes the current state as JSON to w
+func (s *Store) SendStateJSON(w http.ResponseWriter) {
+	SendAsJSON(w, s.buildStateJSON(s.items))
 }
 
 // ReceiveBaseJSON parses the given config as JSON, updates the internal
@@ -248,4 +253,34 @@ func (s *Store) ReceiveGroupJSON(w http.ResponseWriter, group string,
 	}
 	http.Error(w, "404: unknown group \""+group+"\"", http.StatusNotFound)
 	return false
+}
+
+// GetActiveGroup returns the index of the currently active group, or -1 if none
+func (s *Store) GetActiveGroup() int {
+	return s.activeGroup
+}
+
+// GetActiveSystem returns the index of the system linked from the currently
+// active group, or -1 if none
+func (s *Store) GetActiveSystem() int {
+	return s.activeSystem
+}
+
+// PathToState returns the path to the state.yaml file of the current group
+func (s *Store) PathToState() string {
+	return filepath.Join(s.DataDir, "groups",
+		s.Config.GroupDirectory(s.activeGroup), "state.yaml")
+}
+
+// SetActiveGroup changes the active group to the group at the given index.
+// it loads the state of that group into all modules.
+func (s *Store) SetActiveGroup(index int) error {
+	if index < 0 || index >= s.items.NumItems() {
+		return errors.New("index out of range")
+	}
+	s.activeGroup = index
+	s.activeSystem = s.groups[index].Config.SystemIndex
+	stateInput, _ := ioutil.ReadFile(s.PathToState())
+	s.loadYamlGroupState(stateInput)
+	return nil
 }

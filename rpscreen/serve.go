@@ -1,7 +1,7 @@
 package main
 
 import (
-	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
@@ -13,32 +13,11 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-type uiModuleData struct {
-	Name    string
-	UI      template.HTML
-	Enabled bool
-}
-
-type uiSystemData struct {
-	Selected bool
-}
-
-type uiGroupData struct {
-	Selected bool
-}
-
-type uiData struct {
-	Modules []uiModuleData
-	Systems []uiSystemData
-	Groups  []uiGroupData
-}
-
 type screenHandler struct {
 	store  *data.Store
 	items  data.ConfigurableItemProvider
 	events display.Events
-	index  *template.Template
-	data   uiData
+	index  []byte
 }
 
 func newScreenHandler(store *data.Store, items data.ConfigurableItemProvider, events display.Events) *screenHandler {
@@ -47,29 +26,10 @@ func newScreenHandler(store *data.Store, items data.ConfigurableItemProvider, ev
 	handler.items = items
 	handler.events = events
 
-	raw, err := web.Asset("web/templates/index.html")
+	var err error
+	handler.index, err = web.Asset("web/templates/index.html")
 	if err != nil {
 		panic(err)
-	}
-	handler.index, err = template.New("index.html").Parse(string(raw))
-	if err != nil {
-		panic(err)
-	}
-
-	handler.data = uiData{Modules: make([]uiModuleData, 0, items.NumItems()),
-		Systems: make([]uiSystemData, 0, store.Config.NumSystems()),
-		Groups:  make([]uiGroupData, 0, store.Config.NumGroups())}
-	for i := 0; i < items.NumItems(); i++ {
-		handler.data.Modules = append(handler.data.Modules,
-			uiModuleData{Name: items.ItemAt(i).Name(), Enabled: false})
-	}
-	for i := 0; i < store.Config.NumSystems(); i++ {
-		handler.data.Systems = append(handler.data.Systems,
-			uiSystemData{Selected: false})
-	}
-	for i := 0; i < store.Config.NumGroups(); i++ {
-		handler.data.Groups = append(handler.data.Groups,
-			uiGroupData{Selected: false})
 	}
 
 	return handler
@@ -82,20 +42,8 @@ func (sh *screenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i := 0; i < sh.items.NumItems(); i++ {
-		sh.data.Modules[i].Enabled = true
-		sh.data.Modules[i].UI = sh.items.ItemAt(i).(display.Module).UI()
-	}
-	for index := range sh.data.Systems {
-		sh.data.Systems[index].Selected = sh.store.ActiveSystem == index
-	}
-	for index := range sh.data.Groups {
-		sh.data.Groups[index].Selected = sh.store.ActiveGroup == index
-	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := sh.index.Execute(w, sh.data); err != nil {
-		panic(err)
-	}
+	w.Write(sh.index)
 }
 
 func setupResourceHandler(server *http.Server, path string, contentType string) {
@@ -123,7 +71,7 @@ func (sh *screenHandler) mergeAndSendConfigs(moduleConfigChan chan<- display.Ite
 	for i := 0; i < sh.items.NumItems(); i++ {
 		moduleConfigChan <- display.ItemConfigUpdate{ItemIndex: i,
 			Config: sh.store.Config.MergeConfig(&sh.store.StaticData, i,
-				sh.store.ActiveSystem, sh.store.ActiveGroup)}
+				sh.store.GetActiveSystem(), sh.store.GetActiveGroup())}
 	}
 	sdl.PushEvent(&sdl.UserEvent{Type: sh.events.ModuleConfigID})
 }
@@ -147,25 +95,6 @@ func startServer(store *data.Store, items data.ConfigurableItemProvider,
 	setupResourceHandler(server, "/webfonts/fa-solid-900.woff", "font/woff")
 	setupResourceHandler(server, "/webfonts/fa-solid-900.woff2", "font/woff2")
 
-	http.HandleFunc("/systems/", func(w http.ResponseWriter, r *http.Request) {
-		systemName := r.URL.Path[len("/systems/"):]
-		newSystemIndex := -2
-		for i := 0; i < store.Config.NumSystems(); i++ {
-			if store.Config.SystemDirectory(i) == systemName {
-				newSystemIndex = i
-				break
-			}
-		}
-		if newSystemIndex != -2 {
-			if newSystemIndex != store.ActiveSystem {
-				store.ActiveSystem = newSystemIndex
-				handler.mergeAndSendConfigs(itemConfigChan)
-			}
-			display.WriteEndpointHeader(w, display.EndpointReturnRedirect)
-		} else {
-			http.Error(w, "404: unknown system \""+systemName+"\"", http.StatusNotFound)
-		}
-	})
 	http.HandleFunc("/groups/", func(w http.ResponseWriter, r *http.Request) {
 		groupName := r.URL.Path[len("/groups/"):]
 		newGroupIndex := -2
@@ -176,12 +105,13 @@ func startServer(store *data.Store, items data.ConfigurableItemProvider,
 			}
 		}
 		if newGroupIndex != -2 {
-			if store.ActiveGroup != newGroupIndex {
-				store.ActiveGroup = newGroupIndex
-				handler.mergeAndSendConfigs(itemConfigChan)
-
+			if err := store.SetActiveGroup(newGroupIndex); err != nil {
+				http.Error(w, "400: Could not set group: "+err.Error(),
+					http.StatusBadRequest)
+			} else {
+				sdl.PushEvent(&sdl.UserEvent{Type: events.GroupChangeID})
+				store.SendStateJSON(w)
 			}
-			display.WriteEndpointHeader(w, display.EndpointReturnRedirect)
 		} else {
 			http.Error(w, "404: unknown group \""+groupName+"\"", http.StatusNotFound)
 		}
@@ -247,20 +177,33 @@ func startServer(store *data.Store, items data.ConfigurableItemProvider,
 
 	for i := 0; i < items.NumItems(); i++ {
 		// needed to avoid closure over loop variable (which doesn't work)
-		curIndex := i
+		curModuleIndex := int32(i)
 		curItem := items.ItemAt(i)
-		http.HandleFunc("/"+curItem.InternalName()+"/", func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != "POST" {
-				http.Error(w, "400: module endpoints only take POST requests", http.StatusBadRequest)
-			} else {
-				returnPartial := r.PostFormValue("redirect") != "1"
-				res := curItem.(display.Module).EndpointHandler(r.URL.Path[len(curItem.InternalName())+2:],
-					r.PostForm, w, returnPartial)
-				if res {
-					sdl.PushEvent(&sdl.UserEvent{Type: events.ModuleUpdateID, Code: int32(curIndex)})
-				}
-			}
-		})
+		actions := curItem.GetState().Actions()
+		for j := range actions {
+			curActionIndex := j
+			http.HandleFunc("/module/"+curItem.InternalName()+"/"+actions[j],
+				func(w http.ResponseWriter, r *http.Request) {
+					if r.Method != "POST" {
+						http.Error(w, "400: module endpoints only take POST requests",
+							http.StatusBadRequest)
+					} else {
+						payload, _ := ioutil.ReadAll(r.Body)
+						if err := curItem.GetState().HandleAction(curActionIndex, payload,
+							store); err != nil {
+							http.Error(w, "400: "+err.Error(), http.StatusBadRequest)
+						} else {
+							sdl.PushEvent(&sdl.UserEvent{
+								Type: events.ModuleUpdateID, Code: curModuleIndex})
+							w.WriteHeader(http.StatusNoContent)
+							newStateYaml := store.GenGroupStateYaml()
+							go func(content []byte, filename string) {
+								ioutil.WriteFile(filename, content, 0644)
+							}(newStateYaml, store.PathToState())
+						}
+					}
+				})
+		}
 	}
 
 	go func() {

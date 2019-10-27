@@ -80,8 +80,9 @@ func NewDisplay(events Events) (*Display, error) {
 	egl.QuerySurface(eglState.Display, eglState.Surface, egl.HEIGHT, &height)*/
 	var err error
 	display.Events = events
-	display.Window, err = sdl.CreateWindow("rpscreen", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
-		800, 600, sdl.WINDOW_OPENGL)
+	display.Window, err = sdl.CreateWindow("rpscreen", sdl.WINDOWPOS_UNDEFINED,
+		sdl.WINDOWPOS_UNDEFINED, 800, 600,
+		sdl.WINDOW_OPENGL|sdl.WINDOW_ALLOW_HIGHDPI)
 	if err != nil {
 		return nil, err
 	}
@@ -203,15 +204,19 @@ func (d *Display) RenderLoop(itemConfigChan chan ItemConfigUpdate) {
 						select {
 						case data := <-itemConfigChan:
 							item := &d.modules.items[data.ItemIndex]
-							item.module.SetConfig(data.Config)
-							if item.module.NeedsTransition() {
-								d.startTransition(item)
+							if item.module.SetConfig(data.Config) {
+								item.module.RebuildState()
 								render = true
 							}
 						default:
 							break outer
 						}
 					}
+				case d.Events.GroupChangeID:
+					for i := range d.modules.items {
+						d.modules.items[i].module.RebuildState()
+					}
+					render = true
 				}
 			}
 		}

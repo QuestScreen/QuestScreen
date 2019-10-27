@@ -56,3 +56,12 @@ func appendDir(resources []Resource, path string, group int, system int) []Resou
 func (s *StaticData) GetFontFace(selected *SelectableFont) *ttf.Font {
 	return s.Fonts[selected.FamilyIndex].GetStyle(selected.Style).GetSize(selected.Size, s.DefaultTextSizes)
 }
+
+// ResourceNames generates a list of resource names from a list of resources.
+func ResourceNames(resources []Resource) []string {
+	ret := make([]string, len(resources))
+	for i := range resources {
+		ret[i] = resources[i].Name
+	}
+	return ret
+}

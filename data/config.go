@@ -69,12 +69,17 @@ type ConfigurableItem interface {
 	// The item defines the type of its configuration.
 	EmptyConfig() interface{}
 	// returns a configuration object with default values.
-	// The configuration object must be a pointer and must
+	// The configuration object must be a pointer.
 	DefaultConfig() interface{}
 	// SetConfig sets current configuration for the item.
-	SetConfig(config interface{})
+	// This must be done in the OpenGL thread since the calculated configuration
+	// belongs to the module.
+	// returns true iff the module must re-render via RebuildState().
+	SetConfig(config interface{}) bool
 	// GetConfig retrieves the current configuration of the item.
 	GetConfig() interface{}
+	// GetState retrieves the current state of the item.
+	GetState() ModuleState
 }
 
 // ConfigurableItemProvider is basically a list of ConfigurableItem.
@@ -157,30 +162,6 @@ func findItem(items ConfigurableItemProvider, name string) (ConfigurableItem, in
 	}
 	return nil, -1
 }
-
-/*func (s *StaticData) constructModuleConfigs(data []interface{},
-	raw map[string]map[string]interface{}, items ConfigurableItemProvider) {
-	foundModules := make([]bool, items.NumItems())
-	dummy := createDummyWriter()
-	for name, rawItems := range raw {
-		mod, index := findItem(items, name)
-		if mod == nil {
-			log.Println("Unknown module: " + name)
-		} else {
-			target := mod.EmptyConfig()
-			if s.loadModuleConfigInto(target, true, rawItems, name, dummy) {
-				foundModules[index] = true
-				data[name] = target
-			}
-		}
-	}
-	for i := 0; i < items.NumItems(); i++ {
-		if !foundModules[i] {
-			mod := items.ItemAt(i)
-			data[mod.Name()] = mod.EmptyConfig()
-		}
-	}
-}*/
 
 // Init loads all config.yaml files and parses them according to the module's
 // config types. Parsing errors lead to a panic while structural errors are

@@ -2,10 +2,8 @@ package title
 
 import (
 	"errors"
-	"html/template"
 	"log"
-	"net/http"
-	"net/url"
+	"sync"
 	"time"
 
 	"github.com/flyx/rpscreen/data"
@@ -15,21 +13,35 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-type titleConfig struct {
+type config struct {
 	Font *data.SelectableFont `config:"Font" yaml:"Font"`
+}
+
+type requestKind int
+
+const (
+	noRequest requestKind = iota
+	changeRequest
+	stateRequest
+)
+
+type requests struct {
+	mutex   sync.Mutex
+	kind    requestKind
+	caption string
 }
 
 // The Title module draws a title box at the top of the screen.
 type Title struct {
-	display *display.Display
-	// TODO: remove
+	*config
+	state
+	requests
+
+	display    *display.Display
 	store      *data.Store
-	config     *titleConfig
-	reqName    string
 	curTitle   *sdl.Texture
 	newTitle   *sdl.Texture
 	mask       *sdl.Texture
-	curFont    data.SelectableFont
 	curYOffset int32
 }
 
@@ -38,11 +50,10 @@ func (t *Title) Init(display *display.Display, store *data.Store) error {
 	if len(store.Fonts) == 0 {
 		return errors.New("no fonts loaded")
 	}
+	t.state.owner = t
 	t.display = display
-	t.store = store
 	t.curTitle = nil
-	t.curFont = data.SelectableFont{Family: store.Fonts[0].Name,
-		FamilyIndex: 0, Size: data.HeadingFont, Style: data.Bold}
+	t.store = store
 	var err error
 	maskPath := store.GetFilePath(t, "", "mask.png")
 	if maskPath != "" {
@@ -67,54 +78,18 @@ func (*Title) InternalName() string {
 	return "title"
 }
 
-// UI generates the HTML UI of the module.
-func (t *Title) UI() template.HTML {
-	var builder display.UIBuilder
-	builder.StartForm(t, "set", "Set Scene Title", false)
-	builder.TextInput("Text", "title-text", "text", t.reqName)
-	builder.SubmitButton("Update", "", true)
-	builder.EndForm()
-	return builder.Finish()
-}
-
-// EndpointHandler implements the endpoint handler of the module.
-func (t *Title) EndpointHandler(suffix string, values url.Values, w http.ResponseWriter, returnPartial bool) bool {
-	if suffix == "set" {
-		textVal := values["text"]
-		if len(textVal) == 0 {
-			http.Error(w, "missing text value", http.StatusBadRequest)
-			return false
-		}
-		text := textVal[0]
-		t.reqName = text
-
-		var returns display.EndpointReturn
-		if returnPartial {
-			returns = display.EndpointReturnEmpty
-		} else {
-			returns = display.EndpointReturnRedirect
-		}
-		display.WriteEndpointHeader(w, returns)
-		return true
-	}
-	http.Error(w, "404 not found: "+suffix, http.StatusNotFound)
-	return false
-}
-
-// InitTransition initializes a transition.
-func (t *Title) InitTransition() time.Duration {
-	var ret time.Duration = -1
+func (t *Title) genTitleTexture(text string) *sdl.Texture {
 	face := t.store.GetFontFace(t.config.Font)
 	surface, err := face.RenderUTF8Blended(
-		t.reqName, sdl.Color{R: 0, G: 0, B: 0, A: 230})
+		text, sdl.Color{R: 0, G: 0, B: 0, A: 230})
 	if err != nil {
 		log.Println(err)
-		return -1
+		return nil
 	}
 	textTexture, err := t.display.Renderer.CreateTextureFromSurface(surface)
 	if err != nil {
 		log.Println(err)
-		return -1
+		return nil
 	}
 	defer textTexture.Destroy()
 	winWidth, _ := t.display.Window.GetSize()
@@ -126,9 +101,12 @@ func (t *Title) InitTransition() time.Duration {
 		textWidth = winWidth * 2 / 3
 	}
 	border := t.display.DefaultBorderWidth
-	t.newTitle, err = t.display.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
+	ret, err := t.display.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
 		textWidth+6*border, textHeight+2*border)
-	t.display.Renderer.SetRenderTarget(t.newTitle)
+	if err != nil {
+		panic(err)
+	}
+	t.display.Renderer.SetRenderTarget(ret)
 	defer t.display.Renderer.SetRenderTarget(nil)
 	t.display.Renderer.Clear()
 	t.display.Renderer.SetDrawColor(0, 0, 0, 192)
@@ -144,9 +122,21 @@ func (t *Title) InitTransition() time.Duration {
 		}
 	}
 	t.display.Renderer.Copy(textTexture, nil, &sdl.Rect{X: 3 * border, Y: 0, W: textWidth, H: textHeight})
-
-	ret = time.Second*2/3 + time.Millisecond*100
 	return ret
+}
+
+// InitTransition initializes a transition.
+func (t *Title) InitTransition() time.Duration {
+	t.requests.mutex.Lock()
+	if t.requests.kind != changeRequest {
+		t.requests.mutex.Unlock()
+		return -1
+	}
+	caption := t.requests.caption
+	t.requests.kind = noRequest
+	t.requests.mutex.Unlock()
+	t.newTitle = t.genTitleTexture(caption)
+	return time.Second*2/3 + time.Millisecond*100
 }
 
 // TransitionStep advances the transition.
@@ -177,7 +167,6 @@ func (t *Title) TransitionStep(elapsed time.Duration) {
 // FinishTransition finalizes the transition.
 func (t *Title) FinishTransition() {
 	t.curYOffset = 0
-	t.curFont = *t.config.Font
 }
 
 // Render renders the module.
@@ -191,19 +180,20 @@ func (t *Title) Render() {
 
 // EmptyConfig returns an empty configuration
 func (*Title) EmptyConfig() interface{} {
-	return &titleConfig{}
+	return &config{}
 }
 
 // DefaultConfig returns the default configuration
 func (t *Title) DefaultConfig() interface{} {
-	return &titleConfig{Font: &data.SelectableFont{
+	return &config{Font: &data.SelectableFont{
 		Family: t.display.Fonts[0].Name, FamilyIndex: 0, Size: data.HeadingFont,
 		Style: data.Bold}}
 }
 
 // SetConfig sets the module's configuration
-func (t *Title) SetConfig(config interface{}) {
-	t.config = config.(*titleConfig)
+func (t *Title) SetConfig(value interface{}) bool {
+	t.config = value.(*config)
+	return true
 }
 
 // GetConfig retrieves the current configuration of the item.
@@ -211,8 +201,28 @@ func (t *Title) GetConfig() interface{} {
 	return t.config
 }
 
-// NeedsTransition returns true iff the currently used font is not the
-// configured font
-func (t *Title) NeedsTransition() bool {
-	return t.curFont != *t.config.Font
+// GetState returns the current state.
+func (t *Title) GetState() data.ModuleState {
+	return &t.state
+}
+
+// RebuildState queries the new state through the channel and immediately
+// updates everything.
+func (t *Title) RebuildState() {
+	t.requests.mutex.Lock()
+	if t.requests.kind != stateRequest {
+		panic("RebuildState() called on something else than stateRequest")
+	}
+	t.requests.kind = noRequest
+	caption := t.requests.caption
+	t.requests.mutex.Unlock()
+	t.curYOffset = 0
+	if t.curTitle != nil {
+		t.curTitle.Destroy()
+	}
+	if t.newTitle != nil {
+		t.newTitle.Destroy()
+		t.newTitle = nil
+	}
+	t.curTitle = t.genTitleTexture(caption)
 }

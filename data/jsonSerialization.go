@@ -76,3 +76,11 @@ func (s *Store) buildModuleConfigJSON(config []interface{}) []jsonModuleConfig {
 	}
 	return ret
 }
+
+func (s *Store) buildStateJSON(items ConfigurableItemProvider) interface{} {
+	list := make([]interface{}, items.NumItems())
+	for i := range list {
+		list[i] = items.ItemAt(i).GetState().ToJSON()
+	}
+	return list
+}
