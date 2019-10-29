@@ -206,13 +206,13 @@ func (l *HeroList) TransitionStep(elapsed time.Duration) {
 	case hidingAll:
 		l.curXOffset = int32((elapsed * time.Duration(l.boxWidth())) / time.Second)
 	case showingHero:
-		l.curXOffset = int32((elapsed * time.Duration(l.boxWidth())) / time.Second)
-		l.curYOffset = int32(((time.Second - elapsed) * time.Duration(l.boxHeight()+l.contentHeight/4)) / time.Second)
-		l.heroes[l.curHero].tex.SetAlphaMod(uint8(((time.Second - elapsed) * 255) / time.Second))
-	case hidingHero:
 		l.curXOffset = int32(((time.Second - elapsed) * time.Duration(l.boxWidth())) / time.Second)
 		l.curYOffset = int32((elapsed * time.Duration(l.boxHeight()+l.contentHeight/4)) / time.Second)
 		l.heroes[l.curHero].tex.SetAlphaMod(uint8((elapsed * 255) / time.Second))
+	case hidingHero:
+		l.curXOffset = int32((elapsed * time.Duration(l.boxWidth())) / time.Second)
+		l.curYOffset = int32(((time.Second - elapsed) * time.Duration(l.boxHeight()+l.contentHeight/4)) / time.Second)
+		l.heroes[l.curHero].tex.SetAlphaMod(uint8(((time.Second - elapsed) * 255) / time.Second))
 	}
 }
 
@@ -220,16 +220,17 @@ func (l *HeroList) TransitionStep(elapsed time.Duration) {
 func (l *HeroList) FinishTransition() {
 	l.curXOffset = 0
 	l.curYOffset = 0
-	l.status = resting
 	switch l.status {
 	case showingHero, hidingHero:
 		l.heroes[l.curHero].tex.SetAlphaMod(255)
 		l.heroes[l.curHero].tex.SetBlendMode(sdl.BLENDMODE_NONE)
+		l.heroes[l.curHero].shown = l.status == showingHero
 	case hidingAll:
 		l.curGlobalVisible = false
 	case showingAll:
 		l.curGlobalVisible = true
 	}
+	l.status = resting
 }
 
 // Render renders the current state of the HeroList

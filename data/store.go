@@ -94,6 +94,16 @@ type jsonItem struct {
 	DirName string `json:"dirName"`
 }
 
+type jsonHero struct {
+	Name string `json:"name"`
+}
+
+type jsonGroup struct {
+	Name    string     `json:"name"`
+	DirName string     `json:"dirName"`
+	Heroes  []jsonHero `json:"heroes"`
+}
+
 type jsonModuleSetting struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
@@ -114,11 +124,17 @@ func (s *Store) jsonSystems() []jsonItem {
 	return ret
 }
 
-func (s *Store) jsonGroups() []jsonItem {
-	ret := make([]jsonItem, 0, s.NumGroups())
+func (s *Store) jsonGroups() []jsonGroup {
+	ret := make([]jsonGroup, 0, s.NumGroups())
 	for i := 0; i < s.NumGroups(); i++ {
-		ret = append(ret, jsonItem{Name: s.GroupName(i),
-			DirName: s.GroupDirectory(i)})
+		heroes := make([]jsonHero, 0, s.NumHeroes(i))
+		for j := 0; j < s.NumHeroes(i); j++ {
+			heroes = append(heroes, jsonHero{Name: s.HeroName(i, j)})
+		}
+
+		ret = append(ret, jsonGroup{Name: s.GroupName(i),
+			DirName: s.GroupDirectory(i),
+			Heroes:  heroes})
 	}
 	return ret
 }
@@ -156,7 +172,7 @@ func (s *Store) jsonModules() []jsonModuleDesc {
 
 type jsonGlobal struct {
 	Systems []jsonItem       `json:"systems"`
-	Groups  []jsonItem       `json:"groups"`
+	Groups  []jsonGroup      `json:"groups"`
 	Fonts   []string         `json:"fonts"`
 	Modules []jsonModuleDesc `json:"modules"`
 }

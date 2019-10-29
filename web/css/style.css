@@ -307,3 +307,7 @@ Hides the menu at `48em`, but modify this based on your app's needs.
     margin-left: .2em;
     margin-right: .2em;
 }
+
+.pure-menu-selected .herolist-invisible {
+    visibility: hidden;
+}

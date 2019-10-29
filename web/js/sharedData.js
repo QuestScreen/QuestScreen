@@ -105,7 +105,7 @@ function postConfig(e) {
     return fetch(this.dataset.link, {
         method: 'POST', mode: 'no-cors', cache: 'no-cache', credentials: 'omit',
         headers: { 'Content-Type': 'application/json' },
-        redirect: 'error', referrer: 'no-referrer',
+        redirect: 'follow', referrer: 'no-referrer',
         body: JSON.stringify(jsonConfig),
     }).then(function (response) {
         if (response.ok) {
@@ -250,7 +250,7 @@ function updateTitle(e) {
     return fetch("module/title/set", {
         method: 'POST', mode: 'no-cors', cache: 'no-cache', credentials: 'omit',
         headers: { 'Content-Type': 'application/json' },
-        redirect: 'error', referrer: 'no-referrer',
+        redirect: 'follow', referrer: 'no-referrer',
         body: JSON.stringify(value),
     }).then(function (response) {
         if (!response.ok) {
@@ -268,7 +268,7 @@ function selectBackground(e) {
     return fetch("module/background/set", {
         method: 'POST', mode: 'no-cors', cache: 'no-cache', credentials: 'omit',
         headers: {'Content-Type': 'application/json' },
-        redirect: 'error', referrer: 'no-referrer',
+        redirect: 'follow', referrer: 'no-referrer',
         body: JSON.stringify(index),
     }).then(function (response) {
         if (response.ok) {
@@ -292,7 +292,7 @@ function switchOverlay(e) {
     return fetch("module/persons/switch", {
         method: 'POST', mode: 'no-cors', cache: 'no-cache', credentials: 'omit',
         headers: {'Content-Type': 'application/json' },
-        redirect: 'error', referrer: 'no-referrer',
+        redirect: 'follow', referrer: 'no-referrer',
         body: JSON.stringify(index),
     }).then(function (response) {
         if (response.ok) {
@@ -300,6 +300,53 @@ function switchOverlay(e) {
                 adding ? "none" : "";
             parent.querySelector(`.visible-overlay-item[data-index=\"${index}\"]`).style.display =
                 adding ? "inline-block" : "none";
+        } else {
+            alert("Update failed!");
+            console.log(response);
+        }
+    });
+}
+
+function switchHerolistGlobal(e) {
+    let hiding = this.classList.contains("pure-button-primary");
+    let button = this;
+    return fetch("module/herolist/switchGlobal", {
+        method: 'POST', mode: 'no-cors', cache: 'no-cache', credentials: 'omit',
+        headers: {'Content-Type': 'application/json' },
+        redirect: 'follow', referrer: 'no-referrer',
+        body: JSON.stringify(""),
+    }).then(function (response) {
+        if (response.ok) {
+            if (hiding) {
+                button.classList.remove("pure-button-primary");
+                button.textContent = "Show All";
+            } else {
+                button.classList.add("pure-button-primary");
+                button.textContent = "Hide All";
+            }
+        } else {
+            alert("Update failed!");
+            console.log(response);
+        }
+    });
+}
+
+function switchHerolistHero(e) {
+    let index = parseInt(this.dataset.index, 10);
+    let li = this.parentNode;
+    let hiding = li.classList.contains("pure-menu-selected");
+    return fetch("module/herolist/switchHero", {
+        method: 'POST', mode: 'no-cors', cache: 'no-cache', credentials: 'omit',
+        headers: {'Content-Type': 'application/json' },
+        redirect: 'follow', referrer: 'no-referrer',
+        body: JSON.stringify(index),
+    }).then(function (response) {
+        if (response.ok) {
+            if (hiding) {
+                li.classList.remove("pure-menu-selected");
+            } else {
+                li.classList.add("pure-menu-selected");
+            }
         } else {
             alert("Update failed!");
             console.log(response);
@@ -331,6 +378,7 @@ function selectGroup(e) {
         if (!Array.isArray(received) || received.length != data.modules.length) {
             throw Error("Invalid response structure (not an array or wrong length");
         }
+        data.curActiveGroup = groupIndex;
         let page = document.importNode(document.querySelector(
             "#tmpl-state").content, true);
         page.querySelector("#group-heading").textContent =
@@ -362,6 +410,27 @@ function selectGroup(e) {
                 case "herolist":
                     let heroUI = document.importNode(document.querySelector(
                         "#tmpl-herolist-state").content, true);
+                    let allSwitch = heroUI.querySelector(".herolist-switch-all");
+                    if (!received[index].global) {
+                        allSwitch.textContent = "Show All";
+                    } else {
+                        allSwitch.classList.add("pure-button-primary");
+                    }
+                    allSwitch.addEventListener('click', switchHerolistGlobal);
+                    let itemTmpl = document.querySelector("#tmpl-herolist-item");
+                    let itemContainer = heroUI.querySelector(".herolist-selector ul");
+                    received[index].heroes.forEach(function (item, itemIndex) {
+                        let itemUI = document.importNode(itemTmpl.content, true);
+                        if (item) {
+                            itemUI.querySelector("li").classList.add("pure-menu-selected");
+                        }
+                        itemUI.querySelector(".herolist-item-name").textContent = 
+                            data.groups[data.curActiveGroup].heroes[itemIndex].name;
+                        let a = itemUI.querySelector("a");
+                        a.addEventListener('click', switchHerolistHero);
+                        a.dataset.index = itemIndex;
+                        itemContainer.appendChild(itemUI);
+                    });
                     wrapper.appendChild(heroUI);
                     break;
                 case "persons":

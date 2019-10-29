@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"reflect"
 
 	"github.com/flyx/rpscreen/data"
 )
@@ -25,7 +26,8 @@ func (s *state) LoadFrom(yamlSubtree interface{}, store *data.Store) error {
 	} else {
 		mapping, ok := yamlSubtree.(map[string]interface{})
 		if !ok {
-			return errors.New("unexpected state for ShowableHeroes: not a mapping")
+			return errors.New("unexpected state for ShowableHeroes: not a mapping, but a " +
+				reflect.TypeOf(yamlSubtree).Name())
 		}
 		for k, v := range mapping {
 			switch k {
@@ -39,7 +41,7 @@ func (s *state) LoadFrom(yamlSubtree interface{}, store *data.Store) error {
 				for i := 0; i < store.NumHeroes(store.GetActiveGroup()); i++ {
 					s.heroVisible[i] = false
 				}
-				sequence, ok := v.([]string)
+				sequence, ok := v.([]interface{})
 				if !ok {
 					return errors.New(
 						"unexpected value for heroesVisible: not a list of strings")
@@ -47,14 +49,14 @@ func (s *state) LoadFrom(yamlSubtree interface{}, store *data.Store) error {
 				for i := range sequence {
 					found := false
 					for j := 0; j < store.NumHeroes(store.GetActiveGroup()); j++ {
-						if sequence[i] == store.HeroName(store.GetActiveGroup(), j) {
+						if sequence[i].(string) == store.HeroName(store.GetActiveGroup(), j) {
 							found = true
 							s.heroVisible[j] = true
 							break
 						}
 					}
 					if !found {
-						log.Println("Unknown hero: \"" + sequence[i] + "\"")
+						log.Println("Unknown hero: \"" + sequence[i].(string) + "\"")
 					}
 				}
 			}
@@ -90,9 +92,16 @@ func (s *state) ToYAML(store *data.Store) interface{} {
 	}
 }
 
-// ToJSON returns the item itself since it can be serialized as-is.
+type jsonState struct {
+	Global bool   `json:"global"`
+	Heroes []bool `json:"heroes"`
+}
+
+// ToJSON returns an object with global and hero visibility.
 func (s *state) ToJSON() interface{} {
-	return s
+	return jsonState{
+		Global: s.globalVisible, Heroes: s.heroVisible,
+	}
 }
 
 func (*state) Actions() []string {
@@ -112,17 +121,18 @@ func (s *state) HandleAction(index int, payload []byte, store *data.Store) error
 		s.owner.requests.kind = globalRequest
 		s.owner.requests.globalVisible = s.globalVisible
 	case 1:
-		var index int
-		if err := json.Unmarshal(payload, &index); err != nil {
+		var value int
+		if err := json.Unmarshal(payload, &value); err != nil {
 			return err
 		}
-		if index < 0 || index >= len(s.heroVisible) {
+		if value < 0 || value >= len(s.heroVisible) {
 			return fmt.Errorf("Index %d out of range 0..%d",
-				index, len(s.heroVisible)-1)
+				value, len(s.heroVisible)-1)
 		}
-		s.heroVisible[index] = !s.heroVisible[index]
-		s.owner.requests.heroIndex = int32(index)
-		s.owner.requests.heroVisible = s.heroVisible[index]
+		s.heroVisible[value] = !s.heroVisible[value]
+		s.owner.requests.kind = heroRequest
+		s.owner.requests.heroIndex = int32(value)
+		s.owner.requests.heroVisible = s.heroVisible[value]
 	default:
 		panic("Index out of range")
 	}

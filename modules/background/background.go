@@ -182,7 +182,9 @@ func (bg *Background) RebuildState() {
 			if bg.curTexture != nil {
 				bg.curTexture.Destroy()
 			}
-			bg.curTexture = bg.genTexture(bg.curTextureIndex)
+			if bg.curTextureIndex != -1 {
+				bg.curTexture = bg.genTexture(bg.curTextureIndex)
+			}
 		}
 	default:
 	}

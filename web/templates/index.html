@@ -62,8 +62,26 @@
         </ul>
     </div>
 </template>
+<template id="tmpl-herolist-item">
+    <li class="pure-menu-item">
+        <a href="#" class="pure-menu-link">
+            <i class="fas fa-eye-slash herolist-invisible"></i>
+            <span class="herolist-item-name"></span>
+        </a>
+    </li>
+</template>
 <template id="tmpl-herolist-state">
-    <p>TODO</p>
+    <div class="herolist-container">
+        <button class="herolist-switch-all pure-button">Hide All</button>
+        <dic class="pure-menu pure-menu-horizontal">
+            <ul class="pure-menu-list">
+                <li class="pure-menu-item pure-menu-has-children pure-menu-allow-hover herolist-selector">
+                    <a href="#" class="pure-menu-link">Heroes</a>
+                    <ul class="pure-menu-children"></ul>
+                </li>
+            </ul>
+        </dic>
+    </div>
 </template>
 <template id="tmpl-overlay-item">
     <div class="visible-overlay-item">

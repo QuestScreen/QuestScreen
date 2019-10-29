@@ -212,11 +212,9 @@ func (s *StaticData) writeYamlGroupConfig(group groupConfig, systems []systemCon
 	ioutil.WriteFile(path, raw, 0644)
 }
 
-// module name -> state value
-type yamlGroupState map[string]interface{}
-
 func (s *Store) loadYamlGroupState(yamlInput []byte) {
-	var data yamlGroupState
+	// module name -> state value
+	var data map[string]interface{}
 	if err := yaml.Unmarshal(yamlInput, &data); err != nil {
 		panic("while parsing group state: " + err.Error())
 	}
@@ -250,7 +248,7 @@ func (s *Store) loadYamlGroupState(yamlInput []byte) {
 // GenGroupStateYaml writes YAML output describing the state of the current
 // module.
 func (s *Store) GenGroupStateYaml() []byte {
-	structure := make(yamlGroupState)
+	structure := make(map[string]interface{})
 	for i := 0; i < s.items.NumItems(); i++ {
 		item := s.items.ItemAt(i)
 		structure[item.Name()] = item.GetState().ToYAML(s)
