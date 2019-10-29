@@ -171,7 +171,7 @@ func findItem(items ConfigurableItemProvider, name string) (ConfigurableItem, in
 func (c *Config) Init(static *StaticData) {
 	rawBaseConfig, err := ioutil.ReadFile(filepath.Join(static.DataDir, "base", "config.yaml"))
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 	c.baseConfigs = static.loadYamlBaseConfig(rawBaseConfig)
 

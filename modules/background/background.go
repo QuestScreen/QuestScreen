@@ -66,7 +66,7 @@ func (bg *Background) genTexture(index int) *sdl.Texture {
 	if err != nil {
 		panic(err)
 	}
-	winWidth, winHeight := bg.display.Window.GetSize()
+	winWidth, winHeight, _ := bg.display.Renderer.GetOutputSize()
 	newTexture, err := bg.display.Renderer.CreateTexture(
 		sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET, winWidth, winHeight)
 	if err != nil {
@@ -129,7 +129,7 @@ func (bg *Background) FinishTransition() {
 // Render renders the module
 func (bg *Background) Render() {
 	if bg.curTexture != nil || bg.curTextureSplit != 0 {
-		winWidth, winHeight := bg.display.Window.GetSize()
+		winWidth, winHeight, _ := bg.display.Renderer.GetOutputSize()
 		curSplit := int32(bg.curTextureSplit * float32(winWidth))
 		if bg.curTexture != nil {
 			rect := sdl.Rect{X: curSplit, Y: 0, W: winWidth - curSplit, H: winHeight}

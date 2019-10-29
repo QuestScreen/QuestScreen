@@ -40,7 +40,7 @@ func main() {
 	if err := sdl.GLSetSwapInterval(-1); err != nil {
 		log.Println("Could not set swap interval to -1")
 	}
-	width, height := d.Window.GetSize()
+	width, height, _ := d.Renderer.GetOutputSize()
 
 	d.RegisterModule(new(background.Background))
 	d.RegisterModule(new(herolist.HeroList))

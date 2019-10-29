@@ -92,7 +92,7 @@ func (t *Title) genTitleTexture(text string) *sdl.Texture {
 		return nil
 	}
 	defer textTexture.Destroy()
-	winWidth, _ := t.display.Window.GetSize()
+	winWidth, _, _ := t.display.Renderer.GetOutputSize()
 	textWidth := surface.W
 	textHeight := surface.H
 	surface.Free()
@@ -171,7 +171,7 @@ func (t *Title) FinishTransition() {
 
 // Render renders the module.
 func (t *Title) Render() {
-	winWidth, _ := t.display.Window.GetSize()
+	winWidth, _, _ := t.display.Renderer.GetOutputSize()
 	_, _, texWidth, texHeight, _ := t.curTitle.Query()
 
 	dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -t.curYOffset, W: texWidth, H: texHeight}

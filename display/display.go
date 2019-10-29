@@ -76,8 +76,6 @@ func (d *Display) ConfigurableItems() data.ConfigurableItemProvider {
 // NewDisplay creates a new display.
 func NewDisplay(events Events) (*Display, error) {
 	display := new(Display)
-	/*egl.QuerySurface(eglState.Display, eglState.Surface, egl.WIDTH, &width)
-	egl.QuerySurface(eglState.Display, eglState.Surface, egl.HEIGHT, &height)*/
 	var err error
 	display.Events = events
 	display.Window, err = sdl.CreateWindow("rpscreen", sdl.WINDOWPOS_UNDEFINED,
@@ -86,10 +84,14 @@ func NewDisplay(events Events) (*Display, error) {
 	if err != nil {
 		return nil, err
 	}
-	width, height := display.Window.GetSize()
 
 	display.Renderer, err = sdl.CreateRenderer(display.Window, -1,
 		sdl.RENDERER_ACCELERATED|sdl.RENDERER_TARGETTEXTURE)
+	if err != nil {
+		display.Window.Destroy()
+		return nil, err
+	}
+	width, height, err := display.Renderer.GetOutputSize()
 	if err != nil {
 		display.Window.Destroy()
 		return nil, err

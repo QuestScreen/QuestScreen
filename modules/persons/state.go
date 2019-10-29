@@ -100,9 +100,9 @@ func (s *state) HandleAction(index int, payload []byte, store *data.Store) error
 	if s.owner.requests.kind != noRequest {
 		return errors.New("Too many requests")
 	}
-	s.visible[index] = !s.visible[index]
+	s.visible[value] = !s.visible[value]
 	s.owner.requests.kind = itemRequest
-	s.owner.requests.itemIndex = index
-	s.owner.requests.itemShown = s.visible[index]
+	s.owner.requests.itemIndex = value
+	s.owner.requests.itemShown = s.visible[value]
 	return nil
 }

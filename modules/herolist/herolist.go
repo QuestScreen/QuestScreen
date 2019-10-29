@@ -69,7 +69,7 @@ func (l *HeroList) Init(display *display.Display, store *data.Store) error {
 	l.curGlobalVisible = false
 	l.curXOffset = 0
 	l.curYOffset = 0
-	winWidth, winHeight := display.Window.GetSize()
+	winWidth, winHeight, _ := display.Renderer.GetOutputSize()
 	l.contentWidth = winWidth / 4
 	l.contentHeight = winHeight / 10
 	l.borderWidth = winHeight / 133
@@ -248,7 +248,7 @@ func (l *HeroList) Render() {
 			((l.status == showingHero || l.status == hidingHero) && l.curHero == int32(i)) {
 			xOffset = l.curXOffset
 		}
-		_, winHeight := l.display.Window.GetSize()
+		_, winHeight, _ := l.display.Renderer.GetOutputSize()
 		if xOffset == 0 {
 			targetRect := sdl.Rect{X: 0, Y: winHeight/10 + (l.boxHeight()+l.contentHeight/4)*shown + additionalYOffset,
 				W: l.boxWidth(), H: l.boxHeight()}

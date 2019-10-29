@@ -84,7 +84,7 @@ func (p *Persons) loadTexture(index int) textureData {
 		return textureData{tex: nil, shown: true, scale: 1}
 	}
 	_, _, texWidth, texHeight, _ := tex.Query()
-	winWidth, winHeight := p.display.Window.GetSize()
+	winWidth, winHeight, _ := p.display.Renderer.GetOutputSize()
 	targetScale := float32(1.0)
 	if texHeight > winHeight*2/3 {
 		targetScale = float32(winHeight*2/3) / float32(texHeight)
@@ -123,10 +123,6 @@ func (p *Persons) InitTransition() time.Duration {
 		p.textures[index].shown = true
 		p.curIndex = index
 	} else {
-		if p.textures[index].tex != nil {
-			p.textures[index].tex.Destroy()
-			p.textures[index].tex = nil
-		}
 		p.textures[index].shown = false
 		p.status = fadeOut
 		if err := p.textures[index].tex.SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
@@ -157,7 +153,7 @@ func (p *Persons) TransitionStep(elapsed time.Duration) {
 func (p *Persons) FinishTransition() {
 	if p.status == fadeOut {
 		_, _, texWidth, _, _ := p.textures[p.curIndex].tex.Query()
-		winWidth, _ := p.display.Window.GetSize()
+		winWidth, _, _ := p.display.Renderer.GetOutputSize()
 		_ = p.textures[p.curIndex].tex.Destroy()
 		p.textures[p.curIndex].tex = nil
 		p.curOrigWidth = p.curOrigWidth - int32(float32(texWidth)*p.textures[p.curIndex].scale)
@@ -178,7 +174,7 @@ func (p *Persons) FinishTransition() {
 
 // Render renders the module.
 func (p *Persons) Render() {
-	winWidth, winHeight := p.display.Window.GetSize()
+	winWidth, winHeight, _ := p.display.Renderer.GetOutputSize()
 	curX := (winWidth - int32(float32(p.curOrigWidth)*p.curScale)) / 2
 	for i := range p.textures {
 		if p.textures[i].shown || (i == p.curIndex && p.status != resting) {

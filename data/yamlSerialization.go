@@ -142,9 +142,14 @@ func (s *StaticData) toYamlStructure(moduleConfigs []interface{}) map[string]map
 
 func (s *StaticData) loadYamlBaseConfig(yamlInput []byte) []interface{} {
 	var data yamlBaseConfig
-	if err := yaml.Unmarshal(yamlInput, &data); err != nil {
-		panic("while parsing base config: " + err.Error())
+	if yamlInput != nil {
+		if err := yaml.Unmarshal(yamlInput, &data); err != nil {
+			panic("while parsing base config: " + err.Error())
+		}
+	} else {
+		data.Modules = make(map[string]map[string]interface{})
 	}
+
 	return s.loadYamlModuleConfigs(data.Modules, s.items)
 }
 
