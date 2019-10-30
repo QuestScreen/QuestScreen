@@ -34,15 +34,10 @@ func (s *state) LoadFrom(yamlSubtree interface{}, store *data.Store) error {
 			log.Println("Didn't find resource \"" + scalar + "\"")
 		}
 	}
-EmptyBuffer:
-	for {
-		select {
-		case <-s.owner.reqTextureIndex:
-		default:
-			break EmptyBuffer
-		}
-	}
-	s.owner.reqTextureIndex <- s.curIndex
+	s.owner.requests.mutex.Lock()
+	s.owner.requests.activeRequest = true
+	s.owner.requests.index = s.curIndex
+	s.owner.requests.mutex.Unlock()
 	return nil
 }
 
@@ -80,11 +75,12 @@ func (s *state) HandleAction(index int, payload []byte, store *data.Store) error
 		return fmt.Errorf("Value %d out of bounds -1..%d",
 			value, len(s.resources)-1)
 	}
-	select {
-	case s.owner.reqTextureIndex <- value:
-		s.curIndex = value
-	default:
+	s.owner.requests.mutex.Lock()
+	defer s.owner.requests.mutex.Unlock()
+	if s.owner.requests.activeRequest {
 		return errors.New("Too many requests")
 	}
+	s.owner.requests.activeRequest = true
+	s.owner.requests.index = value
 	return nil
 }

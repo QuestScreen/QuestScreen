@@ -2,6 +2,7 @@ package background
 
 import (
 	"log"
+	"sync"
 	"time"
 
 	"github.com/flyx/rpscreen/data"
@@ -12,15 +13,21 @@ import (
 
 type backgroundConfig struct{}
 
+type requests struct {
+	mutex         sync.Mutex
+	activeRequest bool
+	index         int
+}
+
 // Background is a module for painting background images
 type Background struct {
 	state
+	requests
 	display                *display.Display
 	config                 *backgroundConfig
 	curTexture, newTexture *sdl.Texture
 	curTextureIndex        int
 	curTextureSplit        float32
-	reqTextureIndex        chan int
 }
 
 // Init initializes the module
@@ -30,7 +37,6 @@ func (bg *Background) Init(display *display.Display, store *data.Store) error {
 	bg.newTexture = nil
 	bg.curTextureSplit = 0
 	bg.curTextureIndex = -1
-	bg.reqTextureIndex = make(chan int, 4)
 	bg.state.owner = bg
 	return nil
 }
@@ -86,27 +92,21 @@ func (bg *Background) genTexture(index int) *sdl.Texture {
 // InitTransition initializes a transition
 func (bg *Background) InitTransition() time.Duration {
 	var ret time.Duration = -1
-	var newTextureIndex int
-	// retrieve newest requested texture index
-	for available := true; available; {
-		select {
-		case newTextureIndex, available = <-bg.reqTextureIndex:
-			break
-		default:
-			available = false
-			break
-		}
-	}
 
-	if newTextureIndex != -1 {
-		if newTextureIndex != bg.curTextureIndex {
-			if newTextureIndex < len(bg.state.resources) {
-				bg.newTexture = bg.genTexture(newTextureIndex)
-			}
-			bg.curTextureIndex = newTextureIndex
-			bg.curTextureSplit = 0
-			ret = time.Second
+	bg.requests.mutex.Lock()
+	reqIndex, available := bg.requests.index, bg.requests.activeRequest
+	bg.requests.activeRequest = false
+	bg.requests.mutex.Unlock()
+
+	if available && reqIndex != bg.curTextureIndex {
+		bg.curTextureIndex = reqIndex
+		if bg.curTextureIndex != -1 {
+			bg.newTexture = bg.genTexture(bg.curTextureIndex)
 		}
+		bg.curTextureSplit = 0
+		ret = time.Second
+	} else {
+		log.Println("background transition skiping, available=", available, ", reqIndex=", reqIndex)
 	}
 	return ret
 }
@@ -171,21 +171,18 @@ func (bg *Background) GetState() data.ModuleState {
 // RebuildState queries the texture index through the channel and immediately
 // sets that texture as background.
 func (bg *Background) RebuildState() {
-	select {
-	case bg.curTextureIndex = <-bg.reqTextureIndex:
-		for empty := false; !empty; {
-			select {
-			case bg.curTextureIndex = <-bg.reqTextureIndex:
-			default:
-				empty = true
-			}
-			if bg.curTexture != nil {
-				bg.curTexture.Destroy()
-			}
-			if bg.curTextureIndex != -1 {
-				bg.curTexture = bg.genTexture(bg.curTextureIndex)
-			}
+	bg.requests.mutex.Lock()
+	reqIndex, available := bg.requests.index, bg.requests.activeRequest
+	bg.activeRequest = false
+	bg.requests.mutex.Unlock()
+
+	if available {
+		if bg.curTexture != nil {
+			bg.curTexture.Destroy()
 		}
-	default:
+		bg.curTextureIndex = reqIndex
+		if bg.curTextureIndex != -1 {
+			bg.curTexture = bg.genTexture(bg.curTextureIndex)
+		}
 	}
 }

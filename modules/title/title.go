@@ -43,6 +43,7 @@ type Title struct {
 	newTitle   *sdl.Texture
 	mask       *sdl.Texture
 	curYOffset int32
+	swapped    bool
 }
 
 // Init initializes the module.
@@ -136,6 +137,7 @@ func (t *Title) InitTransition() time.Duration {
 	t.requests.kind = noRequest
 	t.requests.mutex.Unlock()
 	t.newTitle = t.genTitleTexture(caption)
+	t.swapped = false
 	return time.Second*2/3 + time.Millisecond*100
 }
 
@@ -147,15 +149,18 @@ func (t *Title) TransitionStep(elapsed time.Duration) {
 			t.curYOffset = int32(float64(elapsed) / float64(time.Second/3) * float64(texHeight))
 		}
 	} else if elapsed < time.Second/3+time.Millisecond*100 {
-		if t.newTitle != nil {
+		if t.curTitle != nil {
 			_, _, _, texHeight, _ := t.curTitle.Query()
 			t.curYOffset = texHeight + 1
 		}
 	} else {
-		if t.newTitle != nil {
-			_ = t.curTitle.Destroy()
+		if !t.swapped {
+			if t.curTitle != nil {
+				_ = t.curTitle.Destroy()
+			}
 			t.curTitle = t.newTitle
 			t.newTitle = nil
+			t.swapped = true
 		}
 		if t.curTitle != nil {
 			_, _, _, texHeight, _ := t.curTitle.Query()
@@ -224,5 +229,7 @@ func (t *Title) RebuildState() {
 		t.newTitle.Destroy()
 		t.newTitle = nil
 	}
-	t.curTitle = t.genTitleTexture(caption)
+	if caption != "" {
+		t.curTitle = t.genTitleTexture(caption)
+	}
 }

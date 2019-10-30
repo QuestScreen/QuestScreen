@@ -74,13 +74,16 @@ func (d *Display) ConfigurableItems() data.ConfigurableItemProvider {
 }
 
 // NewDisplay creates a new display.
-func NewDisplay(events Events) (*Display, error) {
+func NewDisplay(events Events, fullscreen bool) (*Display, error) {
 	display := new(Display)
 	var err error
 	display.Events = events
+	var flags uint32 = sdl.WINDOW_OPENGL | sdl.WINDOW_ALLOW_HIGHDPI
+	if fullscreen {
+		flags |= sdl.WINDOW_FULLSCREEN_DESKTOP
+	}
 	display.Window, err = sdl.CreateWindow("rpscreen", sdl.WINDOWPOS_UNDEFINED,
-		sdl.WINDOWPOS_UNDEFINED, 800, 600,
-		sdl.WINDOW_OPENGL|sdl.WINDOW_ALLOW_HIGHDPI)
+		sdl.WINDOWPOS_UNDEFINED, 800, 600, flags)
 	if err != nil {
 		return nil, err
 	}

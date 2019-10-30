@@ -6,6 +6,8 @@ import (
 
 	"github.com/flyx/rpscreen/data"
 
+	"github.com/pborman/getopt"
+
 	"github.com/flyx/rpscreen/display"
 	"github.com/flyx/rpscreen/modules/background"
 	"github.com/flyx/rpscreen/modules/herolist"
@@ -21,6 +23,9 @@ func init() {
 }
 
 func main() {
+	fullscreenFlag := getopt.BoolLong("fullscreen", 'f', "start in fullscreen")
+	getopt.Parse()
+
 	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_EVENTS); err != nil {
 		panic(err)
 	}
@@ -33,7 +38,7 @@ func main() {
 	defer img.Quit()
 
 	events := display.GenEvents()
-	d, err := display.NewDisplay(events)
+	d, err := display.NewDisplay(events, *fullscreenFlag)
 	if err != nil {
 		panic(err)
 	}

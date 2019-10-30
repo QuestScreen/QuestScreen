@@ -246,7 +246,11 @@ function showSettings(e) {
 }
 
 function updateTitle(e) {
-    let value = this.parentNode.querySelector("input").value;
+    let value = "";
+    let input = this.parentNode.querySelector("input");
+    if (this.classList.contains("pure-button-primary")) {
+        value = input.value;
+    }
     return fetch("module/title/set", {
         method: 'POST', mode: 'no-cors', cache: 'no-cache', credentials: 'omit',
         headers: { 'Content-Type': 'application/json' },
@@ -256,6 +260,8 @@ function updateTitle(e) {
         if (!response.ok) {
             alert("Update failed!");
             console.log(response);
+        } else {
+            input.value = value;
         }
     });
 }
@@ -462,8 +468,9 @@ function selectGroup(e) {
                         "#tmpl-title-state").content, true);
                     titleUI.querySelector(".title-state-text").value =
                         received[index];
-                    titleUI.querySelector(".title-state-text-btn").addEventListener(
-                        'click', updateTitle);
+                    titleUI.querySelectorAll(".title-state-text-btn").forEach(function (item) {
+                        item.addEventListener('click', updateTitle);
+                    });
                     wrapper.appendChild(titleUI);
                     break;
                 default:
