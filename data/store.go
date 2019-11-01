@@ -99,9 +99,10 @@ type jsonHero struct {
 }
 
 type jsonGroup struct {
-	Name    string     `json:"name"`
-	DirName string     `json:"dirName"`
-	Heroes  []jsonHero `json:"heroes"`
+	Name        string     `json:"name"`
+	DirName     string     `json:"dirName"`
+	SystemIndex int        `json:"systemIndex"`
+	Heroes      []jsonHero `json:"heroes"`
 }
 
 type jsonModuleSetting struct {
@@ -133,8 +134,9 @@ func (s *Store) jsonGroups() []jsonGroup {
 		}
 
 		ret = append(ret, jsonGroup{Name: s.GroupName(i),
-			DirName: s.GroupDirectory(i),
-			Heroes:  heroes})
+			DirName:     s.GroupDirectory(i),
+			SystemIndex: s.GroupLinkedSystem(i),
+			Heroes:      heroes})
 	}
 	return ret
 }
@@ -171,18 +173,20 @@ func (s *Store) jsonModules() []jsonModuleDesc {
 }
 
 type jsonGlobal struct {
-	Systems []jsonItem       `json:"systems"`
-	Groups  []jsonGroup      `json:"groups"`
-	Fonts   []string         `json:"fonts"`
-	Modules []jsonModuleDesc `json:"modules"`
+	Systems     []jsonItem       `json:"systems"`
+	Groups      []jsonGroup      `json:"groups"`
+	Fonts       []string         `json:"fonts"`
+	Modules     []jsonModuleDesc `json:"modules"`
+	ActiveGroup int              `json:"activeGroup"`
 }
 
 // SendGlobalJSON sends a JSON describing all systems, groups, fonts and modules.
 func (s *Store) SendGlobalJSON(w http.ResponseWriter) {
 	SendAsJSON(w, jsonGlobal{
 		Systems: s.jsonSystems(), Groups: s.jsonGroups(),
-		Fonts:   s.jsonFonts(),
-		Modules: s.jsonModules()})
+		Fonts:       s.jsonFonts(),
+		Modules:     s.jsonModules(),
+		ActiveGroup: s.activeGroup})
 }
 
 // SendBaseJSON writes the base config as JSON to w

@@ -205,6 +205,7 @@ function setMain(node) {
     let newMain = main.cloneNode(false);
     newMain.appendChild(node);
     main.parentNode.replaceChild(newMain, main);
+    initDropdowns();
 }
 
 function showSettings(e) {
@@ -373,8 +374,116 @@ function genMenuEntry(name, index, eventHandler) {
     return item;
 }
 
+function loadActiveGroupState(received) {
+    let page = document.importNode(document.querySelector(
+        "#tmpl-state").content, true);
+    page.querySelector("#group-heading").textContent =
+        data.groups[data.activeGroup].name;
+    let stateWrapper = page.querySelector("#module-state-wrapper");
+
+    data.modules.forEach(function (module, index) {
+        let moduleUI = document.importNode(document.querySelector(
+            "#tmpl-state-module").content, true);
+        let wrapper = moduleUI.querySelector(".state-module-content");
+        moduleUI.querySelector(".state-module-name").textContent =
+            module.name;
+        switch(module.dirName) {
+            case "background":
+                let bgUI = document.importNode(document.querySelector(
+                    "#tmpl-background-state").content, true);
+                let selector = bgUI.querySelector(".background-state-selector");
+                let itemList = selector.querySelector("ul");
+                itemList.appendChild(genMenuEntry("None", -1, selectBackground));
+                received[index].items.forEach(function (item, itemIndex) {
+                    itemList.appendChild(genMenuEntry(item, itemIndex, selectBackground));
+                });
+                let activeInner = itemList.childNodes[received[index].curIndex + 1];
+                activeInner.classList.add("pure-menu-selected");
+                selector.querySelector(".background-state-active").textContent =
+                    activeInner.querySelector("a").textContent;
+                wrapper.appendChild(bgUI);
+                break;
+            case "herolist":
+                let heroUI = document.importNode(document.querySelector(
+                    "#tmpl-herolist-state").content, true);
+                let allSwitch = heroUI.querySelector(".herolist-switch-all");
+                if (!received[index].global) {
+                    allSwitch.textContent = "Show All";
+                } else {
+                    allSwitch.classList.add("pure-button-primary");
+                }
+                allSwitch.addEventListener('click', switchHerolistGlobal);
+                let itemTmpl = document.querySelector("#tmpl-herolist-item");
+                let itemContainer = heroUI.querySelector(".herolist-selector ul");
+                received[index].heroes.forEach(function (item, itemIndex) {
+                    let itemUI = document.importNode(itemTmpl.content, true);
+                    if (item) {
+                        itemUI.querySelector("li").classList.add("pure-menu-selected");
+                    }
+                    itemUI.querySelector(".herolist-item-name").textContent = 
+                        data.groups[data.activeGroup].heroes[itemIndex].name;
+                    let a = itemUI.querySelector("a");
+                    a.addEventListener('click', switchHerolistHero);
+                    a.dataset.index = itemIndex;
+                    itemContainer.appendChild(itemUI);
+                });
+                wrapper.appendChild(heroUI);
+                break;
+            case "persons":
+                let personsUI = document.importNode(document.querySelector(
+                    "#tmpl-overlay-state").content, true);
+                let visibleContainer = personsUI.querySelector(
+                    ".visible-overlays");
+                let selectionContainer = personsUI.querySelector(
+                    ".overlay-state-selector ul");
+                received[index].forEach(function (item, index) {
+                    let itemUI = document.importNode(document.querySelector(
+                        "#tmpl-overlay-item").content, true);
+                    let itemDiv = itemUI.querySelector(".visible-overlay-item");
+                    itemDiv.querySelector(".overlay-name").textContent =
+                        item.name;
+                    itemDiv.style.display = item.selected ? "inline-block" : "none";
+                    itemDiv.dataset.index = index;
+                    itemUI.querySelector(".overlay-close-btn").addEventListener('click', switchOverlay);
+                    visibleContainer.appendChild(itemUI);
+
+                    let menuEntry = genMenuEntry(item.name, index, switchOverlay);
+                    menuEntry.style.display = item.selected ? "none" : "";
+                    selectionContainer.appendChild(menuEntry);
+                });
+                wrapper.appendChild(personsUI);
+                break;
+            case "title":
+                let titleUI = document.importNode(document.querySelector(
+                    "#tmpl-title-state").content, true);
+                titleUI.querySelector(".title-state-text").value =
+                    received[index];
+                titleUI.querySelectorAll(".title-state-text-btn").forEach(function (item) {
+                    item.addEventListener('click', updateTitle);
+                });
+                wrapper.appendChild(titleUI);
+                break;
+            default:
+                let msg = document.createElement("p");
+                msg.textContent = "Unknown module: \"" + module.dirName + "\"";
+                wrapper.appendChild(msg);
+                break;
+        }
+        stateWrapper.appendChild(moduleUI);
+    });
+    setMain(page);
+
+    document.querySelectorAll(".rp-menu-group-entry").forEach(function (item, index) {
+        if (parseInt(item.querySelector("a").dataset.index, 10) == data.activeGroup) {
+            item.classList.add("pure-menu-selected");
+        } else {
+            item.classList.remove("pure-menu-selected");
+        }
+    });
+}
+
 function selectGroup(e) {
-    let groupIndex = this.dataset.index;
+    let groupIndex = parseInt(this.dataset.index, 10);
     fetch("/groups/" + this.dataset.name).then(function (response) {
         if (response.ok) {
             return response.json();
@@ -384,104 +493,9 @@ function selectGroup(e) {
         if (!Array.isArray(received) || received.length != data.modules.length) {
             throw Error("Invalid response structure (not an array or wrong length");
         }
-        data.curActiveGroup = groupIndex;
-        let page = document.importNode(document.querySelector(
-            "#tmpl-state").content, true);
-        page.querySelector("#group-heading").textContent =
-            data.groups[groupIndex].name;
-        let stateWrapper = page.querySelector("#module-state-wrapper");
-
-        data.modules.forEach(function (module, index) {
-            let moduleUI = document.importNode(document.querySelector(
-                "#tmpl-state-module").content, true);
-            let wrapper = moduleUI.querySelector(".state-module-content");
-            moduleUI.querySelector(".state-module-name").textContent =
-                module.name;
-            switch(module.dirName) {
-                case "background":
-                    let bgUI = document.importNode(document.querySelector(
-                        "#tmpl-background-state").content, true);
-                    let selector = bgUI.querySelector(".background-state-selector");
-                    let itemList = selector.querySelector("ul");
-                    itemList.appendChild(genMenuEntry("None", -1, selectBackground));
-                    received[index].items.forEach(function (item, itemIndex) {
-                        itemList.appendChild(genMenuEntry(item, itemIndex, selectBackground));
-                    });
-                    let activeInner = itemList.childNodes[received[index].curIndex + 1];
-                    activeInner.classList.add("pure-menu-selected");
-                    selector.querySelector(".background-state-active").textContent =
-                        activeInner.querySelector("a").textContent;
-                    wrapper.appendChild(bgUI);
-                    break;
-                case "herolist":
-                    let heroUI = document.importNode(document.querySelector(
-                        "#tmpl-herolist-state").content, true);
-                    let allSwitch = heroUI.querySelector(".herolist-switch-all");
-                    if (!received[index].global) {
-                        allSwitch.textContent = "Show All";
-                    } else {
-                        allSwitch.classList.add("pure-button-primary");
-                    }
-                    allSwitch.addEventListener('click', switchHerolistGlobal);
-                    let itemTmpl = document.querySelector("#tmpl-herolist-item");
-                    let itemContainer = heroUI.querySelector(".herolist-selector ul");
-                    received[index].heroes.forEach(function (item, itemIndex) {
-                        let itemUI = document.importNode(itemTmpl.content, true);
-                        if (item) {
-                            itemUI.querySelector("li").classList.add("pure-menu-selected");
-                        }
-                        itemUI.querySelector(".herolist-item-name").textContent = 
-                            data.groups[data.curActiveGroup].heroes[itemIndex].name;
-                        let a = itemUI.querySelector("a");
-                        a.addEventListener('click', switchHerolistHero);
-                        a.dataset.index = itemIndex;
-                        itemContainer.appendChild(itemUI);
-                    });
-                    wrapper.appendChild(heroUI);
-                    break;
-                case "persons":
-                    let personsUI = document.importNode(document.querySelector(
-                        "#tmpl-overlay-state").content, true);
-                    let visibleContainer = personsUI.querySelector(
-                        ".visible-overlays");
-                    let selectionContainer = personsUI.querySelector(
-                        ".overlay-state-selector ul");
-                    received[index].forEach(function (item, index) {
-                        let itemUI = document.importNode(document.querySelector(
-                            "#tmpl-overlay-item").content, true);
-                        let itemDiv = itemUI.querySelector(".visible-overlay-item");
-                        itemDiv.querySelector(".overlay-name").textContent =
-                            item.name;
-                        itemDiv.style.display = item.selected ? "inline-block" : "none";
-                        itemDiv.dataset.index = index;
-                        itemUI.querySelector(".overlay-close-btn").addEventListener('click', switchOverlay);
-                        visibleContainer.appendChild(itemUI);
-
-                        let menuEntry = genMenuEntry(item.name, index, switchOverlay);
-                        menuEntry.style.display = item.selected ? "none" : "";
-                        selectionContainer.appendChild(menuEntry);
-                    });
-                    wrapper.appendChild(personsUI);
-                    break;
-                case "title":
-                    let titleUI = document.importNode(document.querySelector(
-                        "#tmpl-title-state").content, true);
-                    titleUI.querySelector(".title-state-text").value =
-                        received[index];
-                    titleUI.querySelectorAll(".title-state-text-btn").forEach(function (item) {
-                        item.addEventListener('click', updateTitle);
-                    });
-                    wrapper.appendChild(titleUI);
-                    break;
-                default:
-                    let msg = document.createElement("p");
-                    msg.textContent = "Unknown module: \"" + module.dirName + "\"";
-                    wrapper.appendChild(msg);
-                    break;
-            }
-            stateWrapper.appendChild(moduleUI);
-        });
-        setMain(page);
+        data.activeGroup = groupIndex;
+        loadActiveGroupState(received);
+        
     }).catch(function (error) {
         console.log(error);
     });
@@ -497,11 +511,8 @@ document.addEventListener("DOMContentLoaded", function () {
         let curLast = document.querySelector("#rp-menu-system-heading");
         data = received;
 
-        function appendMenuEntry(template, index, selectedIndex, item, kind) {
+        function appendMenuEntry(template, index, item, kind) {
             let entry = document.importNode(template.content, true);
-            if (index == selectedIndex) {
-                entry.querySelector("li").classList.add("pure-menu-selected");
-            }
             let link = entry.querySelector("a.pure-menu-link");
             switch (kind) {
                 case ItemKind.System:
@@ -521,8 +532,6 @@ document.addEventListener("DOMContentLoaded", function () {
             cog.addEventListener('click', showSettings);
             cog.dataset.kind = kind;
             cog.dataset.index = index;
-            /*cog.dataset.link = "/config" + prefix + item.dirName;
-            cog.dataset.name = itemType + " „" + item.name + "“"*/
 
             curLast.parentNode.insertBefore(entry, curLast.nextSibling);
             curLast = curLast.nextSibling;
@@ -530,15 +539,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
         let systemTemplate = document.querySelector("#tmpl-system-entry");
         data.systems.forEach(function (system, index) {
-            appendMenuEntry(systemTemplate, index, data.curActiveSystem, system, ItemKind.System);
+            appendMenuEntry(systemTemplate, index, system, ItemKind.System);
         });
 
         let groupTemplate = document.querySelector("#tmpl-group-entry");
         curLast = document.querySelector("#rp-menu-group-heading");
         data.groups.forEach(function (group, index) {
-            appendMenuEntry(groupTemplate, index, data.curActiveGroup, group, ItemKind.Group);
+            appendMenuEntry(groupTemplate, index, group, ItemKind.Group);
         });
         document.querySelector("#rp-menu-list").style.visibility = "visible";
+        if (data.activeGroup != -1) {
+            selectGroup.call({dataset: {
+                index: data.activeGroup,
+                name: data.groups[data.activeGroup].dirName}});
+        }
     }).catch(function (error) {
         console.log(error);
     });

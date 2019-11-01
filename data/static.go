@@ -41,7 +41,7 @@ func appendDir(resources []Resource, path string, group int, system int) []Resou
 	files, err := ioutil.ReadDir(path)
 	if err == nil {
 		for _, file := range files {
-			if !file.IsDir() {
+			if !file.IsDir() && file.Name()[0] != '.' {
 				resources = append(resources, Resource{Name: file.Name(), Path: filepath.Join(path, file.Name()),
 					Group: group, System: system})
 			}
