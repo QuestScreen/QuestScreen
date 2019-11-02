@@ -177,12 +177,17 @@ func (bg *Background) RebuildState() {
 	bg.requests.mutex.Unlock()
 
 	if available {
-		if bg.curTexture != nil {
-			bg.curTexture.Destroy()
+		if reqIndex != bg.curTextureIndex {
+			if bg.curTexture != nil {
+				bg.curTexture.Destroy()
+			}
+			bg.curTextureIndex = reqIndex
+			if bg.curTextureIndex != -1 {
+				bg.curTexture = bg.genTexture(bg.curTextureIndex)
+			} else {
+				bg.curTexture = nil
+			}
 		}
-		bg.curTextureIndex = reqIndex
-		if bg.curTextureIndex != -1 {
-			bg.curTexture = bg.genTexture(bg.curTextureIndex)
-		}
+		bg.curTextureSplit = 0
 	}
 }

@@ -75,12 +75,13 @@ func (s *state) HandleAction(index int, payload []byte, store *data.Store) error
 		return fmt.Errorf("Value %d out of bounds -1..%d",
 			value, len(s.resources)-1)
 	}
+	s.curIndex = value
 	s.owner.requests.mutex.Lock()
 	defer s.owner.requests.mutex.Unlock()
 	if s.owner.requests.activeRequest {
 		return errors.New("Too many requests")
 	}
 	s.owner.requests.activeRequest = true
-	s.owner.requests.index = value
+	s.owner.requests.index = s.curIndex
 	return nil
 }
