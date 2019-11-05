@@ -14,5 +14,7 @@ type ModuleState interface {
 	Actions() []string
 	// called in the server thread. updates the state. if no error is returned,
 	// the OpenGL thread will call InitTransition on the module.
-	HandleAction(index int, payload []byte, store *Store) error
+	// returns the content to return on success (nil if nothing should be returned).
+	// if not nil, the content must be valid JSON.
+	HandleAction(index int, payload []byte, store *Store) ([]byte, error)
 }

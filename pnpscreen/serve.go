@@ -191,13 +191,20 @@ func startServer(store *data.Store, items data.ConfigurableItemProvider,
 							http.StatusBadRequest)
 					} else {
 						payload, _ := ioutil.ReadAll(r.Body)
-						if err := curItem.GetState().HandleAction(curActionIndex, payload,
-							store); err != nil {
+						response, err := curItem.GetState().HandleAction(curActionIndex, payload,
+							store)
+						if err != nil {
 							http.Error(w, "400: "+err.Error(), http.StatusBadRequest)
 						} else {
 							sdl.PushEvent(&sdl.UserEvent{
 								Type: events.ModuleUpdateID, Code: curModuleIndex})
-							w.WriteHeader(http.StatusNoContent)
+							if response == nil {
+								w.WriteHeader(http.StatusNoContent)
+							} else {
+								w.Header().Set("Content-Type", "application/json")
+								w.WriteHeader(http.StatusOK)
+								w.Write(response)
+							}
 							newStateYaml := store.GenGroupStateYaml()
 							go func(content []byte, filename string) {
 								ioutil.WriteFile(filename, content, 0644)

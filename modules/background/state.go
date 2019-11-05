@@ -63,25 +63,25 @@ func (s *state) Actions() []string {
 	return []string{"set"}
 }
 
-func (s *state) HandleAction(index int, payload []byte, store *data.Store) error {
+func (s *state) HandleAction(index int, payload []byte, store *data.Store) ([]byte, error) {
 	if index != 0 {
 		panic("Index out of bounds!")
 	}
 	var value int
 	if err := json.Unmarshal(payload, &value); err != nil {
-		return err
+		return nil, err
 	}
 	if value < -1 || value >= len(s.resources) {
-		return fmt.Errorf("Value %d out of bounds -1..%d",
+		return nil, fmt.Errorf("Value %d out of bounds -1..%d",
 			value, len(s.resources)-1)
 	}
 	s.curIndex = value
 	s.owner.requests.mutex.Lock()
 	defer s.owner.requests.mutex.Unlock()
 	if s.owner.requests.activeRequest {
-		return errors.New("Too many requests")
+		return nil, errors.New("Too many requests")
 	}
 	s.owner.requests.activeRequest = true
 	s.owner.requests.index = s.curIndex
-	return nil
+	return nil, nil
 }

@@ -43,18 +43,18 @@ func (*state) Actions() []string {
 	return []string{"set"}
 }
 
-func (s *state) HandleAction(index int, payload []byte, store *data.Store) error {
+func (s *state) HandleAction(index int, payload []byte, store *data.Store) ([]byte, error) {
 	if index != 0 {
 		panic("Index out of range")
 	}
 	var value string
 	if err := json.Unmarshal(payload, &value); err != nil {
-		return err
+		return nil, err
 	}
 	s.caption = value
 	s.owner.requests.mutex.Lock()
 	s.owner.requests.kind = changeRequest
 	s.owner.requests.caption = value
 	s.owner.requests.mutex.Unlock()
-	return nil
+	return nil, nil
 }

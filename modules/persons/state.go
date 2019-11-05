@@ -83,26 +83,26 @@ func (*state) Actions() []string {
 	return []string{"switch"}
 }
 
-func (s *state) HandleAction(index int, payload []byte, store *data.Store) error {
+func (s *state) HandleAction(index int, payload []byte, store *data.Store) ([]byte, error) {
 	if index != 0 {
 		panic("Index out of range")
 	}
 	var value int
 	if err := json.Unmarshal(payload, &value); err != nil {
-		return err
+		return nil, err
 	}
 	if value < 0 || value >= len(s.resources) {
-		return fmt.Errorf("Index %d not in range 0..%d",
+		return nil, fmt.Errorf("Index %d not in range 0..%d",
 			value, len(s.resources)-1)
 	}
 	s.owner.requests.mutex.Lock()
 	defer s.owner.requests.mutex.Unlock()
 	if s.owner.requests.kind != noRequest {
-		return errors.New("Too many requests")
+		return nil, errors.New("Too many requests")
 	}
 	s.visible[value] = !s.visible[value]
 	s.owner.requests.kind = itemRequest
 	s.owner.requests.itemIndex = value
 	s.owner.requests.itemShown = s.visible[value]
-	return nil
+	return json.Marshal(s.visible[value])
 }

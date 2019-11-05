@@ -303,19 +303,20 @@ function switchOverlay(e) {
         body: JSON.stringify(index),
     }).then(function (response) {
         if (response.ok) {
-            parent.querySelector(`.overlay-state-selector li a[data-index=\"${index}\"]`).style.display =
-                adding ? "none" : "";
-            parent.querySelector(`.visible-overlay-item[data-index=\"${index}\"]`).style.display =
-                adding ? "inline-block" : "none";
-        } else {
-            alert("Update failed!");
-            console.log(response);
-        }
+            return response.json();
+        } else throw new Error("Update failed");
+    }).then(function (value) {
+        parent.querySelector(`.overlay-state-selector li a[data-index=\"${index}\"]`).style.display =
+                value ? "none" : "";
+        parent.querySelector(`.visible-overlay-item[data-index=\"${index}\"]`).style.display =
+                value ? "inline-block" : "none";
+    }).catch(function (error) {
+        console.log(error);
     });
 }
 
 function switchHerolistGlobal(e) {
-    let hiding = this.classList.contains("pure-button-primary");
+    this.classList.contains("pure-button-primary");
     let button = this;
     return fetch("module/herolist/switchGlobal", {
         method: 'POST', mode: 'no-cors', cache: 'no-cache', credentials: 'omit',
@@ -324,24 +325,24 @@ function switchHerolistGlobal(e) {
         body: JSON.stringify(""),
     }).then(function (response) {
         if (response.ok) {
-            if (hiding) {
-                button.classList.remove("pure-button-primary");
-                button.textContent = "Show All";
-            } else {
-                button.classList.add("pure-button-primary");
-                button.textContent = "Hide All";
-            }
+            return response.json();
+        } else throw new Error("Update failed!");
+    }).then(function (value) {
+        if (value) {
+            button.classList.add("pure-button-primary");
+            button.textContent = "Hide All";
         } else {
-            alert("Update failed!");
-            console.log(response);
+            button.classList.remove("pure-button-primary");
+            button.textContent = "Show All";
         }
+    }).catch(function (error) {
+        console.log(error);
     });
 }
 
 function switchHerolistHero(e) {
     let index = parseInt(this.dataset.index, 10);
     let li = this.parentNode;
-    let hiding = li.classList.contains("pure-menu-selected");
     return fetch("module/herolist/switchHero", {
         method: 'POST', mode: 'no-cors', cache: 'no-cache', credentials: 'omit',
         headers: {'Content-Type': 'application/json' },
@@ -349,15 +350,16 @@ function switchHerolistHero(e) {
         body: JSON.stringify(index),
     }).then(function (response) {
         if (response.ok) {
-            if (hiding) {
-                li.classList.remove("pure-menu-selected");
-            } else {
-                li.classList.add("pure-menu-selected");
-            }
+            return response.json();
+        } else throw new Error("Update failed!");
+    }).then(function (value) {
+        if (value) {
+            li.classList.add("pure-menu-selected");
         } else {
-            alert("Update failed!");
-            console.log(response);
+            li.classList.remove("pure-menu-selected");
         }
+    }).catch(function (error){
+        console.log(error);
     });
 }
 

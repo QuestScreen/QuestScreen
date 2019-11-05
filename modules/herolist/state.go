@@ -108,33 +108,36 @@ func (*state) Actions() []string {
 	return []string{"switchGlobal", "switchHero"}
 }
 
-func (s *state) HandleAction(index int, payload []byte, store *data.Store) error {
+func (s *state) HandleAction(index int, payload []byte, store *data.Store) ([]byte, error) {
 	s.owner.requests.mutex.Lock()
 	defer s.owner.requests.mutex.Unlock()
 	if s.owner.requests.kind != noRequest {
-		return errors.New("Too many requests")
+		return nil, errors.New("Too many requests")
 	}
 
+	var ret bool
 	switch index {
 	case 0:
 		s.globalVisible = !s.globalVisible
+		ret = s.globalVisible
 		s.owner.requests.kind = globalRequest
 		s.owner.requests.globalVisible = s.globalVisible
 	case 1:
 		var value int
 		if err := json.Unmarshal(payload, &value); err != nil {
-			return err
+			return nil, err
 		}
 		if value < 0 || value >= len(s.heroVisible) {
-			return fmt.Errorf("Index %d out of range 0..%d",
+			return nil, fmt.Errorf("Index %d out of range 0..%d",
 				value, len(s.heroVisible)-1)
 		}
 		s.heroVisible[value] = !s.heroVisible[value]
+		ret = s.heroVisible[value]
 		s.owner.requests.kind = heroRequest
 		s.owner.requests.heroIndex = int32(value)
 		s.owner.requests.heroVisible = s.heroVisible[value]
 	default:
 		panic("Index out of range")
 	}
-	return nil
+	return json.Marshal(ret)
 }
