@@ -21,7 +21,7 @@ type StaticData struct {
 // Init initializes the static data
 func (s *StaticData) Init(width int32, height int32, items ConfigurableItemProvider) {
 	usr, _ := user.Current()
-	s.DataDir = filepath.Join(usr.HomeDir, ".local", "share", "rpscreen")
+	s.DataDir = filepath.Join(usr.HomeDir, ".local", "share", "pnpscreen")
 	s.DefaultBorderWidth = height / 133
 	s.DefaultTextSizes = [6]int32{height / 37, height / 27, height / 19,
 		height / 13, height / 8, height / 4}

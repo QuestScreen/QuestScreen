@@ -7,7 +7,7 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/flyx/rpscreen/data"
+	"github.com/flyx/pnpscreen/data"
 )
 
 type state struct {

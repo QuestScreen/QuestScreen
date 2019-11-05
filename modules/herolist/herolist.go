@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flyx/rpscreen/data"
-	"github.com/flyx/rpscreen/display"
+	"github.com/flyx/pnpscreen/data"
+	"github.com/flyx/pnpscreen/display"
 	"github.com/veandco/go-sdl2/sdl"
 )
 

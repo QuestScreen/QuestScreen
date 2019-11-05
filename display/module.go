@@ -3,10 +3,10 @@ package display
 import (
 	"time"
 
-	"github.com/flyx/rpscreen/data"
+	"github.com/flyx/pnpscreen/data"
 )
 
-// Module describes a module usable with rpscreen
+// Module describes a module usable with pnpscreen
 type Module interface {
 	data.ConfigurableItem
 	// initialize the module.

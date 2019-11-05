@@ -1,7 +1,7 @@
 package display
 
 import (
-	"github.com/flyx/rpscreen/data"
+	"github.com/flyx/pnpscreen/data"
 	"github.com/veandco/go-sdl2/sdl"
 )
 

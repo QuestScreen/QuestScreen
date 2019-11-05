@@ -1,4 +1,4 @@
-module github.com/flyx/rpscreen
+module github.com/flyx/pnpscreen
 
 go 1.12
 

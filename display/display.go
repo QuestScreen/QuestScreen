@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/flyx/rpscreen/data"
+	"github.com/flyx/pnpscreen/data"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -45,6 +45,8 @@ type Display struct {
 	modules        moduleList
 	numTransitions int32
 	popupTexture   *sdl.Texture
+	welcomeTexture *sdl.Texture
+	initial        bool
 }
 
 // RegisterModule registers the given, uninitialized module with the display.
@@ -74,15 +76,16 @@ func (d *Display) ConfigurableItems() data.ConfigurableItemProvider {
 }
 
 // NewDisplay creates a new display.
-func NewDisplay(events Events, fullscreen bool) (*Display, error) {
+func NewDisplay(events Events, fullscreen bool, port uint16) (*Display, error) {
 	display := new(Display)
+	display.initial = true
 	var err error
 	display.Events = events
 	var flags uint32 = sdl.WINDOW_OPENGL | sdl.WINDOW_ALLOW_HIGHDPI
 	if fullscreen {
 		flags |= sdl.WINDOW_FULLSCREEN_DESKTOP
 	}
-	display.Window, err = sdl.CreateWindow("rpscreen", sdl.WINDOWPOS_UNDEFINED,
+	display.Window, err = sdl.CreateWindow("pnpscreen", sdl.WINDOWPOS_UNDEFINED,
 		sdl.WINDOWPOS_UNDEFINED, 800, 600, flags)
 	if err != nil {
 		return nil, err
@@ -105,27 +108,32 @@ func NewDisplay(events Events, fullscreen bool) (*Display, error) {
 	display.numTransitions = 0
 
 	display.genPopup(width, height)
+	display.genWelcome(width, height, port)
 
 	return display, nil
 }
 
 func (d *Display) render(cur time.Time, popup bool) {
 	d.Renderer.Clear()
-	d.Renderer.SetDrawColor(255, 255, 255, 255)
-	d.Renderer.FillRect(nil)
-	for i := 0; i < len(d.modules.items); i++ {
-		item := &d.modules.items[i]
-		if item.enabled {
-			if item.transitioning {
-				if cur.After(item.transEnd) {
-					item.module.FinishTransition()
-					d.numTransitions--
-					item.transitioning = false
-				} else {
-					item.module.TransitionStep(cur.Sub(item.transStart))
+	if d.initial {
+		_ = d.Renderer.Copy(d.welcomeTexture, nil, nil)
+	} else {
+		d.Renderer.SetDrawColor(255, 255, 255, 255)
+		d.Renderer.FillRect(nil)
+		for i := 0; i < len(d.modules.items); i++ {
+			item := &d.modules.items[i]
+			if item.enabled {
+				if item.transitioning {
+					if cur.After(item.transEnd) {
+						item.module.FinishTransition()
+						d.numTransitions--
+						item.transitioning = false
+					} else {
+						item.module.TransitionStep(cur.Sub(item.transStart))
+					}
 				}
+				item.module.Render()
 			}
-			item.module.Render()
 		}
 	}
 	if popup {
@@ -218,6 +226,7 @@ func (d *Display) RenderLoop(itemConfigChan chan ItemConfigUpdate) {
 						}
 					}
 				case d.Events.GroupChangeID:
+					d.initial = false
 					for i := range d.modules.items {
 						d.modules.items[i].module.RebuildState()
 					}

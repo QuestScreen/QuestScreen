@@ -15,16 +15,16 @@ WEBFILES = \
 	web/webfonts/fa-solid-900.woff\
 	web/webfonts/fa-solid-900.woff2
 
-all: rpscreen/rpscreen
+all: pnpscreen/pnpscreen
 
 web/data.go: ${WEBFILES}
 	go get github.com/go-bindata/go-bindata/...
 	${GOPATH}/bin/go-bindata -o web/data.go -pkg web web/templates web/css web/js web/webfonts
 
-rpscreen/rpscreen: web/data.go
-	cd rpscreen && go build
+pnpscreen/pnpscreen: web/data.go
+	cd pnpscreen && go build
 
-.PHONY: rpscreen/rpscreen
+.PHONY: pnpscreen/pnpscreen
 
-install: rpscreen/rpscreen
-	cp rpscreen/rpscreen ${PREFIX}/bin
+install: pnpscreen/pnpscreen
+	cp pnpscreen/pnpscreen ${PREFIX}/bin

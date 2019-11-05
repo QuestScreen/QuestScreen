@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/flyx/rpscreen/data"
+	"github.com/flyx/pnpscreen/data"
 )
 
 type state struct {
