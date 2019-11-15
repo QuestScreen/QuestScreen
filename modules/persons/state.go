@@ -6,17 +6,17 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/flyx/pnpscreen/data"
+	"github.com/flyx/pnpscreen/api"
 )
 
 type state struct {
 	owner     *Persons
 	visible   []bool
-	resources []data.Resource
+	resources []api.Resource
 }
 
-func (s *state) LoadFrom(yamlSubtree interface{}, store *data.Store) error {
-	s.resources = store.ListFiles(s.owner, "")
+func (s *state) LoadFrom(yamlSubtree interface{}, env api.Environment) error {
+	s.resources = env.GetResources(s.owner.moduleIndex, 0)
 	s.visible = make([]bool, len(s.resources))
 	if yamlSubtree != nil {
 		names, ok := yamlSubtree.([]interface{})
@@ -30,7 +30,7 @@ func (s *state) LoadFrom(yamlSubtree interface{}, store *data.Store) error {
 			}
 			found := false
 			for j := range s.resources {
-				if s.resources[j].Name == name {
+				if s.resources[j].Name() == name {
 					found = true
 					s.visible[j] = true
 					break
@@ -51,11 +51,11 @@ func (s *state) LoadFrom(yamlSubtree interface{}, store *data.Store) error {
 }
 
 // ToYAML returns a slice containing the names of all visible items.
-func (s *state) ToYAML(store *data.Store) interface{} {
+func (s *state) ToYAML(env api.Environment) interface{} {
 	ret := make([]string, 0, len(s.resources))
 	for i := range s.visible {
 		if s.visible[i] {
-			ret = append(ret, s.resources[i].Name)
+			ret = append(ret, s.resources[i].Name())
 		}
 	}
 	return ret
@@ -73,7 +73,7 @@ type jsonState []jsonStateItem
 func (s *state) ToJSON() interface{} {
 	ret := make(jsonState, len(s.resources))
 	for i := range s.resources {
-		ret[i].Name = s.resources[i].Name
+		ret[i].Name = s.resources[i].Name()
 		ret[i].Selected = s.visible[i]
 	}
 	return ret
@@ -83,7 +83,7 @@ func (*state) Actions() []string {
 	return []string{"switch"}
 }
 
-func (s *state) HandleAction(index int, payload []byte, store *data.Store) ([]byte, error) {
+func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
 	if index != 0 {
 		panic("Index out of range")
 	}

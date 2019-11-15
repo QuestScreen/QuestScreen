@@ -7,7 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/flyx/pnpscreen/data"
+	"github.com/flyx/pnpscreen/api"
+
 	"github.com/flyx/pnpscreen/display"
 
 	"github.com/flyx/pnpscreen/web"
@@ -15,16 +16,14 @@ import (
 )
 
 type screenHandler struct {
-	store  *data.Store
-	items  data.ConfigurableItemProvider
+	owner  *app
 	events display.Events
 	index  []byte
 }
 
-func newScreenHandler(store *data.Store, items data.ConfigurableItemProvider, events display.Events) *screenHandler {
+func newScreenHandler(owner *app, events display.Events) *screenHandler {
 	handler := new(screenHandler)
-	handler.store = store
-	handler.items = items
+	handler.owner = owner
 	handler.events = events
 
 	var err error
@@ -68,21 +67,32 @@ func nextPathItem(value string) (string, bool) {
 	return value[0:pos], false
 }
 
-func (sh *screenHandler) mergeAndSendConfigs(moduleConfigChan chan<- display.ItemConfigUpdate) {
-	for i := 0; i < sh.items.NumItems(); i++ {
-		moduleConfigChan <- display.ItemConfigUpdate{ItemIndex: i,
-			Config: sh.store.Config.MergeConfig(&sh.store.StaticData, i,
-				sh.store.GetActiveSystem(), sh.store.GetActiveGroup())}
+func (sh *screenHandler) mergeAndSendConfigs(moduleConfigChan chan<- display.ModuleConfigUpdate) {
+	for i := api.ModuleIndex(0); i < api.ModuleIndex(len(sh.owner.modules)); i++ {
+		moduleConfigChan <- display.ModuleConfigUpdate{Index: i,
+			Config: sh.owner.config.MergeConfig(i,
+				sh.owner.activeSystem, sh.owner.activeGroup)}
 	}
 	sdl.PushEvent(&sdl.UserEvent{Type: sh.events.ModuleConfigID})
 }
 
-func startServer(store *data.Store, items data.ConfigurableItemProvider,
-	itemConfigChan chan<- display.ItemConfigUpdate, events display.Events,
+func sendJSON(w http.ResponseWriter, content []byte, err error) {
+	if err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(content)
+	} else {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	}
+}
+
+func startServer(owner *app,
+	moduleConfigChan chan<- display.ModuleConfigUpdate, events display.Events,
 	port uint16) *http.Server {
 	server := &http.Server{Addr: ":" + strconv.Itoa(int(port))}
 
-	handler := newScreenHandler(store, items, events)
+	handler := newScreenHandler(owner, events)
 	http.Handle("/", handler)
 	setupResourceHandler(server, "/css/pure-min.css", "text/css")
 	setupResourceHandler(server, "/css/grids-responsive-min.css", "text/css")
@@ -100,34 +110,43 @@ func startServer(store *data.Store, items data.ConfigurableItemProvider,
 	http.HandleFunc("/groups/", func(w http.ResponseWriter, r *http.Request) {
 		groupName := r.URL.Path[len("/groups/"):]
 		newGroupIndex := -2
-		for i := 0; i < store.Config.NumGroups(); i++ {
-			if store.Config.GroupDirectory(i) == groupName {
+		for i := 0; i < owner.config.NumGroups(); i++ {
+			if owner.config.GroupID(i) == groupName {
 				newGroupIndex = i
 				break
 			}
 		}
 		if newGroupIndex != -2 {
-			if err := store.SetActiveGroup(newGroupIndex); err != nil {
+			if err := owner.setActiveGroup(newGroupIndex); err != nil {
 				http.Error(w, "400: Could not set group: "+err.Error(),
 					http.StatusBadRequest)
 			} else {
-				sdl.PushEvent(&sdl.UserEvent{Type: events.GroupChangeID})
-				store.SendStateJSON(w)
+				handler.mergeAndSendConfigs(moduleConfigChan)
+				ret, err := owner.config.BuildStateJSON()
+				sendJSON(w, ret, err)
 			}
 		} else {
 			http.Error(w, "404: unknown group \""+groupName+"\"", http.StatusNotFound)
 		}
 	})
 	http.HandleFunc("/static.json", func(w http.ResponseWriter, r *http.Request) {
-		store.SendGlobalJSON(w)
+		ret, err := owner.config.BuildGlobalJSON(owner, owner.activeGroup)
+		sendJSON(w, ret, err)
 	})
 	http.HandleFunc("/config/", func(w http.ResponseWriter, r *http.Request) {
 		post := false
+		var raw []byte
 		switch r.Method {
 		case "GET":
 			break
 		case "POST":
 			post = true
+			var err error
+			raw, err = ioutil.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 			break
 		default:
 			http.Error(w, "405: Method not allowed", http.StatusMethodNotAllowed)
@@ -141,9 +160,15 @@ func startServer(store *data.Store, items data.ConfigurableItemProvider,
 				http.Error(w, "404: \""+r.URL.Path+"\" not found", http.StatusNotFound)
 			} else {
 				if post {
-					store.ReceiveBaseJSON(w, r.Body)
+					if err := owner.config.LoadBaseJSON(raw); err != nil {
+						http.Error(w, err.Error(), http.StatusBadRequest)
+					} else {
+						w.WriteHeader(http.StatusNoContent)
+					}
 				} else {
-					store.SendBaseJSON(w)
+					var err error
+					raw, err := owner.config.BuildBaseJSON()
+					sendJSON(w, raw, err)
 				}
 			}
 		case "groups":
@@ -152,24 +177,34 @@ func startServer(store *data.Store, items data.ConfigurableItemProvider,
 			} else {
 				groupName := r.URL.Path[len("/config/groups/"):]
 				if post {
-					if store.ReceiveGroupJSON(w, groupName, r.Body) {
-						handler.mergeAndSendConfigs(itemConfigChan)
+					if err := owner.config.LoadGroupJSON(raw, groupName); err != nil {
+						http.Error(w, err.Error(), http.StatusBadRequest)
+					} else {
+						w.WriteHeader(http.StatusNoContent)
+						handler.mergeAndSendConfigs(moduleConfigChan)
 					}
 				} else {
-					store.SendGroupJSON(w, groupName)
+					var err error
+					raw, err = owner.config.BuildGroupJSON(groupName)
+					sendJSON(w, raw, err)
 				}
 			}
 		case "systems":
 			if isLast {
-				http.Error(w, "400: group missing", http.StatusBadRequest)
+				http.Error(w, "400: system missing", http.StatusBadRequest)
 			} else {
 				systemName := r.URL.Path[len("/config/systems/"):]
 				if post {
-					if store.ReceiveSystemJSON(w, systemName, r.Body) {
-						handler.mergeAndSendConfigs(itemConfigChan)
+					if err := owner.config.LoadSystemJSON(raw, systemName); err != nil {
+						http.Error(w, err.Error(), http.StatusBadRequest)
+					} else {
+						w.WriteHeader(http.StatusNoContent)
+						handler.mergeAndSendConfigs(moduleConfigChan)
 					}
 				} else {
-					store.SendSystemJSON(w, systemName)
+					var err error
+					raw, err = owner.config.BuildSystemJSON(systemName)
+					sendJSON(w, raw, err)
 				}
 			}
 		default:
@@ -177,22 +212,22 @@ func startServer(store *data.Store, items data.ConfigurableItemProvider,
 		}
 	})
 
-	for i := 0; i < items.NumItems(); i++ {
+	for i := range owner.modules {
 		// needed to avoid closure over loop variable (which doesn't work)
 		curModuleIndex := int32(i)
-		curItem := items.ItemAt(i)
-		actions := curItem.GetState().Actions()
+		module := owner.modules[i].module
+		actions := module.State().Actions()
 		for j := range actions {
 			curActionIndex := j
-			http.HandleFunc("/module/"+curItem.InternalName()+"/"+actions[j],
+			http.HandleFunc("/module/"+module.ID()+"/"+actions[j],
 				func(w http.ResponseWriter, r *http.Request) {
 					if r.Method != "POST" {
 						http.Error(w, "400: module endpoints only take POST requests",
 							http.StatusBadRequest)
 					} else {
 						payload, _ := ioutil.ReadAll(r.Body)
-						response, err := curItem.GetState().HandleAction(curActionIndex, payload,
-							store)
+						response, err := module.State().HandleAction(
+							curActionIndex, payload)
 						if err != nil {
 							http.Error(w, "400: "+err.Error(), http.StatusBadRequest)
 						} else {
@@ -205,10 +240,13 @@ func startServer(store *data.Store, items data.ConfigurableItemProvider,
 								w.WriteHeader(http.StatusOK)
 								w.Write(response)
 							}
-							newStateYaml := store.GenGroupStateYaml()
+							newStateYaml, err := owner.config.BuildStateYaml()
+							if err != nil {
+								panic(err)
+							}
 							go func(content []byte, filename string) {
 								ioutil.WriteFile(filename, content, 0644)
-							}(newStateYaml, store.PathToState())
+							}(newStateYaml, owner.pathToState())
 						}
 					}
 				})

@@ -4,113 +4,62 @@ import (
 	"log"
 	"time"
 
-	"github.com/flyx/pnpscreen/data"
+	"github.com/flyx/pnpscreen/api"
+	"github.com/flyx/pnpscreen/app"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-// ItemConfigUpdate is a message requesting to configure the item with the given
-// index with the given config.
-type ItemConfigUpdate struct {
-	ItemIndex int
-	Config    interface{}
+// ModuleConfigUpdate is a message requesting to configure the item with the
+// given index with the given config.
+type ModuleConfigUpdate struct {
+	Index  api.ModuleIndex
+	Config interface{}
 }
 
-type moduleListItem struct {
-	module        Module
-	enabled       bool
+type animationState struct {
 	transStart    time.Time
 	transEnd      time.Time
 	transitioning bool
 }
 
-type moduleList struct {
-	items []moduleListItem
-}
-
-func (ml *moduleList) NumItems() int {
-	return len(ml.items)
-}
-
-func (ml *moduleList) ItemAt(index int) data.ConfigurableItem {
-	return ml.items[index].module
-}
-
 // Display describes a display rendering scenes.
 type Display struct {
-	data.StaticData
 	Events
+	owner          app.App
 	Renderer       *sdl.Renderer
 	Window         *sdl.Window
 	textureBuffer  uint32
-	modules        moduleList
+	moduleStates   []animationState
 	numTransitions int32
 	popupTexture   *sdl.Texture
 	welcomeTexture *sdl.Texture
 	initial        bool
 }
 
-// RegisterModule registers the given, uninitialized module with the display.
-func (d *Display) RegisterModule(module Module) {
-	d.modules.items = append(d.modules.items, moduleListItem{
-		module: module, enabled: false})
-}
+// Init initializes the display. The renderer and window need to be generated
+// before since the app needs to load fonts based on the window size.
+func (d *Display) Init(
+		owner app.App, events Events, fullscreen bool, port uint16,
+		window *sdl.Window, renderer *sdl.Renderer) error {
+	d.owner = owner
+	d.Events = events
+	d.Window = window
+	d.Renderer = renderer
+	d.initial = true
 
-// InitModuleConfigs will initialize configuration of all modules.
-// This will call Init on each module.
-func (d *Display) InitModuleConfigs(store *data.Store) {
-	for i := range d.modules.items {
-		module := d.modules.items[i].module
-		if err := module.Init(d, store); err != nil {
-			log.Printf("Unable to initialize module %s: %s", module.Name(), err)
-			continue
-		}
-		module.SetConfig(
-			store.Config.MergeConfig(&store.StaticData, i, -1, -1))
-		d.modules.items[i].enabled = true
-	}
-}
-
-// ConfigurableItems returns the list of configurable items (i.e. modules)
-func (d *Display) ConfigurableItems() data.ConfigurableItemProvider {
-	return &d.modules
-}
-
-// NewDisplay creates a new display.
-func NewDisplay(events Events, fullscreen bool, port uint16) (*Display, error) {
-	display := new(Display)
-	display.initial = true
-	var err error
-	display.Events = events
-	var flags uint32 = sdl.WINDOW_OPENGL | sdl.WINDOW_ALLOW_HIGHDPI
-	if fullscreen {
-		flags |= sdl.WINDOW_FULLSCREEN_DESKTOP
-	}
-	display.Window, err = sdl.CreateWindow("pnpscreen", sdl.WINDOWPOS_UNDEFINED,
-		sdl.WINDOWPOS_UNDEFINED, 800, 600, flags)
+	width, height, err := d.Renderer.GetOutputSize()
 	if err != nil {
-		return nil, err
+		return err
+	}
+	d.numTransitions = 0
+
+	d.genPopup(width, height)
+	if err = d.genWelcome(width, height, port); err != nil {
+		return err
 	}
 
-	display.Renderer, err = sdl.CreateRenderer(display.Window, -1,
-		sdl.RENDERER_ACCELERATED|sdl.RENDERER_TARGETTEXTURE)
-	if err != nil {
-		display.Window.Destroy()
-		return nil, err
-	}
-	width, height, err := display.Renderer.GetOutputSize()
-	if err != nil {
-		display.Window.Destroy()
-		return nil, err
-	}
-
-	display.modules = moduleList{items: make([]moduleListItem, 0, 16)}
-	display.StaticData.Init(width, height, &display.modules)
-	display.numTransitions = 0
-
-	display.genPopup(width, height)
-	display.genWelcome(width, height, port)
-
-	return display, nil
+	d.moduleStates = make([]animationState, d.owner.NumModules())
+	return nil
 }
 
 func (d *Display) render(cur time.Time, popup bool) {
@@ -120,19 +69,20 @@ func (d *Display) render(cur time.Time, popup bool) {
 	} else {
 		d.Renderer.SetDrawColor(255, 255, 255, 255)
 		d.Renderer.FillRect(nil)
-		for i := 0; i < len(d.modules.items); i++ {
-			item := &d.modules.items[i]
-			if item.enabled {
-				if item.transitioning {
-					if cur.After(item.transEnd) {
-						item.module.FinishTransition()
+		for i := api.ModuleIndex(0); i < d.owner.NumModules(); i++ {
+			if d.owner.ModuleEnabled(i) {
+				state := &d.moduleStates[i]
+				module := d.owner.ModuleAt(i)
+				if state.transitioning {
+					if cur.After(state.transEnd) {
+						module.FinishTransition(d.Renderer)
 						d.numTransitions--
-						item.transitioning = false
+						state.transitioning = false
 					} else {
-						item.module.TransitionStep(cur.Sub(item.transStart))
+						module.TransitionStep(d.Renderer, cur.Sub(state.transStart))
 					}
 				}
-				item.module.Render()
+				module.Render(d.Renderer)
 			}
 		}
 	}
@@ -142,21 +92,23 @@ func (d *Display) render(cur time.Time, popup bool) {
 	d.Renderer.Present()
 }
 
-func (d *Display) startTransition(m *moduleListItem) {
-	transDur := m.module.InitTransition()
+func (d *Display) startTransition(moduleIndex api.ModuleIndex) {
+	module := d.owner.ModuleAt(moduleIndex)
+	transDur := module.InitTransition(d.Renderer)
 	if transDur == 0 {
-		m.module.FinishTransition()
+		module.FinishTransition(d.Renderer)
 	} else if transDur > 0 {
 		d.numTransitions++
-		m.transStart = time.Now()
-		m.transEnd = m.transStart.Add(transDur)
-		m.transitioning = true
+		state := &d.moduleStates[moduleIndex]
+		state.transStart = time.Now()
+		state.transEnd = state.transStart.Add(transDur)
+		state.transitioning = true
 	}
 }
 
 // RenderLoop implements the rendering loop for the display.
 // This function MUST be called in the main thread
-func (d *Display) RenderLoop(itemConfigChan chan ItemConfigUpdate) {
+func (d *Display) RenderLoop(modConfigChan chan ModuleConfigUpdate) {
 	render := true
 	popup := false
 
@@ -209,28 +161,22 @@ func (d *Display) RenderLoop(itemConfigChan chan ItemConfigUpdate) {
 			case *sdl.UserEvent:
 				switch e.Type {
 				case d.Events.ModuleUpdateID:
-					d.startTransition(&d.modules.items[e.Code])
+					d.startTransition(api.ModuleIndex(e.Code))
 					render = true
 				case d.Events.ModuleConfigID:
 				outer:
 					for {
 						select {
-						case data := <-itemConfigChan:
-							item := &d.modules.items[data.ItemIndex]
-							if item.module.SetConfig(data.Config) {
-								item.module.RebuildState()
-								render = true
-							}
+						case data := <-modConfigChan:
+							module := d.owner.ModuleAt(data.Index)
+							module.SetConfig(data.Config)
+							module.RebuildState(d.Renderer)
+							render = true
 						default:
 							break outer
 						}
 					}
-				case d.Events.GroupChangeID:
 					d.initial = false
-					for i := range d.modules.items {
-						d.modules.items[i].module.RebuildState()
-					}
-					render = true
 				}
 			}
 		}
@@ -239,4 +185,9 @@ func (d *Display) RenderLoop(itemConfigChan chan ItemConfigUpdate) {
 			frameCount = 0
 		}
 	}
+}
+
+func (d *Display) Destroy() {
+	d.Renderer.Destroy()
+	d.Window.Destroy()
 }

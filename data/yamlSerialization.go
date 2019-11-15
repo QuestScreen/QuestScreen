@@ -3,9 +3,10 @@ package data
 import (
 	"io/ioutil"
 	"log"
-	"path/filepath"
 	"reflect"
 
+	"github.com/flyx/pnpscreen/api"
+	"github.com/flyx/pnpscreen/app"
 	"gopkg.in/yaml.v3"
 )
 
@@ -31,7 +32,7 @@ type yamlGroupConfig struct {
 	Modules map[string]map[string]interface{}
 }
 
-func (s *StaticData) loadYamlModuleConfigInto(target interface{},
+func (c *Config) loadYamlModuleConfigInto(target interface{},
 	values map[string]interface{}, moduleName string) bool {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
@@ -66,7 +67,7 @@ func (s *StaticData) loadYamlModuleConfigInto(target interface{},
 		}
 		targetSetting := targetModule.Field(i).Interface()
 
-		if err := s.setModuleConfigFieldFrom(targetSetting, true, inModuleConfig); err != nil {
+		if err := c.setModuleConfigFieldFrom(targetSetting, true, inModuleConfig); err != nil {
 			if wasNil {
 				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 			}
@@ -77,32 +78,44 @@ func (s *StaticData) loadYamlModuleConfigInto(target interface{},
 	return true
 }
 
-func (s *StaticData) loadYamlModuleConfigs(
-	raw map[string]map[string]interface{},
-	items ConfigurableItemProvider) []interface{} {
-	ret := make([]interface{}, items.NumItems())
+func findModule(owner app.App, id string) (api.Module, api.ModuleIndex) {
+	var i api.ModuleIndex
+	for i = 0; i < owner.NumModules(); i++ {
+		module := owner.ModuleAt(i)
+		if module.ID() == id {
+			return module, i
+		}
+	}
+	return nil, -1
+}
+
+func (c *Config) loadYamlModuleConfigs(
+	raw map[string]map[string]interface{}) []interface{} {
+	ret := make([]interface{}, c.owner.NumModules())
 	for name, rawItems := range raw {
-		mod, index := findItem(items, name)
+		mod, index := findModule(c.owner, name)
 		if mod == nil {
 			log.Println("Unknown module: " + name)
 		} else {
 			target := mod.EmptyConfig()
-			if s.loadYamlModuleConfigInto(target, rawItems, mod.InternalName()) {
+			if c.loadYamlModuleConfigInto(target, rawItems, mod.ID()) {
 				ret[index] = target
 			}
 		}
 	}
-	for i := 0; i < items.NumItems(); i++ {
+	var i api.ModuleIndex
+	for i = 0; i < c.owner.NumModules(); i++ {
 		if ret[i] == nil {
-			ret[i] = items.ItemAt(i).EmptyConfig()
+			ret[i] = c.owner.ModuleAt(i).EmptyConfig()
 		}
 	}
 	return ret
 }
 
-func (s *StaticData) toYamlStructure(moduleConfigs []interface{}) map[string]map[string]interface{} {
+func (c *Config) toYamlStructure(moduleConfigs []interface{}) map[string]map[string]interface{} {
 	ret := make(map[string]map[string]interface{})
-	for i := 0; i < len(moduleConfigs); i++ {
+	var i api.ModuleIndex
+	for i = 0; i < c.owner.NumModules(); i++ {
 		var fields map[string]interface{}
 
 		moduleConfig := moduleConfigs[i]
@@ -134,13 +147,13 @@ func (s *StaticData) toYamlStructure(moduleConfigs []interface{}) map[string]map
 			}
 		}
 		if fields != nil {
-			ret[s.items.ItemAt(i).Name()] = fields
+			ret[c.owner.ModuleAt(i).ID()] = fields
 		}
 	}
 	return ret
 }
 
-func (s *StaticData) loadYamlBaseConfig(yamlInput []byte) []interface{} {
+func (c *Config) loadYamlBaseConfig(yamlInput []byte) []interface{} {
 	var data yamlBaseConfig
 	if yamlInput != nil {
 		if err := yaml.Unmarshal(yamlInput, &data); err != nil {
@@ -150,17 +163,17 @@ func (s *StaticData) loadYamlBaseConfig(yamlInput []byte) []interface{} {
 		data.Modules = make(map[string]map[string]interface{})
 	}
 
-	return s.loadYamlModuleConfigs(data.Modules, s.items)
+	return c.loadYamlModuleConfigs(data.Modules)
 }
 
-func (s *StaticData) writeYamlBaseConfig(moduleConfigs []interface{}) {
-	data := yamlBaseConfig{Modules: s.toYamlStructure(moduleConfigs)}
-	path := filepath.Join(s.DataDir, "base", "config.yaml")
+func (c *Config) writeYamlBaseConfig() {
+	data := yamlBaseConfig{Modules: c.toYamlStructure(c.baseConfigs)}
+	path := c.owner.DataDir("base", "config.yaml")
 	raw, _ := yaml.Marshal(data)
 	ioutil.WriteFile(path, raw, 0644)
 }
 
-func (s *StaticData) loadYamlSystemConfig(
+func (c *Config) loadYamlSystemConfig(
 	yamlInput []byte, dirName string) systemConfig {
 	var data yamlSystemConfig
 	if err := yaml.Unmarshal(yamlInput, &data); err != nil {
@@ -168,62 +181,65 @@ func (s *StaticData) loadYamlSystemConfig(
 	}
 	return systemConfig{
 		Name:    data.Name,
-		DirName: dirName,
-		Modules: s.loadYamlModuleConfigs(data.Modules, s.items)}
+		ID:      dirName,
+		Modules: c.loadYamlModuleConfigs(data.Modules)}
 }
 
-func (s *StaticData) writeYamlSystemConfig(config systemConfig) {
+func (c *Config) writeYamlSystemConfig(config systemConfig) {
 	data := yamlSystemConfig{
 		Name:    config.Name,
-		Modules: s.toYamlStructure(config.Modules),
+		Modules: c.toYamlStructure(config.Modules),
 	}
-	path := filepath.Join(s.DataDir, "systems", config.DirName, "config.yaml")
+	path := c.owner.DataDir("systems", config.ID, "config.yaml")
 	raw, _ := yaml.Marshal(data)
 	ioutil.WriteFile(path, raw, 0644)
 }
 
-func (s *StaticData) loadYamlGroupConfig(
-	yamlInput []byte, dirName string, systems []systemConfig) groupConfig {
+func (c *Config) loadYamlGroupConfig(
+	yamlInput []byte, dirName string) groupConfig {
 	var data yamlGroupConfig
 	if err := yaml.Unmarshal(yamlInput, &data); err != nil {
 		panic("while parsing group config of " + dirName + ": " + err.Error())
 	}
-	for i := 0; i < len(systems); i++ {
-		if systems[i].Name == data.System {
+	for i := 0; i < len(c.systems); i++ {
+		if c.systems[i].ID == data.System {
 			return groupConfig{
 				Name:        data.Name,
-				DirName:     dirName,
+				ID:          dirName,
 				SystemIndex: i,
-				Modules:     s.loadYamlModuleConfigs(data.Modules, s.items),
+				Modules:     c.loadYamlModuleConfigs(data.Modules),
 			}
 		}
 	}
 	panic("Group config of " + dirName + " references unknown system \"" + data.System + "\"")
 }
 
-func (s *StaticData) writeYamlGroupConfig(group groupConfig, systems []systemConfig) {
+func (c *Config) writeYamlGroupConfig(group groupConfig) {
 	data := yamlGroupConfig{
 		Name:    group.Name,
-		System:  systems[group.SystemIndex].Name,
-		Modules: s.toYamlStructure(group.Modules),
+		System:  c.systems[group.SystemIndex].Name,
+		Modules: c.toYamlStructure(group.Modules),
 	}
-	path := filepath.Join(s.DataDir, "groups", group.DirName, "config.yaml")
+	path := c.owner.DataDir("groups", group.ID, "config.yaml")
 	raw, _ := yaml.Marshal(data)
 	ioutil.WriteFile(path, raw, 0644)
 }
 
-func (s *Store) loadYamlGroupState(yamlInput []byte) {
+// LoadYamlGroupState loads the given YAML input into the current group's state.
+func (c *Config) LoadYamlGroupState(yamlInput []byte) {
 	// module name -> state value
 	var data map[string]interface{}
 	if err := yaml.Unmarshal(yamlInput, &data); err != nil {
 		panic("while parsing group state: " + err.Error())
 	}
-	ret := make([]bool, s.items.NumItems())
+	ret := make([]bool, c.owner.NumModules())
+	var i api.ModuleIndex
 	for k, v := range data {
 		found := false
-		for i := 0; i < s.items.NumItems(); i++ {
-			if k == s.items.ItemAt(i).Name() {
-				if err := s.items.ItemAt(i).GetState().LoadFrom(v, s); err != nil {
+		for i = 0; i < c.owner.NumModules(); i++ {
+			module := c.owner.ModuleAt(i)
+			if k == module.ID() {
+				if err := module.State().LoadFrom(v, c.owner); err != nil {
 					log.Println("Could not load state", k, ":", err.Error())
 				} else {
 					ret[i] = true
@@ -236,23 +252,24 @@ func (s *Store) loadYamlGroupState(yamlInput []byte) {
 			log.Println("while loading state: unknown module \"", k, "\"")
 		}
 	}
-	for i := range ret {
+	for i = 0; i < c.owner.NumModules(); i++ {
 		if !ret[i] {
-			log.Println("missing state for module", s.items.ItemAt(i).Name(),
-				", loading default")
-			s.items.ItemAt(i).GetState().LoadFrom(nil, s)
+			module := c.owner.ModuleAt(i)
+			log.Printf("missing state for module \"%s\", loading default",
+				module.ID())
+			module.State().LoadFrom(nil, c.owner)
 		}
 	}
 }
 
 // GenGroupStateYaml writes YAML output describing the state of the current
 // module.
-func (s *Store) GenGroupStateYaml() []byte {
+func (c *Config) BuildStateYaml() ([]byte, error) {
 	structure := make(map[string]interface{})
-	for i := 0; i < s.items.NumItems(); i++ {
-		item := s.items.ItemAt(i)
-		structure[item.Name()] = item.GetState().ToYAML(s)
+	var i api.ModuleIndex
+	for i = 0; i < c.owner.NumModules(); i++ {
+		module := c.owner.ModuleAt(i)
+		structure[module.ID()] = module.State().ToYAML(c.owner)
 	}
-	ret, _ := yaml.Marshal(structure)
-	return ret
+	return yaml.Marshal(structure)
 }

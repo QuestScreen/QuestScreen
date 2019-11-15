@@ -1,7 +1,7 @@
 package display
 
 import (
-	"github.com/flyx/pnpscreen/data"
+	"github.com/flyx/pnpscreen/api"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -11,10 +11,10 @@ type keyOption struct {
 }
 
 func (d *Display) shrinkByBorder(rect *sdl.Rect) {
-	rect.X += d.DefaultBorderWidth
-	rect.Y += d.DefaultBorderWidth
-	rect.W -= 2 * d.DefaultBorderWidth
-	rect.H -= 2 * d.DefaultBorderWidth
+	rect.X += d.owner.DefaultBorderWidth()
+	rect.Y += d.owner.DefaultBorderWidth()
+	rect.W -= 2 * d.owner.DefaultBorderWidth()
+	rect.H -= 2 * d.owner.DefaultBorderWidth()
 }
 
 func shrinkTo(rect *sdl.Rect, w int32, h int32) {
@@ -28,9 +28,7 @@ func shrinkTo(rect *sdl.Rect, w int32, h int32) {
 
 func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error {
 	surfaces := make([]*sdl.Surface, len(options))
-	fontDef := data.SelectableFont{Size: data.ContentFont, Style: data.Standard,
-		FamilyIndex: 0, Family: d.Fonts[0].Name}
-	fontFace := d.GetFontFace(&fontDef)
+	fontFace := d.owner.Font(0, api.Standard, api.ContentFont)
 	var err error
 	var bottomText *sdl.Surface
 	if bottomText, err = fontFace.RenderUTF8Blended(
@@ -60,10 +58,11 @@ func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error 
 	}()
 	padding := (frame.H - maxHeight*int32(len(options)+1)) / (2 * int32(len(options)+1))
 	curY := frame.Y + padding
+	borderWidth := d.owner.DefaultBorderWidth()
 	for i := range options {
-		curRect := sdl.Rect{X: frame.X + padding - 2*d.DefaultBorderWidth,
-			Y: curY - 2*d.DefaultBorderWidth, W: maxHeight + 4*d.DefaultBorderWidth,
-			H: maxHeight + 4*d.DefaultBorderWidth}
+		curRect := sdl.Rect{X: frame.X + padding - 2*borderWidth,
+			Y: curY - 2*borderWidth, W: maxHeight + 4*borderWidth,
+			H: maxHeight + 4*borderWidth}
 		d.Renderer.SetDrawColor(0, 0, 0, 255)
 		d.Renderer.FillRect(&curRect)
 		d.shrinkByBorder(&curRect)
@@ -88,7 +87,7 @@ func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error 
 		if err != nil {
 			return err
 		}
-		curRect = sdl.Rect{X: frame.X + padding + maxHeight + 4*d.DefaultBorderWidth,
+		curRect = sdl.Rect{X: frame.X + padding + maxHeight + 4*borderWidth,
 			Y: curY, W: surfaces[i].W, H: maxHeight}
 		shrinkTo(&curRect, surfaces[i].W, surfaces[i].H)
 		d.Renderer.Copy(textTex, nil, &curRect)

@@ -4,7 +4,8 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/flyx/pnpscreen/data"
+	"github.com/flyx/pnpscreen/api"
+
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -28,9 +29,7 @@ func (d *Display) genWelcome(width int32, height int32, port uint16) error {
 	d.Renderer.SetDrawColor(255, 255, 255, 255)
 	d.Renderer.FillRect(nil)
 
-	fontDef := data.SelectableFont{Size: data.HugeFont, Style: data.Standard,
-		FamilyIndex: 0, Family: d.Fonts[0].Name}
-	fontFace := d.GetFontFace(&fontDef)
+	fontFace := d.owner.Font(0, api.Standard, api.HugeFont)
 	var title *sdl.Surface
 	if title, err = fontFace.RenderUTF8Blended(
 		"PnP Screen", sdl.Color{R: 0, G: 0, B: 0, A: 200}); err != nil {
@@ -46,9 +45,7 @@ func (d *Display) genWelcome(width int32, height int32, port uint16) error {
 	shrinkTo(&titleRect, title.W, title.H)
 	d.Renderer.Copy(titleTexture, nil, &titleRect)
 
-	ipFontDef := data.SelectableFont{Size: data.HeadingFont,
-		Style: data.Standard, FamilyIndex: 0, Family: d.Fonts[0].Name}
-	ipFontFace := d.GetFontFace(&ipFontDef)
+	ipFontFace := d.owner.Font(0, api.Standard, api.HeadingFont)
 	var ipHint *sdl.Surface
 	if ipHint, err = ipFontFace.RenderUTF8Blended(
 		"Connect to http://"+outboundAddr.IP.String()+":"+strconv.Itoa(int(port))+"/",

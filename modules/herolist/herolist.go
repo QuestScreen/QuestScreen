@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flyx/pnpscreen/data"
-	"github.com/flyx/pnpscreen/display"
+	"github.com/flyx/pnpscreen/api"
+
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -50,8 +50,8 @@ type HeroList struct {
 	*config
 	state
 	requests
-	store                       *data.Store
-	display                     *display.Display
+	env                         api.Environment
+	index                       api.ModuleIndex
 	heroes                      []displayedHero
 	curGlobalVisible            bool
 	curHero                     int32
@@ -62,14 +62,14 @@ type HeroList struct {
 }
 
 // Init initializes the module.
-func (l *HeroList) Init(display *display.Display, store *data.Store) error {
+func (l *HeroList) Init(renderer *sdl.Renderer, env api.Environment, index api.ModuleIndex) error {
 	l.state.owner = l
-	l.store = store
-	l.display = display
+	l.env = env
+	l.index = index
 	l.curGlobalVisible = false
 	l.curXOffset = 0
 	l.curYOffset = 0
-	winWidth, winHeight, _ := display.Renderer.GetOutputSize()
+	winWidth, winHeight, _ := renderer.GetOutputSize()
 	l.contentWidth = winWidth / 4
 	l.contentHeight = winHeight / 10
 	l.borderWidth = winHeight / 133
@@ -82,8 +82,8 @@ func (*HeroList) Name() string {
 	return "Hero List"
 }
 
-// InternalName returns "herolist"
-func (*HeroList) InternalName() string {
+// ID returns "herolist"
+func (*HeroList) ID() string {
 	return "herolist"
 }
 
@@ -95,11 +95,10 @@ func (l *HeroList) boxHeight() int32 {
 	return l.contentHeight + 4*l.borderWidth
 }
 
-func renderText(text string, display *display.Display, fontIndex int32,
-	style data.FontStyle, r uint8, g uint8, b uint8) *sdl.Texture {
-	fontDef := data.SelectableFont{Size: data.ContentFont, Style: style,
-		FamilyIndex: fontIndex, Family: display.Fonts[fontIndex].Name}
-	face := display.GetFontFace(&fontDef)
+func (l *HeroList) renderText(
+	text string, renderer *sdl.Renderer, fontFamilyIndex int,
+	style api.FontStyle, r uint8, g uint8, b uint8) *sdl.Texture {
+	face := l.env.Font(fontFamilyIndex, style, api.ContentFont)
 
 	surface, err := face.RenderUTF8Blended(
 		text, sdl.Color{R: r, G: g, B: b, A: 255})
@@ -107,7 +106,7 @@ func renderText(text string, display *display.Display, fontIndex int32,
 		log.Println(err)
 		return nil
 	}
-	textTexture, err := display.Renderer.CreateTextureFromSurface(surface)
+	textTexture, err := renderer.CreateTextureFromSurface(surface)
 	surface.Free()
 	if err != nil {
 		log.Println(err)
@@ -116,41 +115,45 @@ func renderText(text string, display *display.Display, fontIndex int32,
 	return textTexture
 }
 
-func (l *HeroList) rebuildHeroBoxes() {
+func (l *HeroList) rebuildHeroBoxes(renderer *sdl.Renderer) {
 	if l.heroes != nil {
 		for _, hero := range l.heroes {
 			hero.tex.Destroy()
 		}
 	}
-	if l.store.GetActiveGroup() == -1 {
+	heroes := l.env.Heroes()
+
+	if heroes.Length() == 0 {
 		l.heroes = nil
 	} else {
-		l.heroes = make([]displayedHero, l.store.Config.NumHeroes(l.store.GetActiveGroup()))
+		l.heroes = make([]displayedHero, heroes.Length())
 		var err error
 		for index := range l.heroes {
-			hero := &l.heroes[index]
-			hero.shown = true
-			hero.tex, err = l.display.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
+			hero := heroes.Item(index)
+			heroBox := &l.heroes[index]
+			heroBox.shown = true
+			heroBox.tex, err = renderer.CreateTexture(sdl.PIXELFORMAT_RGB888,
+				sdl.TEXTUREACCESS_TARGET,
 				l.boxWidth(), l.boxHeight())
 			if err == nil {
-				l.display.Renderer.SetRenderTarget(hero.tex)
-				name := renderText(l.store.Config.HeroName(l.store.GetActiveGroup(), index),
-					l.display, 0, data.Standard, 0, 0, 0)
+				renderer.SetRenderTarget(heroBox.tex)
+				name := l.renderText(hero.Name(),
+					renderer, 0, api.Standard, 0, 0, 0)
 				_, _, nameWidth, nameHeight, _ := name.Query()
 				name.SetBlendMode(sdl.BLENDMODE_BLEND)
-				descr := renderText(l.store.Config.HeroDescription(l.store.GetActiveGroup(), index),
-					l.display, 0, data.Standard, 50, 50, 50)
+				descr := l.renderText(hero.Description(),
+					renderer, 0, api.Standard, 50, 50, 50)
 				_, _, descrWidth, descrHeight, _ := descr.Query()
 				descr.SetBlendMode(sdl.BLENDMODE_BLEND)
-				l.display.Renderer.Clear()
-				l.display.Renderer.SetDrawColor(0, 0, 0, 192)
-				l.display.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: l.boxWidth(), H: l.boxHeight()})
-				l.display.Renderer.SetDrawColor(200, 173, 127, 255)
-				l.display.Renderer.FillRect(&sdl.Rect{X: 0, Y: l.borderWidth, W: int32(l.contentWidth + 4*l.borderWidth),
+				renderer.Clear()
+				renderer.SetDrawColor(0, 0, 0, 192)
+				renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: l.boxWidth(), H: l.boxHeight()})
+				renderer.SetDrawColor(200, 173, 127, 255)
+				renderer.FillRect(&sdl.Rect{X: 0, Y: l.borderWidth, W: int32(l.contentWidth + 4*l.borderWidth),
 					H: int32(l.contentHeight + 2*l.borderWidth)})
-				l.display.Renderer.Copy(name, nil, &sdl.Rect{X: 2 * l.borderWidth, Y: l.borderWidth, W: nameWidth, H: nameHeight})
+				renderer.Copy(name, nil, &sdl.Rect{X: 2 * l.borderWidth, Y: l.borderWidth, W: nameWidth, H: nameHeight})
 
-				l.display.Renderer.Copy(descr, nil, &sdl.Rect{X: 2 * l.borderWidth,
+				renderer.Copy(descr, nil, &sdl.Rect{X: 2 * l.borderWidth,
 					Y: l.boxHeight() - 2*l.borderWidth - descrHeight, W: descrWidth, H: descrHeight})
 				name.Destroy()
 				descr.Destroy()
@@ -158,12 +161,12 @@ func (l *HeroList) rebuildHeroBoxes() {
 				log.Println(err)
 			}
 		}
-		l.display.Renderer.SetRenderTarget(nil)
+		renderer.SetRenderTarget(nil)
 	}
 }
 
 // InitTransition starts a transition
-func (l *HeroList) InitTransition() time.Duration {
+func (l *HeroList) InitTransition(renderer *sdl.Renderer) time.Duration {
 	l.requests.mutex.Lock()
 	defer l.requests.mutex.Unlock()
 	curRequest := l.requests.kind
@@ -199,7 +202,7 @@ func (l *HeroList) InitTransition() time.Duration {
 }
 
 // TransitionStep advances the transition
-func (l *HeroList) TransitionStep(elapsed time.Duration) {
+func (l *HeroList) TransitionStep(renderer *sdl.Renderer, elapsed time.Duration) {
 	switch l.status {
 	case showingAll:
 		l.curXOffset = int32(((time.Second - elapsed) * time.Duration(l.boxWidth())) / time.Second)
@@ -217,7 +220,7 @@ func (l *HeroList) TransitionStep(elapsed time.Duration) {
 }
 
 // FinishTransition finalizes the transition
-func (l *HeroList) FinishTransition() {
+func (l *HeroList) FinishTransition(renderer *sdl.Renderer) {
 	l.curXOffset = 0
 	l.curYOffset = 0
 	switch l.status {
@@ -234,7 +237,7 @@ func (l *HeroList) FinishTransition() {
 }
 
 // Render renders the current state of the HeroList
-func (l *HeroList) Render() {
+func (l *HeroList) Render(renderer *sdl.Renderer) {
 	shown := int32(0)
 	additionalYOffset := int32(0)
 	if !l.curGlobalVisible && l.status == resting {
@@ -249,18 +252,18 @@ func (l *HeroList) Render() {
 			((l.status == showingHero || l.status == hidingHero) && l.curHero == int32(i)) {
 			xOffset = l.curXOffset
 		}
-		_, winHeight, _ := l.display.Renderer.GetOutputSize()
+		_, winHeight, _ := renderer.GetOutputSize()
 		if xOffset == 0 {
 			targetRect := sdl.Rect{X: 0, Y: winHeight/10 + (l.boxHeight()+l.contentHeight/4)*shown + additionalYOffset,
 				W: l.boxWidth(), H: l.boxHeight()}
-			if err := l.display.Renderer.Copy(l.heroes[i].tex, nil, &targetRect); err != nil {
+			if err := renderer.Copy(l.heroes[i].tex, nil, &targetRect); err != nil {
 				log.Println(err)
 			}
 		} else {
 			targetRect := sdl.Rect{X: 0, Y: winHeight/10 + (l.boxHeight()+l.contentHeight/4)*shown + additionalYOffset,
 				W: l.boxWidth() - xOffset, H: l.boxHeight()}
 			sourceRect := sdl.Rect{X: l.curXOffset, Y: 0, W: l.boxWidth(), H: l.boxHeight()}
-			if err := l.display.Renderer.Copy(l.heroes[i].tex, &sourceRect, &targetRect); err != nil {
+			if err := renderer.Copy(l.heroes[i].tex, &sourceRect, &targetRect); err != nil {
 				log.Println(err)
 			}
 		}
@@ -284,25 +287,19 @@ func (*HeroList) DefaultConfig() interface{} {
 }
 
 // SetConfig sets the module's configuration
-func (l *HeroList) SetConfig(value interface{}) bool {
+func (l *HeroList) SetConfig(value interface{}) {
 	l.config = value.(*config)
-	return true
 }
 
-// GetConfig retrieves the current configuration of the item.
-func (l *HeroList) GetConfig() interface{} {
-	return l.config
-}
-
-// GetState returns the current state.
-func (l *HeroList) GetState() data.ModuleState {
+// State returns the current state.
+func (l *HeroList) State() api.ModuleState {
 	return &l.state
 }
 
 // RebuildState queries the new state through the channel and immediately
 // updates everything.
-func (l *HeroList) RebuildState() {
-	l.rebuildHeroBoxes()
+func (l *HeroList) RebuildState(renderer *sdl.Renderer) {
+	l.rebuildHeroBoxes(renderer)
 	l.requests.mutex.Lock()
 	defer l.requests.mutex.Unlock()
 	if l.requests.kind != stateRequest {
@@ -314,4 +311,9 @@ func (l *HeroList) RebuildState() {
 	l.curGlobalVisible = l.requests.globalVisible
 	l.status = resting
 	l.requests.kind = noRequest
+}
+
+// ResourceCollections returns nil.
+func (l *HeroList) ResourceCollections() []api.ResourceSelector {
+	return nil
 }

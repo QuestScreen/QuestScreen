@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flyx/pnpscreen/data"
-	"github.com/flyx/pnpscreen/display"
+	"github.com/flyx/pnpscreen/api"
+
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -50,7 +50,8 @@ type Persons struct {
 	status
 	requests
 
-	display      *display.Display
+	env          api.Environment
+	moduleIndex  api.ModuleIndex
 	textures     []textureData
 	curIndex     int
 	curScale     float32
@@ -58,8 +59,10 @@ type Persons struct {
 }
 
 // Init initializes the module.
-func (p *Persons) Init(display *display.Display, store *data.Store) error {
-	p.display = display
+func (p *Persons) Init(
+	renderer *sdl.Renderer, env api.Environment, index api.ModuleIndex) error {
+	p.env = env
+	p.moduleIndex = index
 	p.curScale = 1
 	p.status = resting
 	p.state.owner = p
@@ -71,20 +74,20 @@ func (*Persons) Name() string {
 	return "Persons"
 }
 
-// InternalName returns "persons"
-func (*Persons) InternalName() string {
+// ID returns "persons"
+func (*Persons) ID() string {
 	return "persons"
 }
 
-func (p *Persons) loadTexture(index int) textureData {
+func (p *Persons) loadTexture(renderer *sdl.Renderer, index int) textureData {
 	file := p.state.resources[index]
-	tex, err := img.LoadTexture(p.display.Renderer, file.Path)
+	tex, err := img.LoadTexture(renderer, file.Path())
 	if err != nil {
 		log.Println(err)
 		return textureData{tex: nil, shown: true, scale: 1}
 	}
 	_, _, texWidth, texHeight, _ := tex.Query()
-	winWidth, winHeight, _ := p.display.Renderer.GetOutputSize()
+	winWidth, winHeight, _ := renderer.GetOutputSize()
 	targetScale := float32(1.0)
 	if texHeight > winHeight*2/3 {
 		targetScale = float32(winHeight*2/3) / float32(texHeight)
@@ -104,7 +107,7 @@ func (p *Persons) loadTexture(index int) textureData {
 }
 
 // InitTransition initializes a transition.
-func (p *Persons) InitTransition() time.Duration {
+func (p *Persons) InitTransition(renderer *sdl.Renderer) time.Duration {
 	p.requests.mutex.Lock()
 	if p.requests.kind != itemRequest {
 		p.requests.mutex.Unlock()
@@ -115,7 +118,7 @@ func (p *Persons) InitTransition() time.Duration {
 	shown := p.requests.itemShown
 	p.requests.mutex.Unlock()
 	if shown {
-		p.textures[index] = p.loadTexture(index)
+		p.textures[index] = p.loadTexture(renderer, index)
 		p.status = fadeIn
 		if err := p.textures[index].tex.SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
 			log.Println(err)
@@ -135,7 +138,7 @@ func (p *Persons) InitTransition() time.Duration {
 }
 
 // TransitionStep advances the transition.
-func (p *Persons) TransitionStep(elapsed time.Duration) {
+func (p *Persons) TransitionStep(renderer *sdl.Renderer, elapsed time.Duration) {
 	if p.status == fadeIn {
 		err := p.textures[p.curIndex].tex.SetAlphaMod(uint8((elapsed * 255) / time.Second))
 		if err != nil {
@@ -150,10 +153,10 @@ func (p *Persons) TransitionStep(elapsed time.Duration) {
 }
 
 // FinishTransition finalizes the transition.
-func (p *Persons) FinishTransition() {
+func (p *Persons) FinishTransition(renderer *sdl.Renderer) {
 	if p.status == fadeOut {
 		_, _, texWidth, _, _ := p.textures[p.curIndex].tex.Query()
-		winWidth, _, _ := p.display.Renderer.GetOutputSize()
+		winWidth, _, _ := renderer.GetOutputSize()
 		_ = p.textures[p.curIndex].tex.Destroy()
 		p.textures[p.curIndex].tex = nil
 		p.curOrigWidth = p.curOrigWidth - int32(float32(texWidth)*p.textures[p.curIndex].scale)
@@ -173,8 +176,8 @@ func (p *Persons) FinishTransition() {
 }
 
 // Render renders the module.
-func (p *Persons) Render() {
-	winWidth, winHeight, _ := p.display.Renderer.GetOutputSize()
+func (p *Persons) Render(renderer *sdl.Renderer) {
+	winWidth, winHeight, _ := renderer.GetOutputSize()
 	curX := (winWidth - int32(float32(p.curOrigWidth)*p.curScale)) / 2
 	for i := range p.textures {
 		if p.textures[i].shown || (i == p.curIndex && p.status != resting) {
@@ -183,7 +186,7 @@ func (p *Persons) Render() {
 			targetWidth := int32(float32(texWidth) * p.textures[i].scale * p.curScale)
 			rect := sdl.Rect{X: curX, Y: winHeight - targetHeight, W: targetWidth, H: targetHeight}
 			curX += targetWidth
-			err := p.display.Renderer.Copy(p.textures[i].tex, nil, &rect)
+			err := renderer.Copy(p.textures[i].tex, nil, &rect)
 			if err != nil {
 				log.Println(err)
 			}
@@ -202,24 +205,18 @@ func (*Persons) DefaultConfig() interface{} {
 }
 
 // SetConfig sets the module's configuration
-func (p *Persons) SetConfig(value interface{}) bool {
+func (p *Persons) SetConfig(value interface{}) {
 	p.config = value.(*config)
-	return false
 }
 
-// GetConfig retrieves the current configuration of the item.
-func (p *Persons) GetConfig() interface{} {
-	return p.config
-}
-
-// GetState returns the current state.
-func (p *Persons) GetState() data.ModuleState {
+// State returns the current state.
+func (p *Persons) State() api.ModuleState {
 	return &p.state
 }
 
 // RebuildState queries the new state through the channel and immediately
 // updates everything.
-func (p *Persons) RebuildState() {
+func (p *Persons) RebuildState(renderer *sdl.Renderer) {
 	p.requests.mutex.Lock()
 	if p.requests.kind != stateRequest {
 		panic("RebuildState() called on something which is not stateRequest")
@@ -237,10 +234,17 @@ func (p *Persons) RebuildState() {
 	p.textures = make([]textureData, len(newState))
 	for i := range p.textures {
 		if newState[i] {
-			p.textures[i] = p.loadTexture(i)
+			p.textures[i] = p.loadTexture(renderer, i)
 		} else {
 			p.textures[i].scale = 1
 			p.textures[i].shown = false
 		}
 	}
+}
+
+// ResourceCollections returns a singleton list describing the selector for
+// overlay images.
+func (p *Persons) ResourceCollections() []api.ResourceSelector {
+	return []api.ResourceSelector{
+		{Subdirectory: "", Suffixes: nil}}
 }

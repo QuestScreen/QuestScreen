@@ -3,158 +3,36 @@ package data
 import (
 	"errors"
 	"reflect"
-	"strconv"
+
+	"github.com/flyx/pnpscreen/api"
 )
 
-// FontStyle describes possible styles of a font
-type FontStyle int
-
-const (
-	// Standard is the default font style
-	Standard FontStyle = iota
-	// Bold is the bold font style
-	Bold
-	// Italic is the italic font style
-	Italic
-	// BoldItalic is the bold and italic font style
-	BoldItalic
-	// NumFontStyles is not a valid FontStyle, but used for iterating.
-	NumFontStyles
-)
-
-// UnmarshalYAML sets the font style from a YAML scalar
-func (fs *FontStyle) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var name string
-	if err := unmarshal(&name); err != nil {
-		return err
-	}
-	switch name {
-	case "Standard":
-		*fs = Standard
-	case "Bold":
-		*fs = Bold
-	case "Italic":
-		*fs = Italic
-	case "BoldItalic":
-		*fs = BoldItalic
-	default:
-		return errors.New("Unknown font style: " + name)
-	}
-	return nil
-}
-
-// MarshalYAML maps the given font style to a string
-func (fs *FontStyle) MarshalYAML() (interface{}, error) {
-	switch *fs {
-	case Standard:
-		return "Standard", nil
-	case Bold:
-		return "Bold", nil
-	case Italic:
-		return "Italic", nil
-	case BoldItalic:
-		return "BoldItalic", nil
-	default:
-		return nil, errors.New("Unknown font style: " + strconv.Itoa(int(*fs)))
-	}
-}
-
-// FontSize describes the size of a font.
-// Font sizes are relative to the screen size.
-type FontSize int
-
-const (
-	// SmallFont is the smallest size available
-	SmallFont FontSize = iota
-	// ContentFont is the size used for content text by default.
-	ContentFont
-	// MediumFont is a size between ContentFont and HeadingFont.
-	MediumFont
-	// HeadingFont is the size used for heading text by default.
-	HeadingFont
-	// LargeFont is a size larger than HeadingFont.
-	LargeFont
-	// HugeFont is the largest font; usually used for displaying a single word
-	// on the screen.
-	HugeFont
-	// NumFontSizes is not a valid size, but used for iterating
-	NumFontSizes
-)
-
-// UnmarshalYAML sets the font size from a YAML scalar
-func (fs *FontSize) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var name string
-	if err := unmarshal(&name); err != nil {
-		return err
-	}
-	switch name {
-	case "Small":
-		*fs = SmallFont
-	case "Content":
-		*fs = ContentFont
-	case "Medium":
-		*fs = MediumFont
-	case "Heading":
-		*fs = HeadingFont
-	case "Large":
-		*fs = LargeFont
-	case "Huge":
-		*fs = HugeFont
-	default:
-		return errors.New("Unknown font size: " + name)
-	}
-	return nil
-}
-
-// MarshalYAML maps the given font size to a string
-func (fs *FontSize) MarshalYAML() (interface{}, error) {
-	switch *fs {
-	case SmallFont:
-		return "Small", nil
-	case ContentFont:
-		return "Content", nil
-	case MediumFont:
-		return "Medium", nil
-	case HeadingFont:
-		return "Heading", nil
-	case LargeFont:
-		return "Large", nil
-	case HugeFont:
-		return "Huge", nil
-	default:
-		return nil, errors.New("Unknown font size: " + strconv.Itoa(int(*fs)))
-	}
-}
-
-// SelectableFont is used to allow the user to select a font family.
-type SelectableFont struct {
-	Family      string    `json:"-" yaml:"family"`
-	FamilyIndex int32     `yaml:"-" json:"familyIndex"`
-	Size        FontSize  `json:"size" yaml:"size"`
-	Style       FontStyle `json:"style" yaml:"style"`
-}
-
-func (s *StaticData) postProcess(target interface{}, fromYaml bool) error {
+func (c *Config) postProcessConfiguration(
+	target interface{}, fromYaml bool) error {
 	switch v := target.(type) {
-	case *SelectableFont:
+	case *api.SelectableFont:
+		fonts := c.owner.FontCatalog()
 		if fromYaml {
-			for i := range s.Fonts {
-				if v.Family == s.Fonts[i].Name {
-					v.FamilyIndex = int32(i)
+			for i := range fonts {
+				if v.Family == fonts[i].Name() {
+					v.FamilyIndex = i
 					return nil
 				}
 			}
 			return errors.New("unknown font \"" + v.Family + "\"")
 		}
-		if v.FamilyIndex < 0 || v.FamilyIndex >= int32(len(s.Fonts)) {
+		if v.FamilyIndex < 0 || v.FamilyIndex >= len(fonts) {
 			return errors.New("font index out of range")
 		}
-		v.Family = s.Fonts[v.FamilyIndex].Name
+		v.Family = fonts[v.FamilyIndex].Name()
 	}
 	return nil
 }
 
-func (s *StaticData) setModuleConfigFieldFrom(target interface{},
+// setModuleConfigFieldFrom assigns the given data to the given target.
+// data is expected to be deserialized from a JSON or YAML structure that
+// matches the target type's structure.
+func (c *Config) setModuleConfigFieldFrom(target interface{},
 	fromYaml bool, data map[string]interface{}) error {
 	settingType := reflect.TypeOf(target)
 	value := reflect.ValueOf(target)
@@ -230,5 +108,5 @@ func (s *StaticData) setModuleConfigFieldFrom(target interface{},
 		return errors.New("Unknown field \"" + key + "\"")
 	}
 
-	return s.postProcess(target, fromYaml)
+	return c.postProcessConfiguration(target, fromYaml)
 }

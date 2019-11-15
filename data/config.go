@@ -11,31 +11,56 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"github.com/flyx/pnpscreen/api"
+	"github.com/flyx/pnpscreen/app"
 	"gopkg.in/yaml.v3"
 )
 
 type systemConfig struct {
 	Name    string
-	DirName string
+	ID      string
 	Modules []interface{}
 }
 
 type groupConfig struct {
 	Name        string
-	DirName     string
+	ID          string
 	SystemIndex int
 	Modules     []interface{}
 }
 
-type hero struct {
+type yamlHero struct {
 	Name        string
 	Description string
 	Group       string
 }
 
+// implements api.Hero
+type hero struct {
+	name        string
+	description string
+}
+
+func (h *hero) Name() string {
+	return h.name
+}
+
+func (h *hero) Description() string {
+	return h.description
+}
+
+// group implements api.HeroList.
 type group struct {
 	Config groupConfig
 	Heroes []hero
+}
+
+func (g *group) Item(index int) api.Hero {
+	return &g.Heroes[index]
+}
+
+func (g *group) Length() int {
+	return len(g.Heroes)
 }
 
 // Config holds all configuration values of all modules.
@@ -50,44 +75,10 @@ type group struct {
 // Configuration is rebuilt whenever the selected group or system changes and
 // whenever the configuration is edited (via web interface).
 type Config struct {
+	owner       app.App
 	baseConfigs []interface{}
 	systems     []systemConfig
 	groups      []group
-}
-
-// ConfigurableItem describes an item that may be configured via a Config object
-type ConfigurableItem interface {
-	// Name gives the name of this item.
-	Name() string
-	// Alphanumeric name used for:
-	// * directories with module data
-	// * HTTP setter endpoints
-	// * IDs for menu setters
-	// May not contain whitespace or special characters. Must be unique among loaded modules.
-	InternalName() string
-	// returns an empty configuration
-	// The item defines the type of its configuration.
-	EmptyConfig() interface{}
-	// returns a configuration object with default values.
-	// The configuration object must be a pointer.
-	DefaultConfig() interface{}
-	// SetConfig sets current configuration for the item.
-	// This must be done in the OpenGL thread since the calculated configuration
-	// belongs to the module.
-	// returns true iff the module must re-render via RebuildState().
-	SetConfig(config interface{}) bool
-	// GetConfig retrieves the current configuration of the item.
-	GetConfig() interface{}
-	// GetState retrieves the current state of the item.
-	GetState() ModuleState
-}
-
-// ConfigurableItemProvider is basically a list of ConfigurableItem.
-// This interface exists because you cannot cast an array of anything derived
-// from ConfigurableItem to an array of ConfigurableItem.
-type ConfigurableItemProvider interface {
-	NumItems() int
-	ItemAt(index int) ConfigurableItem
 }
 
 // NumSystems returns the number of available systems.
@@ -101,11 +92,11 @@ func (c *Config) SystemName(index int) string {
 	return c.systems[index].Name
 }
 
-// SystemDirectory returns the name of the directory for the system at the given
+// SystemID returns the name of the directory for the system at the given
 // index, which must be between 0 (included) and NumSystems() (excluded).
 // It is useful for retrieving data residing in the system's directory.
-func (c *Config) SystemDirectory(index int) string {
-	return c.systems[index].DirName
+func (c *Config) SystemID(index int) string {
+	return c.systems[index].ID
 }
 
 // NumGroups returns the number of available groups.
@@ -119,11 +110,11 @@ func (c *Config) GroupName(index int) string {
 	return c.groups[index].Config.Name
 }
 
-// GroupDirectory returns the name of the directory for the group at the given
+// GroupID returns the name of the directory for the group at the given
 // index, which must be between 0 (included) and NumGroups() (excluded).
 // It is useful for retrieving data residing in the group's directory.
-func (c *Config) GroupDirectory(index int) string {
-	return c.groups[index].Config.DirName
+func (c *Config) GroupID(index int) string {
+	return c.groups[index].Config.ID
 }
 
 // GroupLinkedSystem returns the index of the system the group at the given
@@ -134,33 +125,9 @@ func (c *Config) GroupLinkedSystem(index int) int {
 	return c.groups[index].Config.SystemIndex
 }
 
-// NumHeroes returns the number of heroes in the group of the given index, which
-// must be between 0 (included) and NumGroups() (excluded).
-func (c *Config) NumHeroes(groupIndex int) int {
-	return len(c.groups[groupIndex].Heroes)
-}
-
-// HeroName returns the name of the hero at
-// 0 <= heroIndex < NumHeroes(groupIndex) in the group at
-// 0 <= groupIndex < NumGroups().
-func (c *Config) HeroName(groupIndex int, heroIndex int) string {
-	return c.groups[groupIndex].Heroes[heroIndex].Name
-}
-
-// HeroDescription returns the description of the hero at
-// 0 <= heroIndex < NumHeroes(groupIndex) in the group at
-// 0 <= groupIndex < NumGroups().
-func (c *Config) HeroDescription(groupIndex int, heroIndex int) string {
-	return c.groups[groupIndex].Heroes[heroIndex].Description
-}
-
-func findItem(items ConfigurableItemProvider, name string) (ConfigurableItem, int) {
-	for i := 0; i < items.NumItems(); i++ {
-		if items.ItemAt(i).Name() == name {
-			return items.ItemAt(i), i
-		}
-	}
-	return nil, -1
+// GroupHeroes returns the list of heroes of the group with the given index.
+func (c *Config) GroupHeroes(index int) api.HeroList {
+	return &c.groups[index]
 }
 
 // Init loads all config.yaml files and parses them according to the module's
@@ -168,22 +135,24 @@ func findItem(items ConfigurableItemProvider, name string) (ConfigurableItem, in
 // logged and ignored.
 //
 // You must call Init before doing anything with a Config value.
-func (c *Config) Init(static *StaticData) {
-	rawBaseConfig, err := ioutil.ReadFile(filepath.Join(static.DataDir, "base", "config.yaml"))
+func (c *Config) Init(owner app.App) {
+	c.owner = owner
+
+	rawBaseConfig, err := ioutil.ReadFile(owner.DataDir("base", "config.yaml"))
 	if err != nil {
 		log.Println(err)
 	}
-	c.baseConfigs = static.loadYamlBaseConfig(rawBaseConfig)
+	c.baseConfigs = c.loadYamlBaseConfig(rawBaseConfig)
 
 	c.systems = make([]systemConfig, 0, 16)
-	systemsDir := filepath.Join(static.DataDir, "systems")
+	systemsDir := owner.DataDir("systems")
 	files, err := ioutil.ReadDir(systemsDir)
 	if err == nil {
 		for _, file := range files {
 			if file.IsDir() {
 				config, err := ioutil.ReadFile(filepath.Join(systemsDir, file.Name(), "config.yaml"))
 				if err == nil {
-					c.systems = append(c.systems, static.loadYamlSystemConfig(config, file.Name()))
+					c.systems = append(c.systems, c.loadYamlSystemConfig(config, file.Name()))
 				} else {
 					log.Println(err)
 				}
@@ -194,14 +163,14 @@ func (c *Config) Init(static *StaticData) {
 	}
 
 	c.groups = make([]group, 0, 16)
-	groupsDir := filepath.Join(static.DataDir, "groups")
+	groupsDir := owner.DataDir("groups")
 	files, err = ioutil.ReadDir(groupsDir)
 	if err == nil {
 		for _, file := range files {
 			if file.IsDir() {
 				config, err := ioutil.ReadFile(filepath.Join(groupsDir, file.Name(), "config.yaml"))
 				if err == nil {
-					config := static.loadYamlGroupConfig(config, file.Name(), c.systems)
+					config := c.loadYamlGroupConfig(config, file.Name())
 					c.groups = append(c.groups, group{
 						Config: config,
 						Heroes: make([]hero, 0, 16),
@@ -215,27 +184,28 @@ func (c *Config) Init(static *StaticData) {
 		log.Println(err)
 	}
 
-	heroesDir := filepath.Join(static.DataDir, "heroes")
+	heroesDir := owner.DataDir("heroes")
 	files, err = ioutil.ReadDir(heroesDir)
 	if err == nil {
 		for _, file := range files {
 			if file.IsDir() {
 				config, err := ioutil.ReadFile(filepath.Join(heroesDir, file.Name(), "config.yaml"))
 				if err == nil {
-					var h hero
+					var h yamlHero
 					var target *group
 					err = yaml.Unmarshal(config, &h)
 					for i := range c.groups {
-						if c.groups[i].Config.Name == h.Group {
+						if c.groups[i].Config.ID == h.Group {
 							target = &c.groups[i]
 							break
 						}
 					}
 					if target == nil {
-						log.Printf("Hero \"%s\" belongs to unknown group \"%s\"\n",
-							h.Name, h.Group)
+						log.Printf("%s/config.yaml: Hero \"%s\" belongs to unknown group \"%s\"\n",
+							file.Name(), h.Name, h.Group)
 					} else {
-						target.Heroes = append(target.Heroes, h)
+						target.Heroes = append(target.Heroes, hero{
+							name: h.Name, description: h.Description})
 					}
 				} else {
 					log.Println(err)
@@ -248,18 +218,17 @@ func (c *Config) Init(static *StaticData) {
 // MergeConfig merges the item's default configuration with the values
 // configured in its base config and the current system and group config.
 // It returns the resulting configuration.
-func (c *Config) MergeConfig(staticData *StaticData,
-	itemIndex int, systemIndex int, groupIndex int) interface{} {
+func (c *Config) MergeConfig(moduleIndex api.ModuleIndex, systemIndex int, groupIndex int) interface{} {
 	var configStack [4]*reflect.Value
-	item := staticData.items.ItemAt(itemIndex)
+	module := c.owner.ModuleAt(moduleIndex)
 
-	defaultValues := item.DefaultConfig()
+	defaultValues := module.DefaultConfig()
 	configType := reflect.TypeOf(defaultValues).Elem()
 
 	if groupIndex != -1 {
-		conf := c.groups[groupIndex].Config.Modules[itemIndex]
+		conf := c.groups[groupIndex].Config.Modules[moduleIndex]
 		if conf == nil {
-			panic("group config missing for " + item.Name())
+			panic("group config missing for " + module.Name())
 		}
 		val := reflect.ValueOf(conf).Elem()
 		for ; val.Kind() == reflect.Interface || val.Kind() == reflect.Ptr; val = val.Elem() {
@@ -270,9 +239,9 @@ func (c *Config) MergeConfig(staticData *StaticData,
 		configStack[0] = &val
 	}
 	if systemIndex != -1 {
-		conf := c.systems[systemIndex].Modules[itemIndex]
+		conf := c.systems[systemIndex].Modules[moduleIndex]
 		if conf == nil {
-			panic("system config missing for " + item.Name())
+			panic("system config missing for " + module.Name())
 		}
 		val := reflect.ValueOf(conf).Elem()
 		for ; val.Kind() == reflect.Interface || val.Kind() == reflect.Ptr; val = val.Elem() {
@@ -283,9 +252,9 @@ func (c *Config) MergeConfig(staticData *StaticData,
 		configStack[1] = &val
 	}
 
-	baseConf := c.baseConfigs[itemIndex]
+	baseConf := c.baseConfigs[moduleIndex]
 	if baseConf == nil {
-		panic("base config missing for " + item.Name())
+		panic("base config missing for " + module.Name())
 	}
 	baseValue := reflect.ValueOf(baseConf).Elem()
 	configStack[2] = &baseValue

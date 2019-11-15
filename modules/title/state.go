@@ -3,23 +3,25 @@ package title
 import (
 	"encoding/json"
 	"errors"
-
-	"github.com/flyx/pnpscreen/data"
+	"github.com/flyx/pnpscreen/api"
 )
 
 type state struct {
 	owner   *Title
 	caption string
+	resources []api.Resource
 }
 
-func (s *state) LoadFrom(yamlSubtree interface{}, store *data.Store) error {
+func (s *state) LoadFrom(yamlSubtree interface{}, env api.Environment) error {
+	s.resources = env.GetResources(s.owner.moduleIndex, 0)
+
 	if yamlSubtree == nil {
 		s.caption = ""
 	} else {
 		var ok bool
 		s.caption, ok = yamlSubtree.(string)
 		if !ok {
-			return errors.New("Title caption is not a string")
+			return errors.New("title caption is not a string")
 		}
 	}
 
@@ -31,7 +33,7 @@ func (s *state) LoadFrom(yamlSubtree interface{}, store *data.Store) error {
 	return nil
 }
 
-func (s *state) ToYAML(store *data.Store) interface{} {
+func (s *state) ToYAML(env api.Environment) interface{} {
 	return s.caption
 }
 
@@ -43,7 +45,7 @@ func (*state) Actions() []string {
 	return []string{"set"}
 }
 
-func (s *state) HandleAction(index int, payload []byte, store *data.Store) ([]byte, error) {
+func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
 	if index != 0 {
 		panic("Index out of range")
 	}
