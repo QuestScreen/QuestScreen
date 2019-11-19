@@ -19,14 +19,7 @@
     </a>
 
     <div id="menu">
-        <div class="pure-menu" id="rp-menu">
-            <a class="pure-menu-heading" href="/">PnP Screen</a>
-
-            <ul class="pure-menu-list" style="visibility: hidden" id="rp-menu-list">
-                <li class="pure-menu-heading" id="rp-menu-system-heading"><i class="fas fa-book"></i> Systems</li>
-                <li class="pure-menu-heading" id="rp-menu-group-heading"><i class="fas fa-users"></i> Groups</li>
-            </ul>
-        </div>
+        <!-- generated after loading the app -->
     </div>
 
     <div id="main">
@@ -37,22 +30,45 @@
     </div>
 </div>
 
+<!-- app templates -->
+
+<template id="tmpl-app-menu-group-entry">
+    <li class="pure-menu-item with-settings rp-menu-group-entry">
+        <a class="pure-menu-link"></a>
+        <a class="settings-link" href="#"><i class="fas fa-cog"></i></a>
+    </li>
+</template>
+
+<template id="tmpl-app-menu">
+    <div class="pure-menu" id="rp-menu">
+        <a class="pure-menu-heading" href="/">PnP Screen</a>
+        <ul class="pure-menu-list" style="visibility: hidden" id="rp-menu-list">
+            <li class="pure-menu-heading" id="rp-menu-system-heading">
+                <i class="fas fa-book"></i> Systems
+            </li>
+            <li class="pure-menu-heading" id="rp-menu-group-heading">
+                <i class="fas fa-users"></i> Groups
+            </li>
+        </ul>
+    </div>
+</template>
+
 <!-- templates for showing the state of the current group -->
 
-<template id="tmpl-state">
+<template id="tmpl-app-state-page">
     <article class="pure-g" id="module-state-wrapper">
         <h2 id="group-heading" class="pure-u-1"></h2>
         <hr class="pure-u-1" id="group-control-sep" />
         <!-- list of module state -->
     </article>
 </template>
-<template id="tmpl-state-module">
+<template id="tmpl-app-state-module">
     <div class="pure-u-1 pure-u-md-1-5"><h3 class="state-module-name"></h3></div>
     <div class="pure-u-1 pure-u-md-4-5 state-module-content"></div>
     <hr class="pure-u-1"/>
 </template>
 
-<template id="tmpl-background-state">
+<template id="tmpl-base-background-state">
     <div class="pure-menu pure-menu-horizontal">
         <ul class="pure-menu-list">
             <li class="pure-menu-item pure-menu-has-children background-state-selector">
@@ -62,7 +78,8 @@
         </ul>
     </div>
 </template>
-<template id="tmpl-herolist-item">
+
+<template id="tmpl-base-herolist-item">
     <li class="pure-menu-item">
         <a href="#" class="pure-menu-link">
             <i class="fas fa-eye-slash herolist-invisible"></i>
@@ -70,7 +87,7 @@
         </a>
     </li>
 </template>
-<template id="tmpl-herolist-state">
+<template id="tmpl-base-herolist-state">
     <div class="herolist-container">
         <button class="herolist-switch-all pure-button">Hide All</button>
         <dic class="pure-menu pure-menu-horizontal">
@@ -83,12 +100,13 @@
         </dic>
     </div>
 </template>
-<template id="tmpl-overlay-item">
+
+<template id="tmpl-base-overlay-state-item">
     <div class="visible-overlay-item">
         <span class="overlay-name"></span> <a href="#" class="overlay-close-btn"><i class="fas fa-times-circle"></i></a>
     </div>
 </template>
-<template id="tmpl-overlay-state">
+<template id="tmpl-base-overlay-state">
     <div class="pure-menu pure-menu-horizontal">
         <ul class="pure-menu-list">
             <li class="pure-menu-item pure-menu-has-children overlay-state-selector">
@@ -99,7 +117,8 @@
     </div>
     <p class="visible-overlays"><strong>Visible: </strong></p>
 </template>
-<template id="tmpl-title-state">
+
+<template id="tmpl-base-title-state">
     <div class="pure-form">
         <input type="text" class="title-state-text"/>
         <button type="submit" class="title-state-text-btn pure-button pure-button-primary">Update</button>
@@ -111,12 +130,6 @@
 
 <template id="tmpl-system-entry">
     <li class="pure-menu-item with-settings rp-menu-system-entry">
-        <a class="pure-menu-link"></a>
-        <a class="settings-link" href="#"><i class="fas fa-cog"></i></a>
-    </li>
-</template>
-<template id="tmpl-group-entry">
-    <li class="pure-menu-item with-settings rp-menu-group-entry">
         <a class="pure-menu-link"></a>
         <a class="settings-link" href="#"><i class="fas fa-cog"></i></a>
     </li>
