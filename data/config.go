@@ -138,11 +138,16 @@ func (c *Config) GroupHeroes(index int) api.HeroList {
 func (c *Config) Init(owner app.App) {
 	c.owner = owner
 
-	rawBaseConfig, err := ioutil.ReadFile(owner.DataDir("base", "config.yaml"))
+	path := owner.DataDir("base", "config.yaml")
+	rawBaseConfig, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Println(err)
+		log.Println(path+":", err)
+	} else {
+		c.baseConfigs, err = c.loadYamlBaseConfig(rawBaseConfig)
+		if err != nil {
+			log.Println(path+":", err)
+		}
 	}
-	c.baseConfigs = c.loadYamlBaseConfig(rawBaseConfig)
 
 	c.systems = make([]systemConfig, 0, 16)
 	systemsDir := owner.DataDir("systems")
@@ -150,9 +155,15 @@ func (c *Config) Init(owner app.App) {
 	if err == nil {
 		for _, file := range files {
 			if file.IsDir() {
-				config, err := ioutil.ReadFile(filepath.Join(systemsDir, file.Name(), "config.yaml"))
+				path := filepath.Join(systemsDir, file.Name(), "config.yaml")
+				raw, err := ioutil.ReadFile(path)
 				if err == nil {
-					c.systems = append(c.systems, c.loadYamlSystemConfig(config, file.Name()))
+					config, err := c.loadYamlSystemConfig(file.Name(), raw)
+					if err == nil {
+						c.systems = append(c.systems, config)
+					} else {
+						log.Println(path+":", err)
+					}
 				} else {
 					log.Println(err)
 				}
@@ -168,13 +179,18 @@ func (c *Config) Init(owner app.App) {
 	if err == nil {
 		for _, file := range files {
 			if file.IsDir() {
-				config, err := ioutil.ReadFile(filepath.Join(groupsDir, file.Name(), "config.yaml"))
+				path := filepath.Join(groupsDir, file.Name(), "config.yaml")
+				raw, err := ioutil.ReadFile(path)
 				if err == nil {
-					config := c.loadYamlGroupConfig(config, file.Name())
-					c.groups = append(c.groups, group{
-						Config: config,
-						Heroes: make([]hero, 0, 16),
-					})
+					config, err := c.loadYamlGroupConfig(file.Name(), raw)
+					if err != nil {
+						log.Println(path+":", err)
+					} else {
+						c.groups = append(c.groups, group{
+							Config: config,
+							Heroes: make([]hero, 0, 16),
+						})
+					}
 				} else {
 					log.Println(err)
 				}
@@ -189,7 +205,8 @@ func (c *Config) Init(owner app.App) {
 	if err == nil {
 		for _, file := range files {
 			if file.IsDir() {
-				config, err := ioutil.ReadFile(filepath.Join(heroesDir, file.Name(), "config.yaml"))
+				path := filepath.Join(heroesDir, file.Name(), "config.yaml")
+				config, err := ioutil.ReadFile(path)
 				if err == nil {
 					var h yamlHero
 					var target *group
@@ -201,8 +218,8 @@ func (c *Config) Init(owner app.App) {
 						}
 					}
 					if target == nil {
-						log.Printf("%s/config.yaml: Hero \"%s\" belongs to unknown group \"%s\"\n",
-							file.Name(), h.Name, h.Group)
+						log.Printf("%s: Hero \"%s\" belongs to unknown group \"%s\"\n",
+							path, h.Name, h.Group)
 					} else {
 						target.Heroes = append(target.Heroes, hero{
 							name: h.Name, description: h.Description})

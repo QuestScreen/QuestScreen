@@ -69,14 +69,14 @@ func (p *Persons) Init(
 	return nil
 }
 
-// Name returns "Persons"
+// Name returns "Overlays"
 func (*Persons) Name() string {
-	return "Persons"
+	return "Overlays"
 }
 
-// ID returns "persons"
+// ID returns "overlay"
 func (*Persons) ID() string {
-	return "persons"
+	return "overlay"
 }
 
 func (p *Persons) loadTexture(renderer *sdl.Renderer, index int) textureData {
@@ -217,13 +217,26 @@ func (p *Persons) State() api.ModuleState {
 // RebuildState queries the new state through the channel and immediately
 // updates everything.
 func (p *Persons) RebuildState(renderer *sdl.Renderer) {
+	var newState []bool = nil
 	p.requests.mutex.Lock()
-	if p.requests.kind != stateRequest {
+	switch p.requests.kind {
+	case stateRequest:
+		newState = p.requests.state
+	case noRequest:
+		break
+	default:
 		panic("RebuildState() called on something which is not stateRequest")
 	}
-	newState := p.requests.state
 	p.requests.kind = noRequest
 	p.requests.mutex.Unlock()
+	if newState == nil {
+		newState = make([]bool, len(p.textures))
+		for i := range p.textures {
+			if p.textures[i].tex != nil {
+				newState[i] = true
+			}
+		}
+	}
 	p.curOrigWidth = 0
 	p.curScale = 1
 	for i := range p.textures {

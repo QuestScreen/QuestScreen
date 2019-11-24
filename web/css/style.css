@@ -308,6 +308,18 @@ Hides the menu at `48em`, but modify this based on your app's needs.
     margin-right: .2em;
 }
 
-.pure-menu-selected .herolist-invisible {
+.state-list-container {
+    display: inline;
+}
+
+.pure-menu-selected .state-list-invisible {
     visibility: hidden;
+}
+
+.state-list-visible {
+    visibility: hidden;
+}
+
+.pure-menu-selected .state-list-visible {
+    visibility: visible;
 }

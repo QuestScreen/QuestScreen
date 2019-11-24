@@ -302,13 +302,17 @@ func (l *HeroList) RebuildState(renderer *sdl.Renderer) {
 	l.rebuildHeroBoxes(renderer)
 	l.requests.mutex.Lock()
 	defer l.requests.mutex.Unlock()
-	if l.requests.kind != stateRequest {
+	switch l.requests.kind {
+	case stateRequest:
+		for i := range l.requests.heroes {
+			l.heroes[i].shown = l.requests.heroes[i]
+		}
+		l.curGlobalVisible = l.requests.globalVisible
+	case noRequest:
+		break
+	default:
 		panic("got something else than stateRequest on RebuildState")
 	}
-	for i := range l.requests.heroes {
-		l.heroes[i].shown = l.requests.heroes[i]
-	}
-	l.curGlobalVisible = l.requests.globalVisible
 	l.status = resting
 	l.requests.kind = noRequest
 }

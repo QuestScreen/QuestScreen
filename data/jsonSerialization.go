@@ -9,16 +9,11 @@ import (
 	"github.com/flyx/pnpscreen/app"
 )
 
-type jsonConfigItem struct {
-	Value   interface{} `json:"value"`
-	Default interface{} `json:"default"`
-}
-
-type jsonModuleConfig []jsonConfigItem
+type jsonModuleConfig []interface{}
 
 type jsonItem struct {
 	Name string `json:"name"`
-	ID   string `json:"dirName"`
+	ID   string `json:"id"`
 }
 
 type jsonHero struct {
@@ -27,7 +22,7 @@ type jsonHero struct {
 
 type jsonGroup struct {
 	Name        string     `json:"name"`
-	ID          string     `json:"dirName"`
+	ID          string     `json:"id"`
 	SystemIndex int        `json:"systemIndex"`
 	Heroes      []jsonHero `json:"heroes"`
 }
@@ -39,7 +34,7 @@ type jsonModuleSetting struct {
 
 type jsonModuleDesc struct {
 	Name   string              `json:"name"`
-	ID     string              `json:"dirName"`
+	ID     string              `json:"id"`
 	Config []jsonModuleSetting `json:"config"`
 }
 
@@ -236,19 +231,14 @@ func (c *Config) buildModuleConfigJSON(config []interface{}) []jsonModuleConfig 
 	ret := make([]jsonModuleConfig, 0, c.owner.NumModules())
 	var i api.ModuleIndex
 	for i = 0; i < c.owner.NumModules(); i++ {
-		//module := c.owner.ModuleAt(i)
 		moduleConfig := config[i]
 		itemValue := reflect.ValueOf(moduleConfig).Elem()
 		for ; itemValue.Kind() == reflect.Interface ||
 			itemValue.Kind() == reflect.Ptr; itemValue = itemValue.Elem() {
 		}
-		// TODO: set default!
 		jsonConfig := make(jsonModuleConfig, 0, itemValue.NumField())
-		//curValue := reflect.ValueOf(curConfig).Elem()
 		for j := 0; j < itemValue.NumField(); j++ {
-			jsonConfig = append(jsonConfig, jsonConfigItem{
-				Value: itemValue.Field(j).Interface(),
-				Default:/*curValue.Field(j).Interface()*/ nil})
+			jsonConfig = append(jsonConfig, itemValue.Field(j).Interface())
 		}
 		ret = append(ret, jsonConfig)
 	}

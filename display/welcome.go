@@ -1,7 +1,6 @@
 package display
 
 import (
-	"net"
 	"strconv"
 
 	"github.com/flyx/pnpscreen/api"
@@ -11,14 +10,15 @@ import (
 
 func (d *Display) genWelcome(width int32, height int32, port uint16) error {
 	// get outbound IP address
-	conn, err := net.Dial("udp", "8.8.8.8:80")
+	/*conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer conn.Close()*/
 
-	outboundAddr := conn.LocalAddr().(*net.UDPAddr)
+	outboundAddr := /*conn.LocalAddr().(*net.UDPAddr).IP.String()*/ "localhost"
 
+	var err error
 	d.welcomeTexture, err = d.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET, width, height)
 	if err != nil {
 		return err
@@ -48,7 +48,7 @@ func (d *Display) genWelcome(width int32, height int32, port uint16) error {
 	ipFontFace := d.owner.Font(0, api.Standard, api.HeadingFont)
 	var ipHint *sdl.Surface
 	if ipHint, err = ipFontFace.RenderUTF8Blended(
-		"Connect to http://"+outboundAddr.IP.String()+":"+strconv.Itoa(int(port))+"/",
+		"Connect to http://"+outboundAddr+":"+strconv.Itoa(int(port))+"/",
 		sdl.Color{R: 0, G: 0, B: 0, A: 200}); err != nil {
 		return err
 	}

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"reflect"
@@ -90,17 +91,16 @@ func findModule(owner app.App, id string) (api.Module, api.ModuleIndex) {
 }
 
 func (c *Config) loadYamlModuleConfigs(
-	raw map[string]map[string]interface{}) []interface{} {
+	raw map[string]map[string]interface{}) ([]interface{}, error) {
 	ret := make([]interface{}, c.owner.NumModules())
 	for name, rawItems := range raw {
 		mod, index := findModule(c.owner, name)
 		if mod == nil {
-			log.Println("Unknown module: " + name)
-		} else {
-			target := mod.EmptyConfig()
-			if c.loadYamlModuleConfigInto(target, rawItems, mod.ID()) {
-				ret[index] = target
-			}
+			return nil, fmt.Errorf("Unknown module \"%s\"", name)
+		}
+		target := mod.EmptyConfig()
+		if c.loadYamlModuleConfigInto(target, rawItems, mod.ID()) {
+			ret[index] = target
 		}
 	}
 	var i api.ModuleIndex
@@ -109,7 +109,7 @@ func (c *Config) loadYamlModuleConfigs(
 			ret[i] = c.owner.ModuleAt(i).EmptyConfig()
 		}
 	}
-	return ret
+	return ret, nil
 }
 
 func (c *Config) toYamlStructure(moduleConfigs []interface{}) map[string]map[string]interface{} {
@@ -153,11 +153,11 @@ func (c *Config) toYamlStructure(moduleConfigs []interface{}) map[string]map[str
 	return ret
 }
 
-func (c *Config) loadYamlBaseConfig(yamlInput []byte) []interface{} {
+func (c *Config) loadYamlBaseConfig(yamlInput []byte) ([]interface{}, error) {
 	var data yamlBaseConfig
 	if yamlInput != nil {
 		if err := yaml.Unmarshal(yamlInput, &data); err != nil {
-			panic("while parsing base config: " + err.Error())
+			return nil, err
 		}
 	} else {
 		data.Modules = make(map[string]map[string]interface{})
@@ -174,15 +174,16 @@ func (c *Config) writeYamlBaseConfig() {
 }
 
 func (c *Config) loadYamlSystemConfig(
-	yamlInput []byte, dirName string) systemConfig {
+	id string, yamlInput []byte) (systemConfig, error) {
 	var data yamlSystemConfig
 	if err := yaml.Unmarshal(yamlInput, &data); err != nil {
-		panic("while parsing system config of " + dirName + ": " + err.Error())
+		return systemConfig{}, err
 	}
+	moduleConfigs, err := c.loadYamlModuleConfigs(data.Modules)
 	return systemConfig{
 		Name:    data.Name,
-		ID:      dirName,
-		Modules: c.loadYamlModuleConfigs(data.Modules)}
+		ID:      id,
+		Modules: moduleConfigs}, err
 }
 
 func (c *Config) writeYamlSystemConfig(config systemConfig) {
@@ -196,28 +197,30 @@ func (c *Config) writeYamlSystemConfig(config systemConfig) {
 }
 
 func (c *Config) loadYamlGroupConfig(
-	yamlInput []byte, dirName string) groupConfig {
+	id string, yamlInput []byte) (groupConfig, error) {
 	var data yamlGroupConfig
 	if err := yaml.Unmarshal(yamlInput, &data); err != nil {
-		panic("while parsing group config of " + dirName + ": " + err.Error())
+		return groupConfig{}, err
 	}
 	for i := 0; i < len(c.systems); i++ {
 		if c.systems[i].ID == data.System {
+			moduleConfigs, err := c.loadYamlModuleConfigs(data.Modules)
 			return groupConfig{
 				Name:        data.Name,
-				ID:          dirName,
+				ID:          id,
 				SystemIndex: i,
-				Modules:     c.loadYamlModuleConfigs(data.Modules),
-			}
+				Modules:     moduleConfigs,
+			}, err
 		}
 	}
-	panic("Group config of " + dirName + " references unknown system \"" + data.System + "\"")
+	return groupConfig{},
+		fmt.Errorf("Group config references unknown system \"%s\"", data.System)
 }
 
 func (c *Config) writeYamlGroupConfig(group groupConfig) {
 	data := yamlGroupConfig{
 		Name:    group.Name,
-		System:  c.systems[group.SystemIndex].Name,
+		System:  c.systems[group.SystemIndex].ID,
 		Modules: c.toYamlStructure(group.Modules),
 	}
 	path := c.owner.DataDir("groups", group.ID, "config.yaml")
@@ -262,7 +265,7 @@ func (c *Config) LoadYamlGroupState(yamlInput []byte) {
 	}
 }
 
-// GenGroupStateYaml writes YAML output describing the state of the current
+// BuildStateYaml writes YAML output describing the state of the current
 // module.
 func (c *Config) BuildStateYaml() ([]byte, error) {
 	structure := make(map[string]interface{})

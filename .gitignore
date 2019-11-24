@@ -1,4 +1,6 @@
 .idea
+.vscode
 go.sum
 web/data.go
 pnpscreen/pnpscreen
+__debug_bin

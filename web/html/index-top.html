@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<title>PnP Screen Control Center</title>
+	<link href="/css/pure-min.css" rel="stylesheet"/>
+	<link href="/css/grids-responsive-min.css" rel="stylesheet"/>
+	<link href="/css/style.css" rel="stylesheet"/>
+	<link href="/css/fontawesome.min.css" rel="stylesheet">
+	<link href="/css/solid.min.css" rel="stylesheet">
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<meta charset="UTF-8"/>
+</head>
+<body>
+<div id="layout">
+	<!-- Menu toggle -->
+	<a href="#menu" id="menuLink" class="menu-link">
+		<!-- Hamburger icon -->
+		<span></span>
+	</a>
+
+	<div id="menu">
+		<!-- generated after loading the app -->
+	</div>
+
+	<div id="main">
+		<header>
+			<h1>Welcome to PnP Screen</h1>
+			<h2>Select a Group</h2>
+		</header>
+	</div>
+</div>
+
+<!-- app templates -->
+
+<template id="tmpl-app-menu-group-entry">
+	<li class="pure-menu-item with-settings rp-menu-group-entry">
+		<a class="pure-menu-link"></a>
+		<a class="settings-link" href="#"><i class="fas fa-cog"></i></a>
+	</li>
+</template>
+
+<template id="tmpl-app-menu">
+	<div class="pure-menu" id="rp-menu">
+		<a class="pure-menu-heading" href="/">PnP Screen</a>
+		<ul class="pure-menu-list" id="rp-menu-list">
+			<li class="pure-menu-heading" id="rp-menu-system-heading">
+				<i class="fas fa-book"></i> Systems
+			</li>
+			<li class="pure-menu-heading" id="rp-menu-group-heading">
+				<i class="fas fa-users"></i> Groups
+			</li>
+		</ul>
+	</div>
+</template>
+
+<!-- templates for showing the state of the current group -->
+
+<template id="tmpl-app-state-page">
+	<article class="pure-g" id="module-state-wrapper">
+		<h2 id="group-heading" class="pure-u-1"></h2>
+		<hr class="pure-u-1" id="group-control-sep" />
+		<!-- list of module state -->
+	</article>
+</template>
+<template id="tmpl-app-state-module">
+	<div class="pure-u-1 pure-u-md-1-5"><h3 class="state-module-name"></h3></div>
+	<div class="pure-u-1 pure-u-md-4-5 state-module-content"></div>
+	<hr class="pure-u-1"/>
+</template>
+
+<!-- templates for editing settings -->
+
+<template id="tmpl-system-entry">
+	<li class="pure-menu-item with-settings rp-menu-system-entry">
+		<a class="pure-menu-link"></a>
+		<a class="settings-link" href="#"><i class="fas fa-cog"></i></a>
+	</li>
+</template>
+<template id="tmpl-config-page">
+	<article class="pure-g">
+		<h2 id="settings-heading" class="pure-u-1"></h2>
+		<hr class="pure-u-1" id="settings-control-sep" />
+		<div class="pure-u-1 pure-u-sm-1-2">
+			<p id="settings-changed" style="visibility: hidden;">Settings have been changed.</p>
+		</div>
+		<div class="pure-u-1 pure-u-sm-1-2">
+			<button class="pure-button" id="settings-cancel">Cancel</button>
+			<button class="pure-button pure-button-primary" id="settings-save">Save</button>
+		</div>
+	</article>
+</template>
+<template id="tmpl-config-module">
+	<hr class="pure-u-1"/>
+	<div class="pure-u-1 pure-u-md-1-5"><h3 id="module-settings-name"></h3></div>
+	<div class="pure-u-1 pure-u-md-4-5 pure-form pure-form-aligned">
+		<fieldset class="module-settings-content"></fieldset>
+	</div>
+</template>
+
+<template id="tmpl-config-item">
+	<div class="pure-control-group">
+		<label>
+			<input type="checkbox" class="settings-item-checkbox"/>
+			<span class="settings-item-name"></span>
+		</label>
+		<!-- setting contents goes here -->
+	</div>
+</template>
+
+<template id="tmpl-config-selectable-font">
+	<select class="font-families"></select>
+	<select class="font-size">
+		<option value="0">Small</option>
+		<option value="1">Content</option>
+		<option value="2">Medium</option>
+		<option value="3">Heading</option>
+		<option value="4">Large</option>
+		<option value="5">Huge</option>
+	</select>
+	<div class="pure-button-group" role="group" aria-label="Font Faces" style="display: inline">
+		<button class="pure-button font-style-selector bold"><i class="fas fa-bold"></i></button>
+		<button class="pure-button font-style-selector italic"><i class="fas fa-italic"></i></button>
+	</div>
+</template>
+
+<!-- common templates for state -->
+
+<template id="tmpl-state-list-visible">
+	<i class="fas fa-eye state-list-visible"></i>
+</template>
+<template id="tmpl-state-list-invisible">
+	<i class="fas fa-eye-slash state-list-invisible"></i>
+</template>
+<template id="tmpl-state-list-item">
+  <li class="pure-menu-item">
+	  <a href="#" class="pure-menu-link">
+		  <span class="state-list-item-name"></span>
+	  </a>
+  </li>
+</template>
+<template id="tmpl-state-list">
+	<dic class="pure-menu pure-menu-horizontal state-list-container">
+		<ul class="pure-menu-list">
+			<li class="pure-menu-item pure-menu-has-children state-list-selector">
+				<a href="#" class="pure-menu-link state-list-root"><!-- name injected here --></a>
+				<ul class="pure-menu-children"></ul>
+			</li>
+		</ul>
+	</dic>
+</template>
+
+<!-- templates injected via plugins -->

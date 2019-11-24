@@ -39,8 +39,8 @@ type Display struct {
 // Init initializes the display. The renderer and window need to be generated
 // before since the app needs to load fonts based on the window size.
 func (d *Display) Init(
-		owner app.App, events Events, fullscreen bool, port uint16,
-		window *sdl.Window, renderer *sdl.Renderer) error {
+	owner app.App, events Events, fullscreen bool, port uint16,
+	window *sdl.Window, renderer *sdl.Renderer) error {
 	d.owner = owner
 	d.Events = events
 	d.Window = window
@@ -187,6 +187,7 @@ func (d *Display) RenderLoop(modConfigChan chan ModuleConfigUpdate) {
 	}
 }
 
+// Destroy destroys window and renderer
 func (d *Display) Destroy() {
 	d.Renderer.Destroy()
 	d.Window.Destroy()

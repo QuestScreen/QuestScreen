@@ -17,6 +17,7 @@ func init() {
 }
 
 func main() {
+	print("foo… starting")
 	fullscreenFlag := getopt.BoolLong("fullscreen", 'f', "start in fullscreen")
 	port := getopt.Uint16Long("port", 'p', 8080, "port to bind to")
 	getopt.Parse()

@@ -81,6 +81,9 @@ func createFontCatalog(
 			}
 		}
 	}
+	if len(catalog) == 0 {
+		return nil
+	}
 	return catalog
 }
 
@@ -105,13 +108,13 @@ func (family *LoadedFontFamily) Styled(style api.FontStyle) api.StyledFont {
 	var ret *LoadedFontStyle
 
 	for curStyle := style; curStyle >= 0; curStyle-- {
-		ret = &family.loadedFaces[style]
+		ret = &family.loadedFaces[curStyle]
 		if ret.path != "" {
 			return ret
 		}
 	}
 	for curStyle := style + 1; curStyle < api.NumFontStyles; curStyle++ {
-		ret = &family.loadedFaces[style]
+		ret = &family.loadedFaces[curStyle]
 		if ret.path != "" {
 			return ret
 		}

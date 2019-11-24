@@ -8,55 +8,53 @@ import (
 	"strings"
 
 	"github.com/flyx/pnpscreen/api"
+	"github.com/flyx/pnpscreen/web"
 
 	"github.com/flyx/pnpscreen/display"
 
-	"github.com/flyx/pnpscreen/web"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-type screenHandler struct {
-	owner  *app
-	events display.Events
-	index  []byte
+type staticResource struct {
+	contentType string
+	content     []byte
 }
 
-func newScreenHandler(owner *app, events display.Events) *screenHandler {
-	handler := new(screenHandler)
+type staticResourceHandler struct {
+	owner     *app
+	events    display.Events
+	resources map[string]staticResource
+}
+
+func newStaticResourceHandler(owner *app, events display.Events) *staticResourceHandler {
+	handler := new(staticResourceHandler)
 	handler.owner = owner
 	handler.events = events
-
-	var err error
-	handler.index, err = web.Asset("web/templates/index.html")
-	if err != nil {
-		panic(err)
-	}
-
+	handler.resources = make(map[string]staticResource)
+	indexRes := staticResource{
+		contentType: "text/html; charset=utf-8", content: owner.html}
+	handler.resources["/"] = indexRes
+	handler.resources["/index.html"] = indexRes
+	handler.resources["/all.js"] = staticResource{
+		contentType: "application/javascript", content: owner.js}
 	return handler
 }
 
 // ServeHTTP implements the HTTP server
-func (sh *screenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" && r.URL.Path != "/index.html" {
+func (sh *staticResourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Clacks-Overhead", "GNU Terry Pratchett")
+	res, ok := sh.resources[r.URL.Path]
+	if ok {
+		w.Header().Set("Content-Type", res.contentType)
+		w.Write(res.content)
+	} else {
 		http.NotFound(w, r)
-		return
 	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(sh.index)
 }
 
-func setupResourceHandler(server *http.Server, path string, contentType string) {
-	http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-		raw, err := web.Asset("web" + path)
-		if err != nil {
-			panic(err)
-		}
-		w.Header().Set("Content-Type", contentType)
-		if _, err = w.Write(raw); err != nil {
-			panic(err)
-		}
-	})
+func (sh *staticResourceHandler) add(path string, contentType string) {
+	sh.resources[path] = staticResource{
+		contentType: contentType, content: web.MustAsset("web" + path)}
 }
 
 func nextPathItem(value string) (string, bool) {
@@ -67,13 +65,14 @@ func nextPathItem(value string) (string, bool) {
 	return value[0:pos], false
 }
 
-func (sh *screenHandler) mergeAndSendConfigs(moduleConfigChan chan<- display.ModuleConfigUpdate) {
-	for i := api.ModuleIndex(0); i < api.ModuleIndex(len(sh.owner.modules)); i++ {
+func mergeAndSendConfigs(a *app, eventID uint32,
+	moduleConfigChan chan<- display.ModuleConfigUpdate) {
+	for i := api.ModuleIndex(0); i < api.ModuleIndex(len(a.modules)); i++ {
 		moduleConfigChan <- display.ModuleConfigUpdate{Index: i,
-			Config: sh.owner.config.MergeConfig(i,
-				sh.owner.activeSystem, sh.owner.activeGroup)}
+			Config: a.config.MergeConfig(i,
+				a.activeSystem, a.activeGroup)}
 	}
-	sdl.PushEvent(&sdl.UserEvent{Type: sh.events.ModuleConfigID})
+	sdl.PushEvent(&sdl.UserEvent{Type: eventID})
 }
 
 func sendJSON(w http.ResponseWriter, content []byte, err error) {
@@ -92,20 +91,19 @@ func startServer(owner *app,
 	port uint16) *http.Server {
 	server := &http.Server{Addr: ":" + strconv.Itoa(int(port))}
 
-	handler := newScreenHandler(owner, events)
+	handler := newStaticResourceHandler(owner, events)
+	handler.add("/css/pure-min.css", "text/css")
+	handler.add("/css/grids-responsive-min.css", "text/css")
+	handler.add("/css/style.css", "text/css")
+	handler.add("/css/fontawesome.min.css", "text/css")
+	handler.add("/css/solid.min.css", "text/css")
+	handler.add("/js/ui.js", "application/javascript")
+	handler.add("/webfonts/fa-solid-900.eot", "application/vnd.ms-fontobject")
+	handler.add("/webfonts/fa-solid-900.svg", "image/svg+xml")
+	handler.add("/webfonts/fa-solid-900.ttf", "font/ttf")
+	handler.add("/webfonts/fa-solid-900.woff", "font/woff")
+	handler.add("/webfonts/fa-solid-900.woff2", "font/woff2")
 	http.Handle("/", handler)
-	setupResourceHandler(server, "/css/pure-min.css", "text/css")
-	setupResourceHandler(server, "/css/grids-responsive-min.css", "text/css")
-	setupResourceHandler(server, "/css/style.css", "text/css")
-	setupResourceHandler(server, "/css/fontawesome.min.css", "text/css")
-	setupResourceHandler(server, "/css/solid.min.css", "text/css")
-	setupResourceHandler(server, "/js/ui.js", "application/javascript")
-	setupResourceHandler(server, "/js/sharedData.js", "application/javascript")
-	setupResourceHandler(server, "/webfonts/fa-solid-900.eot", "application/vnd.ms-fontobject")
-	setupResourceHandler(server, "/webfonts/fa-solid-900.svg", "image/svg+xml")
-	setupResourceHandler(server, "/webfonts/fa-solid-900.ttf", "font/ttf")
-	setupResourceHandler(server, "/webfonts/fa-solid-900.woff", "font/woff")
-	setupResourceHandler(server, "/webfonts/fa-solid-900.woff2", "font/woff2")
 
 	http.HandleFunc("/groups/", func(w http.ResponseWriter, r *http.Request) {
 		groupName := r.URL.Path[len("/groups/"):]
@@ -121,7 +119,7 @@ func startServer(owner *app,
 				http.Error(w, "400: Could not set group: "+err.Error(),
 					http.StatusBadRequest)
 			} else {
-				handler.mergeAndSendConfigs(moduleConfigChan)
+				mergeAndSendConfigs(owner, events.ModuleConfigID, moduleConfigChan)
 				ret, err := owner.config.BuildStateJSON()
 				sendJSON(w, ret, err)
 			}
@@ -129,7 +127,7 @@ func startServer(owner *app,
 			http.Error(w, "404: unknown group \""+groupName+"\"", http.StatusNotFound)
 		}
 	})
-	http.HandleFunc("/static.json", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/app", func(w http.ResponseWriter, r *http.Request) {
 		ret, err := owner.config.BuildGlobalJSON(owner, owner.activeGroup)
 		sendJSON(w, ret, err)
 	})
@@ -181,7 +179,7 @@ func startServer(owner *app,
 						http.Error(w, err.Error(), http.StatusBadRequest)
 					} else {
 						w.WriteHeader(http.StatusNoContent)
-						handler.mergeAndSendConfigs(moduleConfigChan)
+						mergeAndSendConfigs(owner, events.ModuleConfigID, moduleConfigChan)
 					}
 				} else {
 					var err error
@@ -199,7 +197,7 @@ func startServer(owner *app,
 						http.Error(w, err.Error(), http.StatusBadRequest)
 					} else {
 						w.WriteHeader(http.StatusNoContent)
-						handler.mergeAndSendConfigs(moduleConfigChan)
+						mergeAndSendConfigs(owner, events.ModuleConfigID, moduleConfigChan)
 					}
 				} else {
 					var err error

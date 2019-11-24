@@ -83,5 +83,5 @@ func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
 	}
 	s.owner.requests.activeRequest = true
 	s.owner.requests.index = s.curIndex
-	return nil, nil
+	return json.Marshal(value)
 }

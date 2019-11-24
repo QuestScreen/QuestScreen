@@ -7,11 +7,8 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/flyx/pnpscreen/modules/herolist"
-	"github.com/flyx/pnpscreen/modules/persons"
-	"github.com/flyx/pnpscreen/modules/title"
-
-	"github.com/flyx/pnpscreen/modules/background"
+	"github.com/flyx/pnpscreen/modules"
+	"github.com/flyx/pnpscreen/web"
 
 	"github.com/flyx/pnpscreen/display"
 	"github.com/veandco/go-sdl2/sdl"
@@ -54,6 +51,7 @@ type app struct {
 	display             display.Display
 	activeGroup         int
 	activeSystem        int
+	html, js            []byte
 }
 
 // Init initializes the static data
@@ -85,22 +83,29 @@ func (a *app) Init(fullscreen bool, events display.Events, port uint16) {
 	fontSizeMap := [6]int32{height / 37, height / 27, height / 19,
 		height / 13, height / 8, height / 4}
 	a.fonts = createFontCatalog(a.dataDir, fontSizeMap)
+	if a.fonts == nil {
+		panic("No font available. PnP Screen needs at least one font.")
+	}
 	a.modules = make([]moduleEntry, 0, 32)
 	a.resourceCollections = make([][][]resourceFile, 0, 32)
 	a.activeGroup = -1
 	a.activeSystem = -1
-	if err = a.registerModule(&background.Background{}, renderer); err != nil {
+
+	a.html = append(a.html, web.MustAsset("web/html/index-top.html")...)
+	a.js = append(a.js, web.MustAsset("web/js/template.js")...)
+	a.js = append(a.js, '\n')
+	a.js = append(a.js, web.MustAsset("web/js/config.js")...)
+	a.js = append(a.js, '\n')
+	a.js = append(a.js, web.MustAsset("web/js/app.js")...)
+	a.js = append(a.js, '\r')
+	a.js = append(a.js, web.MustAsset("web/js/state.js")...)
+	if err = a.registerPlugin(&modules.Base{}, renderer); err != nil {
 		panic(err)
 	}
-	if err = a.registerModule(&herolist.HeroList{}, renderer); err != nil {
-		panic(err)
-	}
-	if err = a.registerModule(&title.Title{}, renderer); err != nil {
-		panic(err)
-	}
-	if err = a.registerModule(&persons.Persons{}, renderer); err != nil {
-		panic(err)
-	}
+	a.html = append(a.html, '\n')
+	a.html = append(a.html, web.MustAsset("web/html/index-bottom.html")...)
+	a.js = append(a.js, '\n')
+	a.js = append(a.js, web.MustAsset("web/js/init.js")...)
 
 	a.config.Init(a)
 	a.loadModuleResources()
@@ -178,6 +183,21 @@ func (a *app) registerModule(module api.Module, renderer *sdl.Renderer) error {
 		return err
 	}
 	a.modules = append(a.modules, moduleEntry{module: module, enabled: true})
+	return nil
+}
+
+func (a *app) registerPlugin(plugin api.Plugin, renderer *sdl.Renderer) error {
+	println("Loading plugin", plugin.Name())
+	a.js = append(a.js, '\n')
+	a.js = append(a.js, plugin.AdditionalJS()...)
+	a.html = append(a.html, '\n')
+	a.html = append(a.html, plugin.AdditionalHTML()...)
+	modules := plugin.Modules()
+	for i := range modules {
+		if err := a.registerModule(modules[i], renderer); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

@@ -7,8 +7,8 @@ import (
 )
 
 type state struct {
-	owner   *Title
-	caption string
+	owner     *Title
+	caption   string
 	resources []api.Resource
 }
 
@@ -58,5 +58,5 @@ func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
 	s.owner.requests.kind = changeRequest
 	s.owner.requests.caption = value
 	s.owner.requests.mutex.Unlock()
-	return nil, nil
+	return json.Marshal(value)
 }

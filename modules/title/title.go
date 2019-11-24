@@ -35,13 +35,14 @@ type Title struct {
 	state
 	requests
 
-	env         api.Environment
-	moduleIndex api.ModuleIndex
-	curTitle    *sdl.Texture
-	newTitle    *sdl.Texture
-	mask        *sdl.Texture
-	curYOffset  int32
-	swapped     bool
+	env          api.Environment
+	moduleIndex  api.ModuleIndex
+	curTitleText string
+	curTitle     *sdl.Texture
+	newTitle     *sdl.Texture
+	mask         *sdl.Texture
+	curYOffset   int32
+	swapped      bool
 }
 
 // Init initializes the module.
@@ -118,10 +119,12 @@ func (t *Title) InitTransition(renderer *sdl.Renderer) time.Duration {
 		t.requests.mutex.Unlock()
 		return -1
 	}
-	caption := t.requests.caption
+	t.curTitleText = t.requests.caption
 	t.requests.kind = noRequest
 	t.requests.mutex.Unlock()
-	t.newTitle = t.genTitleTexture(renderer, caption)
+	if t.curTitleText != "" {
+		t.newTitle = t.genTitleTexture(renderer, t.curTitleText)
+	}
 	t.swapped = false
 	return time.Second*2/3 + time.Millisecond*100
 }
@@ -194,11 +197,15 @@ func (t *Title) State() api.ModuleState {
 // updates everything.
 func (t *Title) RebuildState(renderer *sdl.Renderer) {
 	t.requests.mutex.Lock()
-	if t.requests.kind != stateRequest {
+	switch t.requests.kind {
+	case stateRequest:
+		t.curTitleText = t.requests.caption
+	case noRequest:
+		break
+	default:
 		panic("RebuildState() called on something else than stateRequest")
 	}
 	t.requests.kind = noRequest
-	caption := t.requests.caption
 	t.requests.mutex.Unlock()
 	if t.mask != nil {
 		t.mask.Destroy()
@@ -217,13 +224,14 @@ func (t *Title) RebuildState(renderer *sdl.Renderer) {
 	t.curYOffset = 0
 	if t.curTitle != nil {
 		t.curTitle.Destroy()
+		t.curTitle = nil
 	}
 	if t.newTitle != nil {
 		t.newTitle.Destroy()
 		t.newTitle = nil
 	}
-	if caption != "" {
-		t.curTitle = t.genTitleTexture(renderer, caption)
+	if t.curTitleText != "" {
+		t.curTitle = t.genTitleTexture(renderer, t.curTitleText)
 	}
 }
 
