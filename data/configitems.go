@@ -2,32 +2,9 @@ package data
 
 import (
 	"errors"
-	"reflect"
-
 	"github.com/flyx/pnpscreen/api"
+	"reflect"
 )
-
-func (c *Config) postProcessConfiguration(
-	target interface{}, fromYaml bool) error {
-	switch v := target.(type) {
-	case *api.SelectableFont:
-		fonts := c.owner.FontCatalog()
-		if fromYaml {
-			for i := range fonts {
-				if v.Family == fonts[i].Name() {
-					v.FamilyIndex = i
-					return nil
-				}
-			}
-			return errors.New("unknown font \"" + v.Family + "\"")
-		}
-		if v.FamilyIndex < 0 || v.FamilyIndex >= len(fonts) {
-			return errors.New("font index out of range")
-		}
-		v.Family = fonts[v.FamilyIndex].Name()
-	}
-	return nil
-}
 
 // setModuleConfigFieldFrom assigns the given data to the given target.
 // data is expected to be deserialized from a JSON or YAML structure that
@@ -108,5 +85,5 @@ func (c *Config) setModuleConfigFieldFrom(target interface{},
 		return errors.New("Unknown field \"" + key + "\"")
 	}
 
-	return c.postProcessConfiguration(target, fromYaml)
+	return target.(api.ConfigItem).PostLoad(c.owner, fromYaml)
 }

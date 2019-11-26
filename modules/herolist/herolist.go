@@ -299,6 +299,7 @@ func (l *HeroList) State() api.ModuleState {
 // RebuildState queries the new state through the channel and immediately
 // updates everything.
 func (l *HeroList) RebuildState(renderer *sdl.Renderer) {
+	old := l.heroes
 	l.rebuildHeroBoxes(renderer)
 	l.requests.mutex.Lock()
 	defer l.requests.mutex.Unlock()
@@ -309,10 +310,13 @@ func (l *HeroList) RebuildState(renderer *sdl.Renderer) {
 		}
 		l.curGlobalVisible = l.requests.globalVisible
 	case noRequest:
-		break
+		for i := range l.heroes {
+			l.heroes[i].shown = old[i].shown
+		}
 	default:
 		panic("got something else than stateRequest on RebuildState")
 	}
+
 	l.status = resting
 	l.requests.kind = noRequest
 }

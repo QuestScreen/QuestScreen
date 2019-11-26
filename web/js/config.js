@@ -19,8 +19,7 @@ tmpl.config = {
 	}),
 	module: new Template("#tmpl-config-module",
 			function(app, moduleDesc, data) {
-		let name = this.querySelector("#module-settings-name");
-		name.removeAttribute("id");
+		let name = this.querySelector(".settings-module-name");
 		name.textContent = moduleDesc.name;
 		let settings = this.querySelector(".module-settings-content");
 		for (let i = 0; i < moduleDesc.items.length; i++) {

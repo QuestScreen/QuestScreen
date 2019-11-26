@@ -323,3 +323,7 @@ Hides the menu at `48em`, but modify this based on your app's needs.
 .pure-menu-selected .state-list-visible {
     visibility: visible;
 }
+
+.state-module-name, .settings-module-name {
+    margin: 0;
+}

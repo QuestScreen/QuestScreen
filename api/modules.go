@@ -132,7 +132,7 @@ type Module interface {
 	// len(ResourceCollections()) - 1.
 	ResourceCollections() []ResourceSelector
 	// initializes the module. This must be called before any funcs of
-	// Persistence or Renderer are called; however Name(), Id() and
+	// Persistence or Renderer are called; however Name(), ID() and
 	// ResourceCollections() must work on an uninitialized module.
 	//
 	// index should be retained by the module for identifying itself to the
