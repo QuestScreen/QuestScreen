@@ -42,25 +42,6 @@ func (c *Config) loadYamlModuleConfigInto(target interface{},
 		if !ok {
 			continue
 		}
-		inModuleConfig, ok := inValue.(map[string]interface{})
-		// this is a fix for a problem in the yaml lib that
-		// leads to yaml giving the type map[interface{}]interface{}.
-		if !ok {
-			raw, ok := inValue.(map[interface{}]interface{})
-			if !ok {
-				panic("value of " + moduleName + "." +
-					targetModuleType.Field(i).Name + " is not a mapping")
-			}
-			inModuleConfig = make(map[string]interface{})
-			for key, value := range raw {
-				stringKey, ok := key.(string)
-				if !ok {
-					panic("value of" + moduleName + "." +
-						targetModuleType.Field(i).Name + " contains non-string key")
-				}
-				inModuleConfig[stringKey] = value
-			}
-		}
 		wasNil := false
 		if targetModule.Field(i).IsNil() {
 			targetModule.Field(i).Set(reflect.New(targetModuleType.Field(i).Type.Elem()))
@@ -68,7 +49,7 @@ func (c *Config) loadYamlModuleConfigInto(target interface{},
 		}
 		targetSetting := targetModule.Field(i).Interface()
 
-		if err := c.setModuleConfigFieldFrom(targetSetting, true, inModuleConfig); err != nil {
+		if err := targetSetting.(api.ConfigItem).LoadFrom(inValue, c.owner, true); err != nil {
 			if wasNil {
 				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 			}

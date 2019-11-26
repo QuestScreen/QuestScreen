@@ -194,9 +194,9 @@ func (c *Config) loadJSONModuleConfigInto(target interface{},
 			wasNil = true
 		}
 		targetSetting := targetModule.Field(i).Interface()
-		inModuleConfig := raw[i].(map[string]interface{})
 
-		if err := c.setModuleConfigFieldFrom(targetSetting, false, inModuleConfig); err != nil {
+		if err := targetSetting.(api.ConfigItem).LoadFrom(
+			raw[i], c.owner, false); err != nil {
 			if wasNil {
 				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 			}

@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"reflect"
 )
 
 // this file contains types that may be used as fields in a module's
@@ -14,8 +15,8 @@ import (
 // you may use the tags `json:` and `yaml:` on those fields as documented in
 // the json and yaml.v3 packages.
 type ConfigItem interface {
-	// PostLoad consolidates data after loading from JSON or YAML.
-	PostLoad(env Environment, fromYAML bool) error
+	LoadFrom(subtree interface{}, env Environment, fromYaml bool) error
+	Serialize(toYAML bool) interface{}
 }
 
 // SelectableFont is used to allow the user to select a font family.
@@ -26,8 +27,12 @@ type SelectableFont struct {
 	Style       FontStyle `json:"style" yaml:"style"`
 }
 
-// PostLoad sets FamilyIndex from Family (YAML) or the other way round (JSON)
-func (sf *SelectableFont) PostLoad(env Environment, fromYAML bool) error {
+// LoadFrom loads values from a JSON/YAML subtree
+func (sf *SelectableFont) LoadFrom(subtree interface{}, env Environment,
+	fromYAML bool) error {
+	if err := SubtreeToConfigItem(subtree.(map[string]interface{}), sf, fromYAML); err != nil {
+		return err
+	}
 	fonts := env.FontCatalog()
 	if fromYAML {
 		for i := range fonts {
@@ -42,5 +47,119 @@ func (sf *SelectableFont) PostLoad(env Environment, fromYAML bool) error {
 		return errors.New("font index out of range")
 	}
 	sf.Family = fonts[sf.FamilyIndex].Name()
+	return nil
+}
+
+// Serialize returns the object itself.
+func (sf *SelectableFont) Serialize(toYAML bool) interface{} {
+	return sf
+}
+
+// SubtreeToConfigItem fills the public fields of the given target with the
+// values contained in the given subtree.
+//
+// This function offers simple deserialization based on the type's layout.
+// Use it if you don't need anything fancy. If target is directly the
+// ConfigItem, you will be able to implement to implement Serialize on the
+// ConfigItem by simply returning the item itself.
+//
+// This func honors the `yaml:` and `json:` tags on the target type's fields.
+func SubtreeToConfigItem(subtree interface{}, target interface{},
+	fromYaml bool) error {
+	properSubtree, ok := subtree.(map[string]interface{})
+	// this is a fix for a problem in the yaml lib that
+	// leads to yaml giving the type map[interface{}]interface{}.
+	if !ok {
+		raw, ok := subtree.(map[interface{}]interface{})
+		if !ok {
+			return fmt.Errorf(
+				"cannot load values for %s from a subtree which is not a map",
+				reflect.TypeOf(target).String())
+		}
+		properSubtree = make(map[string]interface{})
+		for key, value := range raw {
+			stringKey, ok := key.(string)
+			if !ok {
+				return fmt.Errorf(
+					"cannot load value for %s from a subtree map with non-string keys",
+					reflect.TypeOf(target).String())
+			}
+			properSubtree[stringKey] = value
+		}
+	}
+
+	settingType := reflect.TypeOf(target)
+	value := reflect.ValueOf(target)
+	for settingType.Kind() == reflect.Interface ||
+		settingType.Kind() == reflect.Ptr {
+		settingType = settingType.Elem()
+		value = value.Elem()
+	}
+	if settingType.Kind() != reflect.Struct || value.Kind() != reflect.Struct {
+		panic("setting type is not a struct!")
+	}
+	for i := 0; i < settingType.NumField(); i++ {
+		tagName := "json"
+		if fromYaml {
+			tagName = "yaml"
+		}
+		tagVal, ok := settingType.Field(i).Tag.Lookup(tagName)
+		fieldName := settingType.Field(i).Name
+		if ok {
+			if tagVal == "-" {
+				continue
+			}
+			fieldName = tagVal
+		}
+
+		newVal, ok := properSubtree[fieldName]
+		if !ok {
+			return errors.New("field \"" + fieldName + "\" missing!")
+		}
+		field := value.Field(i)
+
+		switch field.Type().Kind() {
+		case reflect.Int8, reflect.Int16, reflect.Int, reflect.Int32, reflect.Int64:
+			if fromYaml {
+				intVal, ok := newVal.(int)
+				if !ok {
+					return errors.New("field \"" + fieldName + "\" must be a number!")
+				}
+				field.SetInt(int64(intVal))
+			} else {
+				floatVal, ok := newVal.(float64)
+				if !ok {
+					return errors.New("field \"" + fieldName + "\" must be a number!")
+				}
+				field.SetInt(int64(floatVal))
+			}
+		case reflect.Uint8, reflect.Uint16, reflect.Uint, reflect.Uint32, reflect.Uint64:
+			if fromYaml {
+				floatVal, ok := newVal.(float64)
+				if !ok {
+					return errors.New("field \"" + fieldName + "\" must be a number!")
+				}
+				field.SetUint(uint64(floatVal))
+			} else {
+				intVal, ok := newVal.(int)
+				if !ok {
+					return errors.New("field \"" + fieldName + "\" must be a number!")
+				}
+				field.SetUint(uint64(intVal))
+			}
+		case reflect.String:
+			stringVal, ok := newVal.(string)
+			if !ok {
+				return errors.New("field \"" + fieldName + "\" must be a string!")
+			}
+			field.SetString(stringVal)
+		default:
+			panic("field \"" + fieldName + "\" has unsupported type " + field.Type().Kind().String())
+		}
+		delete(properSubtree, fieldName)
+	}
+	for key := range properSubtree {
+		return errors.New("Unknown field \"" + key + "\"")
+	}
 	return nil
 }
