@@ -3,6 +3,33 @@ const ItemKind = {
 }
 
 tmpl.config = {
+	menuEntry: new Template("#tmpl-app-config-menu-entry",
+			function(handler, name) {
+		let link = this.querySelector(".pure-menu-link");
+		link.textContent = name;
+		link.addEventListener("click", handler);
+		return this;
+	}),
+	page: new Template("#tmpl-app-config-page",
+			function(app, configPage) {
+		let list = this.querySelector(".config-menu-list");
+
+		let curLast = list.querySelector(".config-menu-system-heading");
+		for (const [index, system] of app.systems.entries()) {
+			let entry = tmpl.config.menuEntry.render(
+				configPage.viewSystem.bind(configPage, system), system.name);
+			// Safari doesn't support firstElementChild on DocumentFragment
+			curLast = curLast.parentNode.insertBefore(entry.children[0], curLast.nextSibling);
+		}
+
+		curLast = this.querySelector(".config-menu-group-heading");
+		for (let [index, group] of app.groups.entries()) {
+			let entry = tmpl.config.menuEntry.render(
+					configPage.viewGroup.bind(configPage, group), group.name);
+			curLast = curLast.parentNode.insertBefore(entry.children[0], curLast.nextSibling);
+		}
+		return this;
+	}),
 	item: new Template("#tmpl-config-item",
 			function (itemDesc, content, checked) {
 		this.querySelector(".settings-item-name").textContent =
@@ -30,9 +57,8 @@ tmpl.config = {
 		}
 		return this;
 	}),
-	page: new Template("#tmpl-config-page",
-			function(app, heading, moduleDescs, data, saveHandler) {
-		this.querySelector("#settings-heading").textContent = heading;
+	view: new Template("#tmpl-config-view",
+			function(app, moduleDescs, data, saveHandler) {
 		let container = this.querySelector("article");
 		let controlSep = this.querySelector("#settings-control-sep");
 		for (let i = 0; i < moduleDescs.length; i++) {
@@ -147,7 +173,7 @@ class ModuleDesc {
 	}
 }
 
-class ConfigPage {
+class ConfigView {
 	setChanged() {
 		document.querySelector("#settings-changed").style.visibility = "visible";
 	}
@@ -201,8 +227,43 @@ class ConfigPage {
 		document.querySelector("#settings-changed").style.visibility = "hidden";
 	}
 
-	ui(heading, data) {
-		return tmpl.config.page.render(this.app, heading, this.moduleDescs,
+	ui(data) {
+		return tmpl.config.view.render(this.app, this.moduleDescs,
 			data, this.post.bind(this));
+	}
+}
+
+class ConfigPage {
+	constructor(app) {
+		this.app = app;
+	}
+
+	async loadView(url, title) {
+		const cfgData = await App.fetch(url, "GET", null);
+		const view = new ConfigView(this.app, cfgData, url);
+
+		const content = document.querySelector("#config-content");
+		const newContent = content.cloneNode(false);
+		newContent.appendChild(view.ui(cfgData));
+		content.parentNode.replaceChild(newContent, main);
+		document.querySelector("#title").textContent = title;
+	}
+
+	async viewSystem(system) {
+		this.loadView("/config/systems/" + system.id,
+									"System settings – " + system.name);
+	}
+
+	async viewGroup(group) {
+		this.loadView("/config/groups/" + group.id,
+									"Group settings – " + group.name);
+	}
+
+	ui() {
+		let ret = tmpl.config.page.render(app, this);
+		if (this.app.activeGroup != -1) {
+			this.viewGroup(this.app.groups[this.app.activeGroup]);
+		}
+		return ret;
 	}
 }

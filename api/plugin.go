@@ -12,4 +12,7 @@ type Plugin interface {
 	// AdditionalHTML returns HTML templates needed to support the
 	// plugin's modules on the client side.
 	AdditionalHTML() []byte
+	// AdditionalCSS returns CSS resuls needed to support the plugin's
+	// modules on the client side.
+	AdditionalCSS() []byte
 }

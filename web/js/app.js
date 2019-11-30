@@ -1,29 +1,11 @@
 tmpl.app = {
-	menuGroupEntry: new Template("#tmpl-app-menu-group-entry",
-			function(handleSelect, handleSettings, groupName) {
-		let link = this.querySelector("a.pure-menu-link");
-		link.addEventListener('click', handleSelect);
-		link.href = "#";
-		link.textContent = groupName;
-		let cog = this.querySelector("a.settings-link");
-		cog.addEventListener('click', handleSettings);
+	groupEntry: new Template("#tmpl-app-group-entry",
+			function(app, name, groupIndex) {
+		let link = this.querySelector(".pure-menu-link");
+		link.textContent = name;
+		link.addEventListener('click', app.selectGroup.bind(app, groupIndex));
 		return this;
 	}),
-
-	menu: new Template("#tmpl-app-menu", function(app) {
-		let curLast = this.querySelector("#rp-menu-group-heading");
-		for (let [index, group] of app.groups.entries()) {
-			let entry = tmpl.app.menuGroupEntry.render(
-					app.selectGroup.bind(app, index),
-					app.groupSettings.bind(app, group),
-					group.name
-			);
-			// Safari doesn't support firstElementChild on DocumentFragment
-			curLast = curLast.parentNode.insertBefore(entry.children[0], curLast.nextSibling);
-		}
-		return this;
-	}),
-
 	state: {
 		module: new Template("#tmpl-app-state-module",
 				function(app, moduleIndex, state) {
@@ -37,8 +19,6 @@ tmpl.app = {
 
 		page: new Template("#tmpl-app-state-page",
 					function(app, moduleStates) {
-			this.querySelector("#group-heading").textContent =
-					app.groups[app.activeGroup].name;
 			let stateWrapper = this.querySelector("#module-state-wrapper");
 			for (let [index, state] of moduleStates.entries()) {
 				stateWrapper.appendChild(
@@ -83,12 +63,11 @@ class App {
 		}
 	}
 
-	setMain(content) {
-		let main = document.querySelector("#main");
-		let newMain = main.cloneNode(false);
-		newMain.appendChild(content);
-		main.parentNode.replaceChild(newMain, main);
-		initDropdowns();
+	setPage(content) {
+		let page = document.querySelector("#page");
+		let newPage = page.cloneNode(false);
+		newPage.appendChild(content);
+		page.parentNode.replaceChild(newPage, page);
 	}
 
 	async selectGroup(index) {
@@ -100,7 +79,8 @@ class App {
 		}
 		this.activeGroup = index;
 		let page = tmpl.app.state.page.render(this, moduleStates);
-		this.setMain(page);
+		this.setPage(page);
+		document.querySelector("#title").textContent = app.groups[index].name;
 		for(let [index, entry] of
 				document.querySelectorAll(".rp-menu-group-entry").entries()) {
 			if (index == this.activeGroup) {
@@ -111,12 +91,22 @@ class App {
 		}
 	}
 
-	async groupSettings(group) {
-		let url = "/config/groups/" + group.id;
-		let cfgData = await App.fetch(url, "GET", null);
-		let cfgPage = new ConfigPage(this, cfgData, url);
-		let page = cfgPage.ui(group.name + " Settings", cfgData);
-		this.setMain(page);
+	async showConfig() {
+		this.setPage(this.cfgPage.ui());
+	}
+
+	regenGroupListUI() {
+		let groupList = document.querySelector("#menu-groups");
+		while (groupList.firstChild && !groupList.firstChild.remove());
+		for (const [index, group] of this.groups.entries()) {
+			let entry = tmpl.app.groupEntry.render(app, group.name, index);
+			groupList.appendChild(entry);
+		}
+		if (!this.groupDropdownHandler) {
+			this.groupDropdownHandler = new DropdownHandler(groupList.parentNode);
+		} else {
+			this.groupDropdownHandler.hide();
+		}
 	}
 
 	/* queries the global config from the server and initializes the app. */
@@ -134,15 +124,13 @@ class App {
 		this.groups = returned.groups;
 		this.fonts = returned.fonts;
 		this.activeGroup = returned.activeGroup;
-
-		let menu = document.querySelector("#menu");
-		let renderedMenu = menu.cloneNode(false);
-		renderedMenu.appendChild(tmpl.app.menu.render(this));
-		menu.parentNode.replaceChild(renderedMenu, menu);
-
+		this.regenGroupListUI();
 		if (this.activeGroup != -1) {
 			this.selectGroup(this.activeGroup);
 		}
+		this.cfgPage = new ConfigPage(this);
+		document.querySelector("#show-config").addEventListener(
+			"click", this.showConfig.bind(this));
 	}
 }
 

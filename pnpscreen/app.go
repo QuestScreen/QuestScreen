@@ -7,15 +7,14 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/flyx/pnpscreen/modules"
+	"github.com/flyx/pnpscreen/api"
+	base "github.com/flyx/pnpscreen/base"
+	"github.com/flyx/pnpscreen/data"
+	"github.com/flyx/pnpscreen/display"
 	"github.com/flyx/pnpscreen/web"
 
-	"github.com/flyx/pnpscreen/display"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
-
-	"github.com/flyx/pnpscreen/api"
-	"github.com/flyx/pnpscreen/data"
 )
 
 // implements api.Resource
@@ -51,7 +50,7 @@ type app struct {
 	display             display.Display
 	activeGroup         int
 	activeSystem        int
-	html, js            []byte
+	html, js, css       []byte
 }
 
 // Init initializes the static data
@@ -97,9 +96,12 @@ func (a *app) Init(fullscreen bool, events display.Events, port uint16) {
 	a.js = append(a.js, web.MustAsset("web/js/config.js")...)
 	a.js = append(a.js, '\n')
 	a.js = append(a.js, web.MustAsset("web/js/app.js")...)
-	a.js = append(a.js, '\r')
+	a.js = append(a.js, '\n')
 	a.js = append(a.js, web.MustAsset("web/js/state.js")...)
-	if err = a.registerPlugin(&modules.Base{}, renderer); err != nil {
+	a.css = append(a.css, web.MustAsset("web/css/style.css")...)
+	a.css = append(a.css, '\n')
+	a.css = append(a.css, web.MustAsset("web/css/color.css")...)
+	if err = a.registerPlugin(&base.Base{}, renderer); err != nil {
 		panic(err)
 	}
 	a.html = append(a.html, '\n')
@@ -188,10 +190,18 @@ func (a *app) registerModule(module api.Module, renderer *sdl.Renderer) error {
 
 func (a *app) registerPlugin(plugin api.Plugin, renderer *sdl.Renderer) error {
 	println("Loading plugin", plugin.Name())
-	a.js = append(a.js, '\n')
-	a.js = append(a.js, plugin.AdditionalJS()...)
-	a.html = append(a.html, '\n')
-	a.html = append(a.html, plugin.AdditionalHTML()...)
+	if js := plugin.AdditionalJS(); js != nil {
+		a.js = append(a.js, '\n')
+		a.js = append(a.js, js...)
+	}
+	if html := plugin.AdditionalHTML(); html != nil {
+		a.html = append(a.html, '\n')
+		a.html = append(a.html, html...)
+	}
+	if css := plugin.AdditionalCSS(); css != nil {
+		a.css = append(a.css, '\n')
+		a.css = append(a.css, css...)
+	}
 	modules := plugin.Modules()
 	for i := range modules {
 		if err := a.registerModule(modules[i], renderer); err != nil {

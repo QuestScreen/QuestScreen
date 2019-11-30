@@ -41,6 +41,7 @@ tmpl.state = {
 				children.appendChild(tmpl.state.list.item.render(
 						ctrl, index, itemVisible, item));
 			}
+			new DropdownHandler(children.parentNode);
 
 			let menuRoot = this.querySelector(".state-list-root");
 			if (ctrl.kind == SelectorKind.multiple) {

@@ -37,6 +37,8 @@ func newStaticResourceHandler(owner *app, events display.Events) *staticResource
 	handler.resources["/index.html"] = indexRes
 	handler.resources["/all.js"] = staticResource{
 		contentType: "application/javascript", content: owner.js}
+	handler.resources["/style.css"] = staticResource{
+		contentType: "text/css", content: owner.css}
 	return handler
 }
 
@@ -94,7 +96,6 @@ func startServer(owner *app,
 	handler := newStaticResourceHandler(owner, events)
 	handler.add("/css/pure-min.css", "text/css")
 	handler.add("/css/grids-responsive-min.css", "text/css")
-	handler.add("/css/style.css", "text/css")
 	handler.add("/css/fontawesome.min.css", "text/css")
 	handler.add("/css/solid.min.css", "text/css")
 	handler.add("/js/ui.js", "application/javascript")

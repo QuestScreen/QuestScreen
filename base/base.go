@@ -2,10 +2,10 @@ package modules
 
 import (
 	"github.com/flyx/pnpscreen/api"
-	"github.com/flyx/pnpscreen/modules/background"
-	"github.com/flyx/pnpscreen/modules/herolist"
-	"github.com/flyx/pnpscreen/modules/persons"
-	"github.com/flyx/pnpscreen/modules/title"
+	"github.com/flyx/pnpscreen/base/background"
+	"github.com/flyx/pnpscreen/base/herolist"
+	"github.com/flyx/pnpscreen/base/persons"
+	"github.com/flyx/pnpscreen/base/title"
 	"github.com/flyx/pnpscreen/web"
 )
 
@@ -32,4 +32,8 @@ func (*Base) AdditionalJS() []byte {
 // AdditionalHTML returns the HTML templates for the base modules.
 func (*Base) AdditionalHTML() []byte {
 	return web.MustAsset("web/html/base.html")
+}
+
+func (*Base) AdditionalCSS() []byte {
+	return nil
 }
