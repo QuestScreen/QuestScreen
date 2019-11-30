@@ -1,0 +1,24 @@
+header {
+  background-color: lightcoral;
+}
+
+nav {
+  background-color: darkgoldenrod;
+}
+
+nav > div > a:hover,
+nav > div > a:active {
+	background-color: firebrick;
+}
+
+nav .pure-menu-link {
+  color: black;
+}
+
+#menu-groups {
+  background-color: indianred;
+}
+
+#title-wrapper {
+  background-color: darkolivegreen;
+}

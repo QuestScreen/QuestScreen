@@ -3,7 +3,12 @@ tmpl.app = {
 			function(app, name, groupIndex) {
 		let link = this.querySelector(".pure-menu-link");
 		link.textContent = name;
-		link.addEventListener('click', app.selectGroup.bind(app, groupIndex));
+		link.addEventListener('click', e => {
+			const groupMenuBtn = document.querySelector("#open-group-menu");
+			groupMenuBtn.click();
+			groupMenuBtn.blur();
+			app.selectGroup(groupIndex);
+		});
 		return this;
 	}),
 	state: {
@@ -95,6 +100,31 @@ class App {
 		this.setPage(this.cfgPage.ui());
 	}
 
+	sleep(ms) {
+		return new Promise(resolve => setTimeout(resolve, ms));
+	}
+
+	async toggleHeader() {
+		const header = document.querySelector("header");
+		if (this.headerHeight) {
+			header.addEventListener("transitionend", e => {
+				header.style.height = "";
+				header.style.paddingBottom = "";
+				header.style.overflow = "";
+			}, {once: true});
+			header.style.height = this.headerHeight + "px";
+			this.headerHeight = false;
+		} else {
+			this.headerHeight = header.offsetHeight;
+			// no transition since height was 'auto' before
+			header.style.height = this.headerHeight + "px";
+			header.style.paddingBottom = 0;
+			header.style.overflow = "hidden";
+			header.offsetWidth; // forces repaint
+			header.style.height = 0;
+		}
+	}
+
 	regenGroupListUI() {
 		let groupList = document.querySelector("#menu-groups");
 		while (groupList.firstChild && !groupList.firstChild.remove());
@@ -130,7 +160,12 @@ class App {
 		}
 		this.cfgPage = new ConfigPage(this);
 		document.querySelector("#show-config").addEventListener(
-			"click", this.showConfig.bind(this));
+			"click", e => {
+				e.target.blur();
+				this.showConfig();
+			});
+		document.querySelector("#header-toggle").addEventListener(
+				"click", this.toggleHeader.bind(this));
 	}
 }
 

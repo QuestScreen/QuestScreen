@@ -5,6 +5,25 @@
 	content: "";
 }
 
+.pure-menu-has-children,
+.pure-menu-children {
+	transition: all 0.2s ease-out;
+}
+
+@media screen and (max-width: 35.5em) {
+	.pure-menu-has-children > .pure-menu-children {
+		position: static;
+		display: block;
+		overflow: hidden;
+		height: 0;
+		transition: all 0.2s ease-out;
+	}
+
+	.pure-menu-has-children > .pure-menu-children > .pure-menu-item {
+		box-sizing: border-box;
+		height: 2em;
+	}
+}
 
 /* header */
 
@@ -12,7 +31,16 @@ header {
 	width: 100%;
 	margin: 0;
 	padding-bottom: .5em;
+	transition: height 0.2s ease-out;
+	box-sizing: border-box;
 }
+
+@media screen and (max-width: 35.5em) {
+	header {
+		padding-bottom: 0;
+	}
+}
+
 
 header h1 {
 	margin: 0;
@@ -24,12 +52,19 @@ header h1 {
 	width: 100%;
 }
 
+nav {
+	width: 30em;
+	border-radius: .125em;
+	margin-left: auto;
+	margin-right: auto;
+	margin-top: .25em;
+}
+
 nav > div > a:link,
 nav > div > a:hover,
 nav > div > a:active,
 nav > div > a:visited {
 	color: black;
-	text-decoration: none;
 }
 
 nav .pure-menu-horizontal > .pure-menu-list,
@@ -44,10 +79,6 @@ nav .pure-menu-horizontal > .pure-menu-list > .pure-menu-item {
 	text-align: center;
 }
 
-#menu-groups {
-	position: absolute;
-}
-
 nav > div > a > i.fas {
 	position: absolute;
 	right: 0;
@@ -55,19 +86,11 @@ nav > div > a > i.fas {
 	padding-right: .25em;
 }
 
-@media screen and (min-width: 48em) {
-	#menu-group {
-		position: relative;
-	}
-}
-
-@media screen and (min-width: 48em) {
+@media screen and (max-width: 35.5em) {
 	nav {
-		width: 30em;
-		border-radius: .125em;
-		margin-left: auto;
-		margin-right: auto;
-		margin-top: .25em;
+		width: 100%;
+		border-radius: 0;
+		margin: 0;
 	}
 }
 
@@ -85,7 +108,7 @@ nav > div > a > i.fas {
 	display: block;
 }
 
-#title-wrapper #menu-toggle {
+#title-wrapper #header-toggle {
 	position: absolute;
 	right: 0;
 	top: 0;
