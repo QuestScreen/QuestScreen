@@ -1,5 +1,15 @@
 /* general */
 
+html, body {
+	height: 100%;
+	margin: 0;
+}
+
+body {
+	display: flex;
+	flex-direction: column;
+}
+
 /* remove triangle. we use the nicer font-awesome triangle. */
 .pure-menu-horizontal .pure-menu-has-children > .pure-menu-link::after {
 	content: "";
@@ -25,10 +35,19 @@
 	}
 }
 
+hr {
+	border: 0;
+	height: 3px;
+	border-radius: 1px;
+	width: 95%;
+	margin-left: auto;
+	margin-right: auto;
+}
+
 /* header */
 
 header {
-	width: 100%;
+	flex: 0 0 auto;
 	margin: 0;
 	padding-bottom: .5em;
 	transition: height 0.2s ease-out;
@@ -52,7 +71,7 @@ header h1 {
 	width: 100%;
 }
 
-nav {
+nav#mainmenu {
 	width: 30em;
 	border-radius: .125em;
 	margin-left: auto;
@@ -60,15 +79,8 @@ nav {
 	margin-top: .25em;
 }
 
-nav > div > a:link,
-nav > div > a:hover,
-nav > div > a:active,
-nav > div > a:visited {
-	color: black;
-}
-
-nav .pure-menu-horizontal > .pure-menu-list,
-nav .pure-menu-horizontal > .pure-menu-list > .pure-menu-item {
+nav#mainmenu .pure-menu-horizontal > .pure-menu-list,
+nav#mainmenu .pure-menu-horizontal > .pure-menu-list > .pure-menu-item {
 	display: block;
 }
 
@@ -79,7 +91,7 @@ nav .pure-menu-horizontal > .pure-menu-list > .pure-menu-item {
 	text-align: center;
 }
 
-nav > div > a > i.fas {
+nav#mainmenu > div > a > i.fas {
 	position: absolute;
 	right: 0;
 	padding-top: .25em;
@@ -87,7 +99,7 @@ nav > div > a > i.fas {
 }
 
 @media screen and (max-width: 35.5em) {
-	nav {
+	nav#mainmenu {
 		width: 100%;
 		border-radius: 0;
 		margin: 0;
@@ -95,23 +107,64 @@ nav > div > a > i.fas {
 }
 
 #title-wrapper {
+	flex: 0 0 2em;
 	position: relative;
-	height: 1.25em;
-	line-height: 1.25em;
 	margin: 0;
 	padding: .5em;
+	box-sizing: border-box;
 }
 
 #title-wrapper #title {
 	margin: 0;
 	text-align: center;
 	display: block;
+	padding-right: 1.25em;
 }
 
 #title-wrapper #header-toggle {
 	position: absolute;
 	right: 0;
 	top: 0;
+	padding: .5em;
+}
+
+/* page */
+
+#page {
+	flex: 1 1 auto;
+	display: flex;
+	flex-direction: row;
+	height: 100%;
+}
+
+#pagemenu-wrapper {
+	flex: 0 0 7.5em;
+	margin: 0;
+	padding: 0;
+	height: 100%;
+}
+
+main {
+	flex: 1 0 0px;
+}
+
+@media screen and (max-width: 35.5em) {
+	#page {
+		flex-direction: column;
+	}
+
+	#pagemenu-wrapper {
+		flex: 0 0 auto;
+		padding: .5em;
+		height: auto;
+	}
+
+	nav#pagemenu {
+		border-radius: .125em;
+	}
+}
+
+article {
 	padding: .5em;
 }
 
@@ -127,12 +180,6 @@ nav > div > a > i.fas {
 	position: absolute;
 	left: -250px;
 	width: 250px;
-}
-
-hr {
-	border: 0;
-	height: 1px;
-	background-color: #333;
 }
 
 .state-list-container {

@@ -11,7 +11,8 @@ nav > div > a:active {
 	background-color: firebrick;
 }
 
-nav .pure-menu-link {
+nav .pure-menu-link,
+nav .pure-menu-heading {
   color: black;
 }
 
@@ -19,6 +20,10 @@ nav .pure-menu-link {
   background-color: indianred;
 }
 
-#title-wrapper {
+#title-wrapper, #pagemenu-wrapper {
   background-color: darkolivegreen;
+}
+
+hr {
+  background-color: #333;
 }

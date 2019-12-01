@@ -11,6 +11,7 @@ WEBFILES = \
 	web/js/state.js\
 	web/js/template.js\
 	web/js/ui.js\
+	web/css/color.css\
 	web/css/style.css\
   web/css/pure-min.css\
 	web/css/grids-responsive-min.css\

@@ -43,13 +43,13 @@ tmpl.state = {
 			}
 			new DropdownHandler(children.parentNode);
 
-			let menuRoot = this.querySelector(".state-list-root");
+			let menuCaption = this.querySelector(".state-list-caption");
 			if (ctrl.kind == SelectorKind.multiple) {
-				menuRoot.textContent = ctrl.menuName;
+				menuCaption.textContent = ctrl.menuName;
 			} else if (visible == -1) {
-				menuRoot.textContent = "None";
+				menuCaption.textContent = "None";
 			} else {
-				menuRoot.textContent = captions[visible];
+				menuCaption.textContent = captions[visible];
 			}
 			return this;
 		})
@@ -68,7 +68,7 @@ class ListSelector {
 		let ret = tmpl.state.list.root.render(this, visible, captions);
 		this.uiItems = ret.querySelector(".pure-menu-children").children;
 		if (this.kind != SelectorKind.multiple) {
-			this.menuRoot = ret.querySelector(".state-list-root");
+			this.menuCaption = ret.querySelector(".state-list-caption");
 		}
 		return ret;
 	}
@@ -88,7 +88,7 @@ class ListSelector {
 				let item = this.uiItems[itemIndex];
 				if (actualIndex == itemIndex) {
 					item.classList.add("pure-menu-selected");
-					this.menuRoot.textContent =
+					this.menuCaption.textContent =
 							item.querySelector(".state-list-item-name").textContent;
 				} else {
 					item.classList.remove("pure-menu-selected");

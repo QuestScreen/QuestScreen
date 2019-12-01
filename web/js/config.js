@@ -3,30 +3,30 @@ const ItemKind = {
 }
 
 tmpl.config = {
-	menuEntry: new Template("#tmpl-app-config-menu-entry",
-			function(handler, name) {
-		let link = this.querySelector(".pure-menu-link");
-		link.textContent = name;
-		link.addEventListener("click", handler);
-		return this;
-	}),
-	page: new Template("#tmpl-app-config-page",
+	menu: new Template("#tmpl-app-config-menu",
 			function(app, configPage) {
+		configPage.activeMenuEntry = null;
 		let list = this.querySelector(".config-menu-list");
 
 		let curLast = list.querySelector(".config-menu-system-heading");
 		for (const [index, system] of app.systems.entries()) {
-			let entry = tmpl.config.menuEntry.render(
-				configPage.viewSystem.bind(configPage, system), system.name);
+			let entry = tmpl.app.pageMenuEntry.render(
+				app, configPage.viewSystem.bind(configPage, system), system.name);
 			// Safari doesn't support firstElementChild on DocumentFragment
-			curLast = curLast.parentNode.insertBefore(entry.children[0], curLast.nextSibling);
+			curLast = curLast.parentNode.insertBefore(entry, curLast.nextSibling);
+			if (app.activeGroup == -1 && index == 0) {
+				configPage.activeMenuEntry = entry;
+			}
 		}
 
 		curLast = this.querySelector(".config-menu-group-heading");
 		for (let [index, group] of app.groups.entries()) {
-			let entry = tmpl.config.menuEntry.render(
-					configPage.viewGroup.bind(configPage, group), group.name);
-			curLast = curLast.parentNode.insertBefore(entry.children[0], curLast.nextSibling);
+			let entry = tmpl.app.pageMenuEntry.render(
+					app, configPage.viewGroup.bind(configPage, group), group.name);
+			curLast = curLast.parentNode.insertBefore(entry, curLast.nextSibling);
+			if (index == app.activeGroup) {
+				configPage.activeMenuEntry = entry;
+			}
 		}
 		return this;
 	}),
@@ -60,10 +60,9 @@ tmpl.config = {
 	view: new Template("#tmpl-config-view",
 			function(app, moduleDescs, data, saveHandler) {
 		let container = this.querySelector("article");
-		let controlSep = this.querySelector("#settings-control-sep");
-		for (let i = 0; i < moduleDescs.length; i++) {
+		for (let i = moduleDescs.length - 1; i >= 0; i--) {
 			container.insertBefore(tmpl.config.module.render(
-				app, moduleDescs[i], data[i]), controlSep);
+				app, moduleDescs[i], data[i]), container.childNodes[0]);
 		}
 		container.querySelector("#settings-save").addEventListener("click",
 			saveHandler);
@@ -241,12 +240,8 @@ class ConfigPage {
 	async loadView(url, title) {
 		const cfgData = await App.fetch(url, "GET", null);
 		const view = new ConfigView(this.app, cfgData, url);
-
-		const content = document.querySelector("#config-content");
-		const newContent = content.cloneNode(false);
-		newContent.appendChild(view.ui(cfgData));
-		content.parentNode.replaceChild(newContent, main);
-		document.querySelector("#title").textContent = title;
+		this.app.setPage(view.ui(cfgData));
+		this.app.setTitle(title);
 	}
 
 	async viewSystem(system) {
@@ -259,11 +254,7 @@ class ConfigPage {
 									"Group settings – " + group.name);
 	}
 
-	ui() {
-		let ret = tmpl.config.page.render(app, this);
-		if (this.app.activeGroup != -1) {
-			this.viewGroup(this.app.groups[this.app.activeGroup]);
-		}
-		return ret;
+	genMenu() {
+		return tmpl.config.menu.render(app, this);
 	}
 }

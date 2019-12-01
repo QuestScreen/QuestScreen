@@ -7,9 +7,20 @@ tmpl.app = {
 			const groupMenuBtn = document.querySelector("#open-group-menu");
 			groupMenuBtn.click();
 			groupMenuBtn.blur();
-			app.selectGroup(groupIndex);
+			app.showState(groupIndex);
 		});
-		return this;
+		// return directly the <li> element.
+		return this.children[0];
+	}),
+	pageMenuEntry: new Template("#tmpl-app-page-menu-entry",
+			function(app, handler, name) {
+		let link = this.querySelector(".pure-menu-link");
+		link.textContent = name;
+		link.addEventListener("click", e => {
+			app.setActivePageMenuItem(link.parentNode);
+			handler();
+		});
+		return this.children[0];
 	}),
 	state: {
 		module: new Template("#tmpl-app-state-module",
@@ -68,25 +79,46 @@ class App {
 		}
 	}
 
+	setMenu(content) {
+		let pagemenu = document.querySelector("#pagemenu");
+		let newMenu = pagemenu.cloneNode(false);
+		newMenu.appendChild(content);
+		pagemenu.parentNode.replaceChild(newMenu, pagemenu);
+	}
+
 	setPage(content) {
-		let page = document.querySelector("#page");
-		let newPage = page.cloneNode(false);
+		const page = document.querySelector("main");
+		const newPage = page.cloneNode(false);
 		newPage.appendChild(content);
 		page.parentNode.replaceChild(newPage, page);
 	}
 
-	async selectGroup(index) {
-		let moduleStates = await App.fetch("/groups/" + this.groups[index].id);
+	setTitle(caption) {
+		document.querySelector("#title").textContent = caption;
+	}
+
+	setActivePageMenuItem(item) {
+		const pagemenu = document.querySelector("#pagemenu");
+		for (const item of pagemenu.querySelectorAll(".pure-menu-item")) {
+			item.classList.remove("pure-menu-active");
+		}
+		item.classList.add("pure-menu-active");
+		pagemenu.classList.remove("pagemenu-expanded");
+	}
+
+	async showState(groupIndex) {
+		const moduleStates = await App.fetch("/groups/" + this.groups[groupIndex].id);
 		if (!Array.isArray(moduleStates) ||
 			moduleStates.length != this.modules.length) {
 			throw Error(
 					"Invalid response structure (not an array or wrong length");
 		}
-		this.activeGroup = index;
-		let page = tmpl.app.state.page.render(this, moduleStates);
+		this.activeGroup = groupIndex;
+		const page = tmpl.app.state.page.render(this, moduleStates);
 		this.setPage(page);
-		document.querySelector("#title").textContent = app.groups[index].name;
-		for(let [index, entry] of
+		this.setTitle(app.groups[groupIndex].name);
+		this.setMenu(document.createTextNode("TODO"));
+		for(const [index, entry] of
 				document.querySelectorAll(".rp-menu-group-entry").entries()) {
 			if (index == this.activeGroup) {
 				entry.classList.add("pure-menu-selected");
@@ -97,16 +129,24 @@ class App {
 	}
 
 	async showConfig() {
-		this.setPage(this.cfgPage.ui());
+		this.setMenu(this.cfgPage.genMenu());
+		if (this.cfgPage.activeMenuEntry == null) {
+			const empty = document.createElement("p");
+			empty.textContent = "Select group or system";
+			const article = document.createElement("article");
+			article.appendChild(empty);
+			this.setPage(article);
+		} else {
+			this.cfgPage.activeMenuEntry.querySelector("a").click();
+		}
 	}
 
-	sleep(ms) {
-		return new Promise(resolve => setTimeout(resolve, ms));
-	}
-
-	async toggleHeader() {
+	async toggleHeader(link) {
 		const header = document.querySelector("header");
+		const classes = link.children[0].classList;
 		if (this.headerHeight) {
+			classes.remove("fa-angle-down");
+			classes.add("fa-angle-up");
 			header.addEventListener("transitionend", e => {
 				header.style.height = "";
 				header.style.paddingBottom = "";
@@ -115,6 +155,8 @@ class App {
 			header.style.height = this.headerHeight + "px";
 			this.headerHeight = false;
 		} else {
+			classes.remove("fa-angle-up");
+			classes.add("fa-angle-down");
 			this.headerHeight = header.offsetHeight;
 			// no transition since height was 'auto' before
 			header.style.height = this.headerHeight + "px";
@@ -156,7 +198,7 @@ class App {
 		this.activeGroup = returned.activeGroup;
 		this.regenGroupListUI();
 		if (this.activeGroup != -1) {
-			this.selectGroup(this.activeGroup);
+			this.showState(this.activeGroup);
 		}
 		this.cfgPage = new ConfigPage(this);
 		document.querySelector("#show-config").addEventListener(
@@ -165,7 +207,7 @@ class App {
 				this.showConfig();
 			});
 		document.querySelector("#header-toggle").addEventListener(
-				"click", this.toggleHeader.bind(this));
+				"click", e => { this.toggleHeader(e.currentTarget); });
 	}
 }
 
