@@ -8,6 +8,7 @@ tmpl.app = {
 			groupMenuBtn.click();
 			groupMenuBtn.blur();
 			app.showState(groupIndex);
+			e.preventDefault();
 		});
 		// return directly the <li> element.
 		return this.children[0];
@@ -17,8 +18,10 @@ tmpl.app = {
 		let link = this.querySelector(".pure-menu-link");
 		link.textContent = name;
 		link.addEventListener("click", e => {
-			app.setActivePageMenuItem(link.parentNode);
-			handler();
+			if (app.handlePageMenuClick(link.parentNode)) {
+				handler();
+			}
+			e.preventDefault();
 		});
 		return this.children[0];
 	}),
@@ -93,17 +96,28 @@ class App {
 		page.parentNode.replaceChild(newPage, page);
 	}
 
-	setTitle(caption) {
+	setTitle(caption, subtitle) {
 		document.querySelector("#title").textContent = caption;
+		document.querySelector("#subtitle").textContent = subtitle;
 	}
 
-	setActivePageMenuItem(item) {
+	handlePageMenuClick(item) {
 		const pagemenu = document.querySelector("#pagemenu");
-		for (const item of pagemenu.querySelectorAll(".pure-menu-item")) {
-			item.classList.remove("pure-menu-active");
+		if (item.classList.contains("pure-menu-active")) {
+			if (pagemenu.classList.contains("pagemenu-expanded")) {
+				pagemenu.classList.remove("pagemenu-expanded");
+			} else {
+				pagemenu.classList.add("pagemenu-expanded");
+			}
+			return false;
+		} else {
+			for (const item of pagemenu.querySelectorAll(".pure-menu-item")) {
+				item.classList.remove("pure-menu-active");
+			}
+			item.classList.add("pure-menu-active");
+			pagemenu.classList.remove("pagemenu-expanded");
+			return true;
 		}
-		item.classList.add("pure-menu-active");
-		pagemenu.classList.remove("pagemenu-expanded");
 	}
 
 	async showState(groupIndex) {
@@ -116,7 +130,7 @@ class App {
 		this.activeGroup = groupIndex;
 		const page = tmpl.app.state.page.render(this, moduleStates);
 		this.setPage(page);
-		this.setTitle(app.groups[groupIndex].name);
+		this.setTitle(app.groups[groupIndex].name, "");
 		this.setMenu(document.createTextNode("TODO"));
 		for(const [index, entry] of
 				document.querySelectorAll(".rp-menu-group-entry").entries()) {
