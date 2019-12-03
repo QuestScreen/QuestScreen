@@ -40,6 +40,7 @@ tmpl.config = {
 		checkbox.addEventListener("change", e => {
 			itemDesc.enabled = e.currentTarget.checked;
 			itemDesc.handler.setEnabled(e.currentTarget.checked);
+			itemDesc.handler.cfg.setChanged();
 		});
 		checkbox.checked = checked;
 		return this;
@@ -53,7 +54,7 @@ tmpl.config = {
 			content.appendChild(tmpl.config.item.render(
 					moduleDesc.items[i],
 					moduleDesc.items[i].handler.genUI(app, data[i]),
-					data != null));
+					data[i] != null));
 		}
 		return this;
 	}),
@@ -145,7 +146,6 @@ class SelectableFont {
 				button.disabled = true;
 			}
 		}
-		this.cfg.setChanged();
 	}
 
 	getData() {

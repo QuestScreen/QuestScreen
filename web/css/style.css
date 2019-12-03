@@ -28,6 +28,8 @@ body {
 	padding: .5em 1em;
 	display: block;
 	white-space: nowrap;
+	font-weight: bold;
+	text-transform: initial;
 }
 
 @media screen and (max-width: 35.5em) {
@@ -172,6 +174,10 @@ nav#pagemenu i.fa-sort {
 	top: 0;
 	padding: .5em;
 	visibility: hidden;
+}
+
+nav#pagemenu .pure-menu-heading {
+	font-size: small;
 }
 
 main {

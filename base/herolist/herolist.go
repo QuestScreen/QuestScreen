@@ -25,7 +25,9 @@ const (
 	hidingHero
 )
 
-type config struct{}
+type config struct {
+	Font *api.SelectableFont `config:"Font" yaml:"Font"`
+}
 
 type requestKind int
 
@@ -96,9 +98,9 @@ func (l *HeroList) boxHeight() int32 {
 }
 
 func (l *HeroList) renderText(
-	text string, renderer *sdl.Renderer, fontFamilyIndex int,
-	style api.FontStyle, r uint8, g uint8, b uint8) *sdl.Texture {
-	face := l.env.Font(fontFamilyIndex, style, api.ContentFont)
+	text string, renderer *sdl.Renderer, r uint8, g uint8, b uint8) *sdl.Texture {
+	face := l.env.Font(
+		l.config.Font.FamilyIndex, l.config.Font.Style, l.config.Font.Size)
 
 	surface, err := face.RenderUTF8Blended(
 		text, sdl.Color{R: r, G: g, B: b, A: 255})
@@ -138,11 +140,11 @@ func (l *HeroList) rebuildHeroBoxes(renderer *sdl.Renderer) {
 			if err == nil {
 				renderer.SetRenderTarget(heroBox.tex)
 				name := l.renderText(hero.Name(),
-					renderer, 0, api.Standard, 0, 0, 0)
+					renderer, 0, 0, 0)
 				_, _, nameWidth, nameHeight, _ := name.Query()
 				name.SetBlendMode(sdl.BLENDMODE_BLEND)
 				descr := l.renderText(hero.Description(),
-					renderer, 0, api.Standard, 50, 50, 50)
+					renderer, 50, 50, 50)
 				_, _, descrWidth, descrHeight, _ := descr.Query()
 				descr.SetBlendMode(sdl.BLENDMODE_BLEND)
 				renderer.Clear()
@@ -282,8 +284,10 @@ func (*HeroList) EmptyConfig() interface{} {
 }
 
 // DefaultConfig returns the default configuration
-func (*HeroList) DefaultConfig() interface{} {
-	return &config{}
+func (l *HeroList) DefaultConfig() interface{} {
+	return &config{Font: &api.SelectableFont{
+		Family: l.env.FontCatalog()[0].Name(), FamilyIndex: 0,
+		Size: api.ContentFont, Style: api.Standard}}
 }
 
 // SetConfig sets the module's configuration
