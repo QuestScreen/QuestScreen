@@ -98,7 +98,6 @@ func startServer(owner *app,
 	handler.add("/css/grids-responsive-min.css", "text/css")
 	handler.add("/css/fontawesome.min.css", "text/css")
 	handler.add("/css/solid.min.css", "text/css")
-	handler.add("/js/ui.js", "application/javascript")
 	handler.add("/webfonts/fa-solid-900.eot", "application/vnd.ms-fontobject")
 	handler.add("/webfonts/fa-solid-900.svg", "image/svg+xml")
 	handler.add("/webfonts/fa-solid-900.ttf", "font/ttf")

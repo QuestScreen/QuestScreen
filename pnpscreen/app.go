@@ -91,6 +91,8 @@ func (a *app) Init(fullscreen bool, events display.Events, port uint16) {
 	a.activeSystem = -1
 
 	a.html = append(a.html, web.MustAsset("web/html/index-top.html")...)
+	a.js = append(a.js, web.MustAsset("web/js/ui.js")...)
+	a.js = append(a.js, '\n')
 	a.js = append(a.js, web.MustAsset("web/js/template.js")...)
 	a.js = append(a.js, '\n')
 	a.js = append(a.js, web.MustAsset("web/js/config.js")...)
