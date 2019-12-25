@@ -6,7 +6,7 @@ tmpl.config = {
 	menu: new Template("#tmpl-app-config-menu",
 			function(app, configPage) {
 		configPage.activeMenuEntry = null;
-		const list = this.querySelector(".config-menu-list");
+		const list = this.querySelector(".pure-menu-list");
 
 		let curLast = list.querySelector(".config-menu-system-heading");
 		for (const [index, system] of app.systems.entries()) {

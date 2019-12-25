@@ -67,7 +67,7 @@
 </template>
 
 <template id="tmpl-app-config-menu">
-	<ul class="pure-menu-list config-menu-list">
+	<ul class="pure-menu-list">
 		<li class="pure-menu-heading config-menu-system-heading">
 			<!-- this is an <a> so that it can include padding as the surrounding <li>
 			     needs padding: 0; to support hiding responsively. -->
@@ -92,12 +92,16 @@
 
 <!-- templates for showing the state of the current group -->
 
-<template id="tmpl-app-state-page">
+<template id="tmpl-state-menu">
+	<ul class="pure-menu-list"></ul>
+</template>
+
+<template id="tmpl-state-scene">
 	<article class="pure-g" id="module-state-wrapper">
 		<!-- list of module state -->
 	</article>
 </template>
-<template id="tmpl-app-state-module">
+<template id="tmpl-state-module">
 	<div class="pure-u-1 pure-u-md-1-5"><h3 class="state-module-name"></h3></div>
 	<div class="pure-u-1 pure-u-md-4-5 state-module-content"></div>
 	<div class="pure-u-1"><hr/></div>

@@ -38,8 +38,9 @@ const (
 	stateRequest
 )
 
-type requests struct {
-	mutex         sync.Mutex
+type sharedData struct {
+	moduleIndex   api.ModuleIndex // read-only, therefore not mutex-protected
+	mutex         sync.Mutex      // protects values below
 	kind          requestKind
 	globalVisible bool
 	heroIndex     int32
@@ -50,9 +51,7 @@ type requests struct {
 // HeroList is a module for displaying a list of heroes.
 type HeroList struct {
 	*config
-	state
-	requests
-	env                         api.Environment
+	sharedData
 	index                       api.ModuleIndex
 	heroes                      []displayedHero
 	curGlobalVisible            bool
@@ -63,10 +62,10 @@ type HeroList struct {
 	status                      heroStatus
 }
 
-// Init initializes the module.
-func (l *HeroList) Init(renderer *sdl.Renderer, env api.Environment, index api.ModuleIndex) error {
-	l.state.owner = l
-	l.env = env
+// CreateModule creates the HeroList module.
+func CreateModule(renderer *sdl.Renderer,
+	env api.StaticEnvironment, index api.ModuleIndex) (api.Module, error) {
+	l := new(HeroList)
 	l.index = index
 	l.curGlobalVisible = false
 	l.curXOffset = 0
@@ -76,17 +75,23 @@ func (l *HeroList) Init(renderer *sdl.Renderer, env api.Environment, index api.M
 	l.contentHeight = winHeight / 10
 	l.borderWidth = winHeight / 133
 	l.status = resting
-	return nil
+	return l, nil
 }
 
-// Name returns "Hero List".
-func (*HeroList) Name() string {
-	return "Hero List"
+// Descriptor describes the HeroList module.
+var Descriptor = api.ModuleDescriptor{
+	Name:                "Hero List",
+	ID:                  "herolist",
+	ResourceCollections: nil,
+	Actions:             []string{"switchGlobal", "switchHero"},
+	DefaultConfig: &config{Font: &api.SelectableFont{
+		FamilyIndex: 0, Size: api.ContentFont, Style: api.Standard}},
+	CreateModule: CreateModule,
 }
 
-// ID returns "herolist"
-func (*HeroList) ID() string {
-	return "herolist"
+// Descriptor returns the descriptor of the HeroList
+func (*HeroList) Descriptor() *api.ModuleDescriptor {
+	return &Descriptor
 }
 
 func (l *HeroList) boxWidth() int32 {
@@ -98,8 +103,8 @@ func (l *HeroList) boxHeight() int32 {
 }
 
 func (l *HeroList) renderText(
-	text string, renderer *sdl.Renderer, r uint8, g uint8, b uint8) *sdl.Texture {
-	face := l.env.Font(
+	text string, ctx api.RenderContext, r uint8, g uint8, b uint8) *sdl.Texture {
+	face := ctx.Env.Font(
 		l.config.Font.FamilyIndex, l.config.Font.Style, l.config.Font.Size)
 
 	surface, err := face.RenderUTF8Blended(
@@ -108,7 +113,7 @@ func (l *HeroList) renderText(
 		log.Println(err)
 		return nil
 	}
-	textTexture, err := renderer.CreateTextureFromSurface(surface)
+	textTexture, err := ctx.Renderer.CreateTextureFromSurface(surface)
 	surface.Free()
 	if err != nil {
 		log.Println(err)
@@ -117,45 +122,45 @@ func (l *HeroList) renderText(
 	return textTexture
 }
 
-func (l *HeroList) rebuildHeroBoxes(renderer *sdl.Renderer) {
+func (l *HeroList) rebuildHeroBoxes(ctx api.RenderContext) {
 	if l.heroes != nil {
 		for _, hero := range l.heroes {
 			hero.tex.Destroy()
 		}
 	}
-	heroes := l.env.Heroes()
+	heroes := ctx.Env.Heroes()
+	defer heroes.Close()
 
-	if heroes.Length() == 0 {
+	if heroes.NumHeroes() == 0 {
 		l.heroes = nil
 	} else {
-		l.heroes = make([]displayedHero, heroes.Length())
+		l.heroes = make([]displayedHero, heroes.NumHeroes())
 		var err error
 		for index := range l.heroes {
-			hero := heroes.Item(index)
+			hero := heroes.Hero(index)
 			heroBox := &l.heroes[index]
 			heroBox.shown = true
-			heroBox.tex, err = renderer.CreateTexture(sdl.PIXELFORMAT_RGB888,
+			heroBox.tex, err = ctx.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888,
 				sdl.TEXTUREACCESS_TARGET,
 				l.boxWidth(), l.boxHeight())
 			if err == nil {
-				renderer.SetRenderTarget(heroBox.tex)
+				ctx.Renderer.SetRenderTarget(heroBox.tex)
 				name := l.renderText(hero.Name(),
-					renderer, 0, 0, 0)
+					ctx, 0, 0, 0)
 				_, _, nameWidth, nameHeight, _ := name.Query()
 				name.SetBlendMode(sdl.BLENDMODE_BLEND)
-				descr := l.renderText(hero.Description(),
-					renderer, 50, 50, 50)
+				descr := l.renderText(hero.Description(), ctx, 50, 50, 50)
 				_, _, descrWidth, descrHeight, _ := descr.Query()
 				descr.SetBlendMode(sdl.BLENDMODE_BLEND)
-				renderer.Clear()
-				renderer.SetDrawColor(0, 0, 0, 192)
-				renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: l.boxWidth(), H: l.boxHeight()})
-				renderer.SetDrawColor(200, 173, 127, 255)
-				renderer.FillRect(&sdl.Rect{X: 0, Y: l.borderWidth, W: int32(l.contentWidth + 4*l.borderWidth),
+				ctx.Renderer.Clear()
+				ctx.Renderer.SetDrawColor(0, 0, 0, 192)
+				ctx.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: l.boxWidth(), H: l.boxHeight()})
+				ctx.Renderer.SetDrawColor(200, 173, 127, 255)
+				ctx.Renderer.FillRect(&sdl.Rect{X: 0, Y: l.borderWidth, W: int32(l.contentWidth + 4*l.borderWidth),
 					H: int32(l.contentHeight + 2*l.borderWidth)})
-				renderer.Copy(name, nil, &sdl.Rect{X: 2 * l.borderWidth, Y: l.borderWidth, W: nameWidth, H: nameHeight})
+				ctx.Renderer.Copy(name, nil, &sdl.Rect{X: 2 * l.borderWidth, Y: l.borderWidth, W: nameWidth, H: nameHeight})
 
-				renderer.Copy(descr, nil, &sdl.Rect{X: 2 * l.borderWidth,
+				ctx.Renderer.Copy(descr, nil, &sdl.Rect{X: 2 * l.borderWidth,
 					Y: l.boxHeight() - 2*l.borderWidth - descrHeight, W: descrWidth, H: descrHeight})
 				name.Destroy()
 				descr.Destroy()
@@ -163,22 +168,22 @@ func (l *HeroList) rebuildHeroBoxes(renderer *sdl.Renderer) {
 				log.Println(err)
 			}
 		}
-		renderer.SetRenderTarget(nil)
+		ctx.Renderer.SetRenderTarget(nil)
 	}
 }
 
 // InitTransition starts a transition
-func (l *HeroList) InitTransition(renderer *sdl.Renderer) time.Duration {
-	l.requests.mutex.Lock()
-	defer l.requests.mutex.Unlock()
-	curRequest := l.requests.kind
-	l.requests.kind = noRequest
+func (l *HeroList) InitTransition(ctx api.RenderContext) time.Duration {
+	l.sharedData.mutex.Lock()
+	defer l.sharedData.mutex.Unlock()
+	curRequest := l.sharedData.kind
+	l.sharedData.kind = noRequest
 	switch curRequest {
 	case noRequest:
 		return -1
 	case globalRequest:
-		if l.requests.globalVisible != l.curGlobalVisible {
-			if l.requests.globalVisible {
+		if l.sharedData.globalVisible != l.curGlobalVisible {
+			if l.sharedData.globalVisible {
 				l.status = showingAll
 			} else {
 				l.status = hidingAll
@@ -186,14 +191,14 @@ func (l *HeroList) InitTransition(renderer *sdl.Renderer) time.Duration {
 			return time.Second
 		}
 	case heroRequest:
-		if l.heroes[l.requests.heroIndex].shown != l.requests.heroVisible {
-			if l.requests.heroVisible {
+		if l.heroes[l.sharedData.heroIndex].shown != l.sharedData.heroVisible {
+			if l.sharedData.heroVisible {
 				l.status = showingHero
 			} else {
 				l.status = hidingHero
 			}
-			l.heroes[l.requests.heroIndex].tex.SetBlendMode(sdl.BLENDMODE_BLEND)
-			l.curHero = l.requests.heroIndex
+			l.heroes[l.sharedData.heroIndex].tex.SetBlendMode(sdl.BLENDMODE_BLEND)
+			l.curHero = l.sharedData.heroIndex
 			return time.Second
 		}
 	case stateRequest:
@@ -204,7 +209,7 @@ func (l *HeroList) InitTransition(renderer *sdl.Renderer) time.Duration {
 }
 
 // TransitionStep advances the transition
-func (l *HeroList) TransitionStep(renderer *sdl.Renderer, elapsed time.Duration) {
+func (l *HeroList) TransitionStep(ctx api.RenderContext, elapsed time.Duration) {
 	switch l.status {
 	case showingAll:
 		l.curXOffset = int32(((time.Second - elapsed) * time.Duration(l.boxWidth())) / time.Second)
@@ -222,7 +227,7 @@ func (l *HeroList) TransitionStep(renderer *sdl.Renderer, elapsed time.Duration)
 }
 
 // FinishTransition finalizes the transition
-func (l *HeroList) FinishTransition(renderer *sdl.Renderer) {
+func (l *HeroList) FinishTransition(ctx api.RenderContext) {
 	l.curXOffset = 0
 	l.curYOffset = 0
 	switch l.status {
@@ -239,7 +244,7 @@ func (l *HeroList) FinishTransition(renderer *sdl.Renderer) {
 }
 
 // Render renders the current state of the HeroList
-func (l *HeroList) Render(renderer *sdl.Renderer) {
+func (l *HeroList) Render(ctx api.RenderContext) {
 	shown := int32(0)
 	additionalYOffset := int32(0)
 	if !l.curGlobalVisible && l.status == resting {
@@ -254,18 +259,18 @@ func (l *HeroList) Render(renderer *sdl.Renderer) {
 			((l.status == showingHero || l.status == hidingHero) && l.curHero == int32(i)) {
 			xOffset = l.curXOffset
 		}
-		_, winHeight, _ := renderer.GetOutputSize()
+		_, winHeight, _ := ctx.Renderer.GetOutputSize()
 		if xOffset == 0 {
 			targetRect := sdl.Rect{X: 0, Y: winHeight/10 + (l.boxHeight()+l.contentHeight/4)*shown + additionalYOffset,
 				W: l.boxWidth(), H: l.boxHeight()}
-			if err := renderer.Copy(l.heroes[i].tex, nil, &targetRect); err != nil {
+			if err := ctx.Renderer.Copy(l.heroes[i].tex, nil, &targetRect); err != nil {
 				log.Println(err)
 			}
 		} else {
 			targetRect := sdl.Rect{X: 0, Y: winHeight/10 + (l.boxHeight()+l.contentHeight/4)*shown + additionalYOffset,
 				W: l.boxWidth() - xOffset, H: l.boxHeight()}
 			sourceRect := sdl.Rect{X: l.curXOffset, Y: 0, W: l.boxWidth(), H: l.boxHeight()}
-			if err := renderer.Copy(l.heroes[i].tex, &sourceRect, &targetRect); err != nil {
+			if err := ctx.Renderer.Copy(l.heroes[i].tex, &sourceRect, &targetRect); err != nil {
 				log.Println(err)
 			}
 		}
@@ -278,41 +283,29 @@ func (l *HeroList) Render(renderer *sdl.Renderer) {
 	}
 }
 
-// EmptyConfig returns an empty configuration
-func (*HeroList) EmptyConfig() interface{} {
-	return &config{}
-}
-
-// DefaultConfig returns the default configuration
-func (l *HeroList) DefaultConfig() interface{} {
-	return &config{Font: &api.SelectableFont{
-		Family: l.env.FontCatalog()[0].Name(), FamilyIndex: 0,
-		Size: api.ContentFont, Style: api.Standard}}
-}
-
 // SetConfig sets the module's configuration
 func (l *HeroList) SetConfig(value interface{}) {
 	l.config = value.(*config)
 }
 
-// State returns the current state.
-func (l *HeroList) State() api.ModuleState {
-	return &l.state
+// CreateState creates a new state for the HeroList
+func (l *HeroList) CreateState(yamlSubtree interface{}, env api.Environment) (api.ModuleState, error) {
+	return newState(yamlSubtree, env, &l.sharedData)
 }
 
 // RebuildState queries the new state through the channel and immediately
 // updates everything.
-func (l *HeroList) RebuildState(renderer *sdl.Renderer) {
+func (l *HeroList) RebuildState(ctx api.RenderContext) {
 	old := l.heroes
-	l.rebuildHeroBoxes(renderer)
-	l.requests.mutex.Lock()
-	defer l.requests.mutex.Unlock()
-	switch l.requests.kind {
+	l.rebuildHeroBoxes(ctx)
+	l.sharedData.mutex.Lock()
+	defer l.sharedData.mutex.Unlock()
+	switch l.sharedData.kind {
 	case stateRequest:
-		for i := range l.requests.heroes {
-			l.heroes[i].shown = l.requests.heroes[i]
+		for i := range l.sharedData.heroes {
+			l.heroes[i].shown = l.sharedData.heroes[i]
 		}
-		l.curGlobalVisible = l.requests.globalVisible
+		l.curGlobalVisible = l.sharedData.globalVisible
 	case noRequest:
 		for i := range l.heroes {
 			l.heroes[i].shown = old[i].shown
@@ -322,10 +315,5 @@ func (l *HeroList) RebuildState(renderer *sdl.Renderer) {
 	}
 
 	l.status = resting
-	l.requests.kind = noRequest
-}
-
-// ResourceCollections returns nil.
-func (l *HeroList) ResourceCollections() []api.ResourceSelector {
-	return nil
+	l.sharedData.kind = noRequest
 }

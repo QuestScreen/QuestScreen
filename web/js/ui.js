@@ -10,11 +10,15 @@ class DropdownHandler {
 		this.closed = true;
 		this.menu = parent.querySelector(".pure-menu-children");
 		this.link = parent.querySelector(".pure-menu-link");
-		this.link.addEventListener("click", this.toggle.bind(this));
+		this.link.addEventListener("click", e => {
+			this.toggle();
+			e.preventDefault();
+		});
 		document.addEventListener(DISMISS_EVENT, e => {
 			if (e.target !== this.link && !this.menu.contains(e.target)) {
 				this.hide();
 			}
+			e.preventDefault();
 		});
 	}
 

@@ -20,30 +20,47 @@ type Hero interface {
 	Description() string
 }
 
-// HeroList describes a list of heroes.
-// this type is necessary since a []HeroImpl object cannot be casted to []Hero.
-type HeroList interface {
-	Item(index int) Hero
-	Length() int
+// HeroView describes a view on a list of heroes.
+// This view is exclusive and must be closed via Close() after requesting it!
+// The exclusiveness ensures that no data races happen between the threads since
+// both server and render thread may access the heroes.
+type HeroView interface {
+	Hero(index int) Hero
+	NumHeroes() int
+	Close()
+}
+
+// StaticEnvironment describes the part of the environment that does not depend
+// on its modules or the selected group or system.
+type StaticEnvironment interface {
+	// FontCatalog returns the list of loaded font families. Safe for the access
+	// to the *ttf.Font objects, this list is read-only after app startup and
+	// therefore may be safely used in any thread. The *ttf.Font objects are only
+	// to be used in the OpenGL thread.
+	FontCatalog() []FontFamily
+	// Returns the default size (in pixels) of a border line.
+	// This is read-only after app startup and may be safely used in any thread.
+	DefaultBorderWidth() int32
 }
 
 // Environment describes the global environment.
 type Environment interface {
+	StaticEnvironment
 	// GetResources queries the list of available resources of the given
 	// resource collection index.
 	//
 	// The resources are filtered by the currently active system and group.
+	// Each Resource object is read-only and may be freely shared between threads.
 	GetResources(
 		moduleIndex ModuleIndex, index ResourceCollectionIndex) []Resource
-	// Heroes returns the list of available heroes. This list depends on the
-	// currently selected group and may be nil.
-	Heroes() HeroList
-	// FontCatalog returns the list of loaded font families.
-	FontCatalog() []FontFamily
+	// Heroes returns a view of available heroes. This viewdepends on the
+	// currently selected group and may be empty.
+	// Requesting a HeroView may be blocking and the returned view must be closed
+	// after usage to unblock other threads from accessing the heroes.
+	Heroes() HeroView
 	// Font is a shorthand to select a specific font from the catalog.
+	// This func may only be called in the OpenGL thread.
 	Font(familyIndex int, style FontStyle, size FontSize) *ttf.Font
-	// Returns the default size (in pixels) of a border line.
-	DefaultBorderWidth() int32
 }
 
 // ResourceNames generates a list of resource names from a list of resources.

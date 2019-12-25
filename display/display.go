@@ -16,6 +16,12 @@ type ModuleConfigUpdate struct {
 	Config interface{}
 }
 
+// SceneUpdate is a message originating in a scene change. It carries the
+// information of which modules shall be enabled in the new scene.
+type SceneUpdate struct {
+	ModuleEnabled []bool
+}
+
 type animationState struct {
 	transStart    time.Time
 	transEnd      time.Time
@@ -34,6 +40,7 @@ type Display struct {
 	popupTexture   *sdl.Texture
 	welcomeTexture *sdl.Texture
 	initial        bool
+	enabledModules []bool
 }
 
 // Init initializes the display. The renderer and window need to be generated
@@ -63,6 +70,7 @@ func (d *Display) Init(
 }
 
 func (d *Display) render(cur time.Time, popup bool) {
+	ctx := api.RenderContext{Renderer: d.Renderer, Env: d.owner}
 	d.Renderer.Clear()
 	if d.initial {
 		_ = d.Renderer.Copy(d.welcomeTexture, nil, nil)
@@ -70,19 +78,19 @@ func (d *Display) render(cur time.Time, popup bool) {
 		d.Renderer.SetDrawColor(255, 255, 255, 255)
 		d.Renderer.FillRect(nil)
 		for i := api.ModuleIndex(0); i < d.owner.NumModules(); i++ {
-			if d.owner.ModuleEnabled(i) {
+			if d.enabledModules[i] {
 				state := &d.moduleStates[i]
 				module := d.owner.ModuleAt(i)
 				if state.transitioning {
 					if cur.After(state.transEnd) {
-						module.FinishTransition(d.Renderer)
+						module.FinishTransition(ctx)
 						d.numTransitions--
 						state.transitioning = false
 					} else {
-						module.TransitionStep(d.Renderer, cur.Sub(state.transStart))
+						module.TransitionStep(ctx, cur.Sub(state.transStart))
 					}
 				}
-				module.Render(d.Renderer)
+				module.Render(ctx)
 			}
 		}
 	}
@@ -93,10 +101,11 @@ func (d *Display) render(cur time.Time, popup bool) {
 }
 
 func (d *Display) startTransition(moduleIndex api.ModuleIndex) {
+	ctx := api.RenderContext{Renderer: d.Renderer, Env: d.owner}
 	module := d.owner.ModuleAt(moduleIndex)
-	transDur := module.InitTransition(d.Renderer)
+	transDur := module.InitTransition(ctx)
 	if transDur == 0 {
-		module.FinishTransition(d.Renderer)
+		module.FinishTransition(ctx)
 	} else if transDur > 0 {
 		d.numTransitions++
 		state := &d.moduleStates[moduleIndex]
@@ -108,7 +117,8 @@ func (d *Display) startTransition(moduleIndex api.ModuleIndex) {
 
 // RenderLoop implements the rendering loop for the display.
 // This function MUST be called in the main thread
-func (d *Display) RenderLoop(modConfigChan chan ModuleConfigUpdate) {
+func (d *Display) RenderLoop(
+	modConfigChan chan ModuleConfigUpdate, sceneChan chan SceneUpdate) {
 	render := true
 	popup := false
 
@@ -163,17 +173,30 @@ func (d *Display) RenderLoop(modConfigChan chan ModuleConfigUpdate) {
 				case d.Events.ModuleUpdateID:
 					d.startTransition(api.ModuleIndex(e.Code))
 					render = true
+				case d.Events.SceneChangeID:
+				outer1:
+					for {
+						select {
+						case data := <-sceneChan:
+							d.enabledModules = data.ModuleEnabled
+							render = true
+						default:
+							break outer1
+						}
+					}
+					fallthrough
 				case d.Events.ModuleConfigID:
-				outer:
+					ctx := api.RenderContext{Renderer: d.Renderer, Env: d.owner}
+				outer2:
 					for {
 						select {
 						case data := <-modConfigChan:
 							module := d.owner.ModuleAt(data.Index)
 							module.SetConfig(data.Config)
-							module.RebuildState(d.Renderer)
+							module.RebuildState(ctx)
 							render = true
 						default:
-							break outer
+							break outer2
 						}
 					}
 					d.initial = false

@@ -48,6 +48,8 @@ const (
 // StyledFont describes a font family member with a certain style.
 // This style is available for all FontSizes.
 type StyledFont interface {
+	// Font searches for a loaded ttf.Font and if none exists, loads it.
+	// This func may only be called in the OpenGL thread.
 	Font(size FontSize) *ttf.Font
 }
 

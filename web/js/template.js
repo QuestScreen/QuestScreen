@@ -1,6 +1,9 @@
 class Template {
 	constructor(id, renderer) {
 		this.source = document.querySelector(id);
+		if (this.source == null) {
+			throw new Error("Template references unknown id \"" + id + "\"!");
+		}
 		this.renderer = renderer;
 	}
 

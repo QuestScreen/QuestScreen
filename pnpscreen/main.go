@@ -17,7 +17,6 @@ func init() {
 }
 
 func main() {
-	print("foo… starting")
 	fullscreenFlag := getopt.BoolLong("fullscreen", 'f', "start in fullscreen")
 	port := getopt.Uint16Long("port", 'p', 8080, "port to bind to")
 	getopt.Parse()
@@ -41,9 +40,10 @@ func main() {
 	}
 
 	moduleConfigChan := make(chan display.ModuleConfigUpdate, len(a.modules))
-	server := startServer(&a, moduleConfigChan, events, *port)
+	sceneChan := make(chan display.SceneUpdate, len(a.modules))
+	server := startServer(&a, moduleConfigChan, sceneChan, events, *port)
 
-	a.display.RenderLoop(moduleConfigChan)
+	a.display.RenderLoop(moduleConfigChan, sceneChan)
 	_ = server.Close()
 	a.destroy()
 }

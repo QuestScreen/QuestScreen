@@ -1,4 +1,4 @@
-package persons
+package overlays
 
 import (
 	"encoding/json"
@@ -10,23 +10,26 @@ import (
 )
 
 type state struct {
-	owner     *Persons
+	shared    *sharedData
 	visible   []bool
 	resources []api.Resource
 }
 
-func (s *state) LoadFrom(yamlSubtree interface{}, env api.Environment) error {
-	s.resources = env.GetResources(s.owner.moduleIndex, 0)
+func newState(yamlSubtree interface{}, env api.Environment,
+	shared *sharedData) (*state, error) {
+	s := new(state)
+	s.resources = env.GetResources(shared.moduleIndex, 0)
 	s.visible = make([]bool, len(s.resources))
+	s.shared = shared
 	if yamlSubtree != nil {
 		names, ok := yamlSubtree.([]interface{})
 		if !ok {
-			return errors.New("value of Persons is not a sequence")
+			return nil, errors.New("value of Persons is not a sequence")
 		}
 		for i := range names {
 			name, ok := names[i].(string)
 			if !ok {
-				return errors.New("item in Persons is not a string")
+				return nil, errors.New("item in Persons is not a string")
 			}
 			found := false
 			for j := range s.resources {
@@ -41,13 +44,20 @@ func (s *state) LoadFrom(yamlSubtree interface{}, env api.Environment) error {
 			}
 		}
 	}
+
+	return s, nil
+}
+
+func (s *state) SendToModule() {
 	visible := make([]bool, len(s.visible))
 	copy(visible, s.visible)
-	s.owner.requests.mutex.Lock()
-	s.owner.requests.kind = stateRequest
-	s.owner.requests.state = visible
-	s.owner.requests.mutex.Unlock()
-	return nil
+	resources := make([]api.Resource, len(s.resources))
+	copy(resources, s.resources)
+	s.shared.mutex.Lock()
+	s.shared.kind = stateRequest
+	s.shared.state = visible
+	s.shared.resources = resources
+	s.shared.mutex.Unlock()
 }
 
 // ToYAML returns a slice containing the names of all visible items.
@@ -83,7 +93,7 @@ func (*state) Actions() []string {
 	return []string{"switch"}
 }
 
-func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
+func (s *state) HandleAction(index int, payload []byte) (interface{}, error) {
 	if index != 0 {
 		panic("Index out of range")
 	}
@@ -95,14 +105,14 @@ func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
 		return nil, fmt.Errorf("Index %d not in range 0..%d",
 			value, len(s.resources)-1)
 	}
-	s.owner.requests.mutex.Lock()
-	defer s.owner.requests.mutex.Unlock()
-	if s.owner.requests.kind != noRequest {
+	s.shared.mutex.Lock()
+	defer s.shared.mutex.Unlock()
+	if s.shared.kind != noRequest {
 		return nil, errors.New("Too many requests")
 	}
 	s.visible[value] = !s.visible[value]
-	s.owner.requests.kind = itemRequest
-	s.owner.requests.itemIndex = value
-	s.owner.requests.itemShown = s.visible[value]
-	return json.Marshal(s.visible[value])
+	s.shared.kind = itemRequest
+	s.shared.itemIndex = value
+	s.shared.itemShown = s.visible[value]
+	return s.visible[value], nil
 }

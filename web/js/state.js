@@ -25,7 +25,10 @@ tmpl.state = {
 			if (visible) {
 				this.querySelector("li").classList.add("pure-menu-selected");
 			}
-			a.addEventListener("click", ctrl.listItemClick.bind(ctrl, index));
+			a.addEventListener("click", e => {
+				ctrl.listItemClick(index);
+				e.preventDefault();
+			});
 			return this;
 		}),
 		root: new Template("#tmpl-state-list",
@@ -53,7 +56,39 @@ tmpl.state = {
 			}
 			return this;
 		})
-	}
+	},
+	module: new Template("#tmpl-state-module",
+			function(app, moduleIndex, state) {
+		let wrapper = this.querySelector(".state-module-content");
+		this.querySelector(".state-module-name").textContent =
+				app.modules[moduleIndex].name;
+		wrapper.appendChild(
+				app.modules[moduleIndex].controller.ui(app, state));
+		return this;
+	}),
+	scene: new Template("#tmpl-state-scene",
+				function(app, moduleStates) {
+		let stateWrapper = this.querySelector("#module-state-wrapper");
+		for (let [index, state] of moduleStates.entries()) {
+			if (state != null) {
+				stateWrapper.appendChild(
+						tmpl.state.module.render(app, index, state));
+			}
+		}
+		return this;
+	}),
+	menu: new Template("#tmpl-state-menu", function(app, statePage, activeScene) {
+		const list = this.querySelector(".pure-menu-list");
+		for (const [index, scene] of app.groups[app.activeGroup].scenes.entries()) {
+			const entry = tmpl.app.pageMenuEntry.render(
+				app, statePage.setScene.bind(statePage, scene.id), scene.name);
+			if (index == activeScene) {
+				entry.classList.add("pure-menu-active");
+			}
+			list.appendChild(entry);
+		}
+		return this;
+	})
 }
 
 class ListSelector {
@@ -75,7 +110,7 @@ class ListSelector {
 
 	setListItemSelected(index, selected) {
 		if (this.kind == SelectorKind.multiple) {
-			let item = this.uiItems.children[index];
+			let item = this.uiItems[index];
 			if (selected) {
 				item.classList.add("pure-menu-selected");
 			} else {
@@ -100,5 +135,26 @@ class ListSelector {
 	async listItemClick(index) {
 		// override this, finish by updating UI via setListItemSelected
 		throw new Error("Missing listItemClick implementation!");
+	}
+}
+
+class StatePage {
+	constructor(app) {
+		this.app = app;
+	}
+
+	setSceneData(modules) {
+		const page = tmpl.state.scene.render(this.app, modules);
+		this.app.setPage(page);
+
+	}
+
+	async setScene(scene) {
+		const sceneResp = await App.fetch("/setscene", "POST", scene);
+		this.setSceneData(sceneResp.modules);
+	}
+
+	genMenu(activeScene) {
+		return tmpl.state.menu.render(app, this, activeScene);
 	}
 }

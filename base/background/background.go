@@ -13,57 +13,64 @@ import (
 
 type backgroundConfig struct{}
 
-type requests struct {
+type sharedData struct {
+	moduleIndex   api.ModuleIndex // read-only, therefore not protected with mutex
 	mutex         sync.Mutex
 	activeRequest bool
-	index         int
+	file          api.Resource
 }
 
 // Background is a module for painting background images
 type Background struct {
-	state
-	requests
-	env                    api.Environment
-	moduleIndex            api.ModuleIndex
+	sharedData
 	config                 *backgroundConfig
 	curTexture, newTexture *sdl.Texture
-	curTextureIndex        int
+	curFile                api.Resource
 	curTextureSplit        float32
 }
 
-// Init initializes the module
-func (bg *Background) Init(renderer *sdl.Renderer, env api.Environment, index api.ModuleIndex) error {
-	bg.env = env
+// CreateModule creates a new Background module
+func CreateModule(renderer *sdl.Renderer,
+	env api.StaticEnvironment, index api.ModuleIndex) (api.Module, error) {
+	bg := new(Background)
 	bg.moduleIndex = index
 	bg.curTexture = nil
 	bg.newTexture = nil
 	bg.curTextureSplit = 0
-	bg.curTextureIndex = -1
-	bg.state.owner = bg
-	return nil
+	bg.curFile = nil
+	return bg, nil
 }
 
-// Name returns "Background Image"
-func (*Background) Name() string {
-	return "Background Image"
+// Descriptor describes the Background module.
+var Descriptor = api.ModuleDescriptor{
+	Name: "Background Image",
+	ID:   "background",
+	ResourceCollections: []api.ResourceSelector{
+		api.ResourceSelector{Subdirectory: "", Suffixes: nil}},
+	Actions:       []string{"set"},
+	DefaultConfig: &backgroundConfig{},
+	CreateModule:  CreateModule,
 }
 
-// ID returns "background"
-func (*Background) ID() string {
-	return "background"
+// Descriptor returns the Background's descriptor
+func (bg *Background) Descriptor() *api.ModuleDescriptor {
+	return &Descriptor
 }
 
-func offsets(inRatio float32, outRatio float32, winWidth int32, winHeight int32) sdl.Rect {
+func offsets(inRatio float32, outRatio float32,
+	winWidth int32, winHeight int32) sdl.Rect {
 	if inRatio > outRatio {
-		return sdl.Rect{X: 0, Y: int32(float32(winHeight) * (1.0 - (outRatio / inRatio)) / 2.0),
+		return sdl.Rect{
+			X: 0, Y: int32(float32(winHeight) * (1.0 - (outRatio / inRatio)) / 2.0),
 			W: winWidth, H: int32(float32(winHeight) * (outRatio / inRatio))}
 	}
-	return sdl.Rect{X: int32(float32(winWidth) * (1.0 - (inRatio / outRatio)) / 2.0),
+	return sdl.Rect{
+		X: int32(float32(winWidth) * (1.0 - (inRatio / outRatio)) / 2.0),
 		Y: 0, W: int32(float32(winWidth) * (inRatio / outRatio)), H: winHeight}
 }
 
-func (bg *Background) genTexture(renderer *sdl.Renderer, index int) *sdl.Texture {
-	file := bg.state.resources[index]
+func (bg *Background) genTexture(
+	renderer *sdl.Renderer, file api.Resource) *sdl.Texture {
 	tex, err := img.LoadTexture(renderer, file.Path())
 	if err != nil {
 		log.Println(err)
@@ -92,34 +99,36 @@ func (bg *Background) genTexture(renderer *sdl.Renderer, index int) *sdl.Texture
 }
 
 // InitTransition initializes a transition
-func (bg *Background) InitTransition(renderer *sdl.Renderer) time.Duration {
+func (bg *Background) InitTransition(ctx api.RenderContext) time.Duration {
 	var ret time.Duration = -1
 
-	bg.requests.mutex.Lock()
-	reqIndex, available := bg.requests.index, bg.requests.activeRequest
-	bg.requests.activeRequest = false
-	bg.requests.mutex.Unlock()
+	bg.sharedData.mutex.Lock()
+	reqFile, available := bg.sharedData.file, bg.sharedData.activeRequest
+	bg.sharedData.activeRequest = false
+	bg.sharedData.mutex.Unlock()
 
-	if available && reqIndex != bg.curTextureIndex {
-		bg.curTextureIndex = reqIndex
-		if bg.curTextureIndex != -1 {
-			bg.newTexture = bg.genTexture(renderer, bg.curTextureIndex)
+	if available && reqFile != bg.curFile {
+		bg.curFile = reqFile
+		if bg.curFile != nil {
+			bg.newTexture = bg.genTexture(ctx.Renderer, bg.curFile)
 		}
 		bg.curTextureSplit = 0
 		ret = time.Second
 	} else {
-		log.Println("background transition skiping, available=", available, ", reqIndex=", reqIndex)
+		log.Println("background transition skiping, available=", available,
+			", reqIndex=", reqFile)
 	}
 	return ret
 }
 
 // TransitionStep advances the transition.
-func (bg *Background) TransitionStep(renderer *sdl.Renderer, elapsed time.Duration) {
+func (bg *Background) TransitionStep(
+	ctx api.RenderContext, elapsed time.Duration) {
 	bg.curTextureSplit = float32(elapsed) / float32(time.Second)
 }
 
 // FinishTransition finalizes the transition.
-func (bg *Background) FinishTransition(renderer *sdl.Renderer) {
+func (bg *Background) FinishTransition(ctx api.RenderContext) {
 	if bg.curTexture != nil {
 		bg.curTexture.Destroy()
 	}
@@ -129,17 +138,17 @@ func (bg *Background) FinishTransition(renderer *sdl.Renderer) {
 }
 
 // Render renders the module
-func (bg *Background) Render(renderer *sdl.Renderer) {
+func (bg *Background) Render(ctx api.RenderContext) {
 	if bg.curTexture != nil || bg.curTextureSplit != 0 {
-		winWidth, winHeight, _ := renderer.GetOutputSize()
+		winWidth, winHeight, _ := ctx.Renderer.GetOutputSize()
 		curSplit := int32(bg.curTextureSplit * float32(winWidth))
 		if bg.curTexture != nil {
 			rect := sdl.Rect{X: curSplit, Y: 0, W: winWidth - curSplit, H: winHeight}
-			renderer.Copy(bg.curTexture, &rect, &rect)
+			ctx.Renderer.Copy(bg.curTexture, &rect, &rect)
 		}
 		if bg.newTexture != nil {
 			rect := sdl.Rect{X: 0, Y: 0, W: curSplit, H: winHeight}
-			renderer.Copy(bg.newTexture, &rect, &rect)
+			ctx.Renderer.Copy(bg.newTexture, &rect, &rect)
 		}
 	}
 }
@@ -149,48 +158,37 @@ func (*Background) EmptyConfig() interface{} {
 	return &backgroundConfig{}
 }
 
-// DefaultConfig returns the default configuration
-func (*Background) DefaultConfig() interface{} {
-	return &backgroundConfig{}
-}
-
 // SetConfig sets the module's configuration
 func (bg *Background) SetConfig(config interface{}) {
 	bg.config = config.(*backgroundConfig)
 }
 
-// State returns the current state.
-func (bg *Background) State() api.ModuleState {
-	return &bg.state
+// CreateState returns the current state.
+func (bg *Background) CreateState(
+	yamlSubtree interface{}, env api.Environment) (api.ModuleState, error) {
+	return newState(yamlSubtree, env, &bg.sharedData)
 }
 
 // RebuildState queries the texture index through the channel and immediately
 // sets that texture as background.
-func (bg *Background) RebuildState(renderer *sdl.Renderer) {
-	bg.requests.mutex.Lock()
-	reqIndex, available := bg.requests.index, bg.requests.activeRequest
+func (bg *Background) RebuildState(ctx api.RenderContext) {
+	bg.sharedData.mutex.Lock()
+	reqFile, available := bg.sharedData.file, bg.sharedData.activeRequest
 	bg.activeRequest = false
-	bg.requests.mutex.Unlock()
+	bg.sharedData.mutex.Unlock()
 
 	if available {
-		if reqIndex != bg.curTextureIndex {
+		if reqFile != bg.curFile {
 			if bg.curTexture != nil {
 				bg.curTexture.Destroy()
 			}
-			bg.curTextureIndex = reqIndex
-			if bg.curTextureIndex != -1 {
-				bg.curTexture = bg.genTexture(renderer, bg.curTextureIndex)
+			bg.curFile = reqFile
+			if bg.curFile != nil {
+				bg.curTexture = bg.genTexture(ctx.Renderer, bg.curFile)
 			} else {
 				bg.curTexture = nil
 			}
 		}
 		bg.curTextureSplit = 0
 	}
-}
-
-// ResourceCollections returns a singleton list describing the selector for
-// background images.
-func (bg *Background) ResourceCollections() []api.ResourceSelector {
-	return []api.ResourceSelector{
-		api.ResourceSelector{Subdirectory: "", Suffixes: nil}}
 }

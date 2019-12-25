@@ -3,17 +3,21 @@ package title
 import (
 	"encoding/json"
 	"errors"
+
 	"github.com/flyx/pnpscreen/api"
 )
 
 type state struct {
-	owner     *Title
+	shared    *sharedData
 	caption   string
 	resources []api.Resource
 }
 
-func (s *state) LoadFrom(yamlSubtree interface{}, env api.Environment) error {
-	s.resources = env.GetResources(s.owner.moduleIndex, 0)
+func newState(yamlSubtree interface{}, env api.Environment,
+	shared *sharedData) (*state, error) {
+	s := new(state)
+	s.resources = env.GetResources(shared.moduleIndex, 0)
+	s.shared = shared
 
 	if yamlSubtree == nil {
 		s.caption = ""
@@ -21,16 +25,23 @@ func (s *state) LoadFrom(yamlSubtree interface{}, env api.Environment) error {
 		var ok bool
 		s.caption, ok = yamlSubtree.(string)
 		if !ok {
-			return errors.New("title caption is not a string")
+			return nil, errors.New("title caption is not a string")
 		}
 	}
 
-	s.owner.requests.mutex.Lock()
-	s.owner.requests.kind = stateRequest
-	s.owner.requests.caption = s.caption
-	s.owner.requests.mutex.Unlock()
+	return s, nil
+}
 
-	return nil
+func (s *state) SendToModule() {
+	s.shared.mutex.Lock()
+	s.shared.kind = stateRequest
+	s.shared.caption = s.caption
+	if len(s.resources) > 0 {
+		s.shared.mask = s.resources[0]
+	} else {
+		s.shared.mask = nil
+	}
+	s.shared.mutex.Unlock()
 }
 
 func (s *state) ToYAML(env api.Environment) interface{} {
@@ -41,11 +52,7 @@ func (s *state) ToJSON() interface{} {
 	return s.caption
 }
 
-func (*state) Actions() []string {
-	return []string{"set"}
-}
-
-func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
+func (s *state) HandleAction(index int, payload []byte) (interface{}, error) {
 	if index != 0 {
 		panic("Index out of range")
 	}
@@ -54,9 +61,9 @@ func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
 		return nil, err
 	}
 	s.caption = value
-	s.owner.requests.mutex.Lock()
-	s.owner.requests.kind = changeRequest
-	s.owner.requests.caption = value
-	s.owner.requests.mutex.Unlock()
-	return json.Marshal(value)
+	s.shared.mutex.Lock()
+	s.shared.kind = changeRequest
+	s.shared.caption = value
+	s.shared.mutex.Unlock()
+	return value, nil
 }

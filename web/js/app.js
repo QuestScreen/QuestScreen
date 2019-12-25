@@ -7,7 +7,7 @@ tmpl.app = {
 			const groupMenuBtn = document.querySelector("#open-group-menu");
 			groupMenuBtn.click();
 			groupMenuBtn.blur();
-			app.showState(groupIndex);
+			app.setGroup(groupIndex);
 			e.preventDefault();
 		});
 		// return directly the <li> element.
@@ -24,28 +24,7 @@ tmpl.app = {
 			e.preventDefault();
 		});
 		return this.children[0];
-	}),
-	state: {
-		module: new Template("#tmpl-app-state-module",
-				function(app, moduleIndex, state) {
-			let wrapper = this.querySelector(".state-module-content");
-			this.querySelector(".state-module-name").textContent =
-					app.modules[moduleIndex].name;
-			wrapper.appendChild(
-					app.modules[moduleIndex].controller.ui(app, state));
-			return this;
-		}),
-
-		page: new Template("#tmpl-app-state-page",
-					function(app, moduleStates) {
-			let stateWrapper = this.querySelector("#module-state-wrapper");
-			for (let [index, state] of moduleStates.entries()) {
-				stateWrapper.appendChild(
-						tmpl.app.state.module.render(app, index, state));
-			}
-			return this;
-		})
-	}
+	})
 };
 
 class App {
@@ -111,8 +90,8 @@ class App {
 			}
 			return false;
 		} else {
-			for (const item of pagemenu.querySelectorAll(".pure-menu-item")) {
-				item.classList.remove("pure-menu-active");
+			for (const other of pagemenu.querySelectorAll(".pure-menu-item")) {
+				other.classList.remove("pure-menu-active");
 			}
 			item.classList.add("pure-menu-active");
 			pagemenu.classList.remove("pagemenu-expanded");
@@ -120,18 +99,21 @@ class App {
 		}
 	}
 
-	async showState(groupIndex) {
-		const moduleStates = await App.fetch("/groups/" + this.groups[groupIndex].id);
-		if (!Array.isArray(moduleStates) ||
-			moduleStates.length != this.modules.length) {
+	async setGroup(groupIndex) {
+		const groupState = await App.fetch(
+			"/setgroup", "POST", this.groups[groupIndex].id);
+		if (!Array.isArray(groupState.modules) ||
+			groupState.modules.length != this.modules.length) {
 			throw Error(
-					"Invalid response structure (not an array or wrong length");
+					"Invalid response structure (resp.modules not an array or wrong length)");
+		} else if (groupState.activeScene < 0 ||
+			         groupState.activeScene >= this.groups[groupIndex].scenes.length) {
+			throw Error("Invalid response (resp.activeScene outside of group scene range)")
 		}
 		this.activeGroup = groupIndex;
-		const page = tmpl.app.state.page.render(this, moduleStates);
-		this.setPage(page);
-		this.setTitle(app.groups[groupIndex].name, "");
-		this.setMenu(document.createTextNode("TODO"));
+		this.setTitle(this.groups[groupIndex].name, "");
+		this.setMenu(this.statePage.genMenu(groupState.activeScene));
+		this.statePage.setSceneData(groupState.modules);
 		for(const [index, entry] of
 				document.querySelectorAll(".rp-menu-group-entry").entries()) {
 			if (index == this.activeGroup) {
@@ -212,9 +194,10 @@ class App {
 		this.activeGroup = returned.activeGroup;
 		this.regenGroupListUI();
 		if (this.activeGroup != -1) {
-			this.showState(this.activeGroup);
+			this.setGroup(this.activeGroup);
 		}
 		this.cfgPage = new ConfigPage(this);
+		this.statePage = new StatePage(this);
 		document.querySelector("#show-config").addEventListener(
 			"click", e => {
 				e.target.blur();

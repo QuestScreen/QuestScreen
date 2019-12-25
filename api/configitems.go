@@ -16,42 +16,61 @@ import (
 // the json and yaml.v3 packages.
 type ConfigItem interface {
 	LoadFrom(subtree interface{}, env Environment, fromYaml bool) error
-	Serialize(toYAML bool) interface{}
+	Serialize(env Environment, toYAML bool) interface{}
 }
 
 // SelectableFont is used to allow the user to select a font family.
 type SelectableFont struct {
-	Family      string    `json:"-" yaml:"family"`
-	FamilyIndex int       `yaml:"-" json:"familyIndex"`
-	Size        FontSize  `json:"size" yaml:"size"`
-	Style       FontStyle `json:"style" yaml:"style"`
+	FamilyIndex int       `json:"familyIndex"`
+	Size        FontSize  `json:"size"`
+	Style       FontStyle `json:"style"`
+}
+
+type yamlSelectableFont struct {
+	Family string    `yaml:"family"`
+	Size   FontSize  `yaml:"size"`
+	Style  FontStyle `yaml:"style"`
 }
 
 // LoadFrom loads values from a JSON/YAML subtree
 func (sf *SelectableFont) LoadFrom(subtree interface{}, env Environment,
 	fromYAML bool) error {
-	if err := SubtreeToConfigItem(subtree.(map[string]interface{}), sf, fromYAML); err != nil {
-		return err
-	}
 	fonts := env.FontCatalog()
 	if fromYAML {
+		var tmp yamlSelectableFont
+		if err := SubtreeToConfigItem(subtree.(map[string]interface{}), &tmp, true); err != nil {
+			return err
+		}
+		sf.Size = tmp.Size
+		sf.Style = tmp.Style
 		for i := range fonts {
-			if sf.Family == fonts[i].Name() {
+			if tmp.Family == fonts[i].Name() {
 				sf.FamilyIndex = i
 				return nil
 			}
 		}
-		return fmt.Errorf("unknown font \"%s\"", sf.Family)
+		return fmt.Errorf("unknown font \"%s\"", tmp.Family)
+	}
+
+	if err := SubtreeToConfigItem(subtree.(map[string]interface{}), sf, false); err != nil {
+		return err
 	}
 	if sf.FamilyIndex < 0 || sf.FamilyIndex >= len(fonts) {
 		return errors.New("font index out of range")
 	}
-	sf.Family = fonts[sf.FamilyIndex].Name()
 	return nil
 }
 
-// Serialize returns the object itself.
-func (sf *SelectableFont) Serialize(toYAML bool) interface{} {
+// Serialize returns the object itself for JSON and an object with the family
+// name instead of its index for YAML
+func (sf *SelectableFont) Serialize(env Environment, toYAML bool) interface{} {
+	if toYAML {
+		return &yamlSelectableFont{
+			Family: env.FontCatalog()[sf.FamilyIndex].Name(),
+			Size:   sf.Size,
+			Style:  sf.Style,
+		}
+	}
 	return sf
 }
 
@@ -60,7 +79,7 @@ func (sf *SelectableFont) Serialize(toYAML bool) interface{} {
 //
 // This function offers simple deserialization based on the type's layout.
 // Use it if you don't need anything fancy. If target is directly the
-// ConfigItem, you will be able to implement to implement Serialize on the
+// ConfigItem, you will be able to implement Serialize on the
 // ConfigItem by simply returning the item itself.
 //
 // This func honors the `yaml:` and `json:` tags on the target type's fields.

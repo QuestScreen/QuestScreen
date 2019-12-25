@@ -11,15 +11,19 @@ import (
 )
 
 type state struct {
-	owner         *HeroList
+	shared        *sharedData
 	globalVisible bool
 	heroVisible   []bool
 }
 
-func (s *state) LoadFrom(yamlSubtree interface{}, env api.Environment) error {
+func newState(yamlSubtree interface{}, env api.Environment,
+	shared *sharedData) (*state, error) {
 	heroes := env.Heroes()
-	s.heroVisible = make([]bool, heroes.Length())
-	for i := 0; i < heroes.Length(); i++ {
+	defer heroes.Close()
+	s := new(state)
+	s.heroVisible = make([]bool, heroes.NumHeroes())
+	s.shared = shared
+	for i := 0; i < heroes.NumHeroes(); i++ {
 		s.heroVisible[i] = true
 	}
 	if yamlSubtree == nil {
@@ -27,30 +31,32 @@ func (s *state) LoadFrom(yamlSubtree interface{}, env api.Environment) error {
 	} else {
 		mapping, ok := yamlSubtree.(map[string]interface{})
 		if !ok {
-			return errors.New("unexpected state for ShowableHeroes: not a mapping, but a " +
-				reflect.TypeOf(yamlSubtree).Name())
+			return nil, errors.New(
+				"unexpected state for ShowableHeroes: not a mapping, but a " +
+					reflect.TypeOf(yamlSubtree).Name())
 		}
 		for k, v := range mapping {
 			switch k {
 			case "globalVisible":
 				boolean, ok := v.(bool)
 				if !ok {
-					return errors.New("unexpected value for globalVisible: not a bool")
+					return nil,
+						errors.New("unexpected value for globalVisible: not a bool")
 				}
 				s.globalVisible = boolean
 			case "heroVisible":
-				for i := 0; i < heroes.Length(); i++ {
+				for i := 0; i < heroes.NumHeroes(); i++ {
 					s.heroVisible[i] = false
 				}
 				sequence, ok := v.([]interface{})
 				if !ok {
-					return errors.New(
+					return nil, errors.New(
 						"unexpected value for heroesVisible: not a list of strings")
 				}
 				for i := range sequence {
 					found := false
-					for j := 0; j < heroes.Length(); j++ {
-						if sequence[i].(string) == heroes.Item(j).Name() {
+					for j := 0; j < heroes.NumHeroes(); j++ {
+						if sequence[i].(string) == heroes.Hero(j).Name() {
 							found = true
 							s.heroVisible[j] = true
 							break
@@ -64,21 +70,26 @@ func (s *state) LoadFrom(yamlSubtree interface{}, env api.Environment) error {
 		}
 	}
 
+	return s, nil
+}
+
+func (s *state) SendToModule() {
 	states := make([]bool, len(s.heroVisible))
 	copy(states, s.heroVisible)
-	s.owner.requests.mutex.Lock()
-	defer s.owner.requests.mutex.Unlock()
-	s.owner.requests.globalVisible = s.globalVisible
-	s.owner.requests.heroes = states
-	s.owner.requests.kind = stateRequest
-	return nil
+	s.shared.mutex.Lock()
+	defer s.shared.mutex.Unlock()
+	s.shared.globalVisible = s.globalVisible
+	s.shared.heroes = states
+	s.shared.kind = stateRequest
 }
 
 func (s *state) visibleHeroesList(env api.Environment) []string {
 	ret := make([]string, 0, len(s.heroVisible))
+	heroes := env.Heroes()
+	defer heroes.Close()
 	for i := range s.heroVisible {
 		if s.heroVisible[i] {
-			ret = append(ret, env.Heroes().Item(i).Name())
+			ret = append(ret, heroes.Hero(i).Name())
 		}
 	}
 	return ret
@@ -105,14 +116,10 @@ func (s *state) ToJSON() interface{} {
 	}
 }
 
-func (*state) Actions() []string {
-	return []string{"switchGlobal", "switchHero"}
-}
-
-func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
-	s.owner.requests.mutex.Lock()
-	defer s.owner.requests.mutex.Unlock()
-	if s.owner.requests.kind != noRequest {
+func (s *state) HandleAction(index int, payload []byte) (interface{}, error) {
+	s.shared.mutex.Lock()
+	defer s.shared.mutex.Unlock()
+	if s.shared.kind != noRequest {
 		return nil, errors.New("too many requests")
 	}
 
@@ -121,8 +128,8 @@ func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
 	case 0:
 		s.globalVisible = !s.globalVisible
 		ret = s.globalVisible
-		s.owner.requests.kind = globalRequest
-		s.owner.requests.globalVisible = s.globalVisible
+		s.shared.kind = globalRequest
+		s.shared.globalVisible = s.globalVisible
 	case 1:
 		var value int
 		if err := json.Unmarshal(payload, &value); err != nil {
@@ -134,11 +141,11 @@ func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
 		}
 		s.heroVisible[value] = !s.heroVisible[value]
 		ret = s.heroVisible[value]
-		s.owner.requests.kind = heroRequest
-		s.owner.requests.heroIndex = int32(value)
-		s.owner.requests.heroVisible = s.heroVisible[value]
+		s.shared.kind = heroRequest
+		s.shared.heroIndex = int32(value)
+		s.shared.heroVisible = s.heroVisible[value]
 	default:
 		panic("Index out of range")
 	}
-	return json.Marshal(ret)
+	return ret, nil
 }

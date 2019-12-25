@@ -10,19 +10,22 @@ import (
 )
 
 type state struct {
-	owner     *Background
+	shared    *sharedData
 	curIndex  int
 	resources []api.Resource
 }
 
 // LoadFrom loads the stored selection, defaults to no item being selected.
-func (s *state) LoadFrom(yamlSubtree interface{}, env api.Environment) error {
-	s.resources = env.GetResources(s.owner.moduleIndex, 0)
+func newState(yamlSubtree interface{}, env api.Environment,
+	shared *sharedData) (*state, error) {
+	s := new(state)
+	s.shared = shared
+	s.resources = env.GetResources(shared.moduleIndex, 0)
 	s.curIndex = -1
 	if yamlSubtree != nil {
 		scalar, ok := yamlSubtree.(string)
 		if !ok {
-			return errors.New("unexpected value for Background state: not a string")
+			return nil, errors.New("unexpected YAML for Background state: not a string")
 		}
 		for i := range s.resources {
 			if s.resources[i].Name() == scalar {
@@ -34,11 +37,18 @@ func (s *state) LoadFrom(yamlSubtree interface{}, env api.Environment) error {
 			log.Println("Didn't find resource \"" + scalar + "\"")
 		}
 	}
-	s.owner.requests.mutex.Lock()
-	s.owner.requests.activeRequest = true
-	s.owner.requests.index = s.curIndex
-	s.owner.requests.mutex.Unlock()
-	return nil
+	return s, nil
+}
+
+func (s *state) SendToModule() {
+	s.shared.mutex.Lock()
+	s.shared.activeRequest = true
+	if s.curIndex == -1 {
+		s.shared.file = nil
+	} else {
+		s.shared.file = s.resources[s.curIndex]
+	}
+	s.shared.mutex.Unlock()
 }
 
 // ToYAML returns the name of the currently selected resource, or nil if none
@@ -59,11 +69,7 @@ func (s *state) ToJSON() interface{} {
 	return jsonState{CurIndex: s.curIndex, Items: api.ResourceNames(s.resources)}
 }
 
-func (s *state) Actions() []string {
-	return []string{"set"}
-}
-
-func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
+func (s *state) HandleAction(index int, payload []byte) (interface{}, error) {
 	if index != 0 {
 		panic("Index out of bounds!")
 	}
@@ -76,12 +82,16 @@ func (s *state) HandleAction(index int, payload []byte) ([]byte, error) {
 			value, len(s.resources)-1)
 	}
 	s.curIndex = value
-	s.owner.requests.mutex.Lock()
-	defer s.owner.requests.mutex.Unlock()
-	if s.owner.requests.activeRequest {
+	s.shared.mutex.Lock()
+	defer s.shared.mutex.Unlock()
+	if s.shared.activeRequest {
 		return nil, errors.New("too many requests")
 	}
-	s.owner.requests.activeRequest = true
-	s.owner.requests.index = s.curIndex
-	return json.Marshal(value)
+	s.shared.activeRequest = true
+	if value == -1 {
+		s.shared.file = nil
+	} else {
+		s.shared.file = s.resources[s.curIndex]
+	}
+	return value, nil
 }

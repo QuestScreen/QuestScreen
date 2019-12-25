@@ -1,10 +1,11 @@
 package title
 
 import (
-	"github.com/veandco/go-sdl2/img"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/veandco/go-sdl2/img"
 
 	"github.com/flyx/pnpscreen/api"
 
@@ -23,20 +24,18 @@ const (
 	stateRequest
 )
 
-type requests struct {
-	mutex   sync.Mutex
-	kind    requestKind
-	caption string
+type sharedData struct {
+	moduleIndex api.ModuleIndex
+	mutex       sync.Mutex
+	kind        requestKind
+	caption     string
+	mask        api.Resource
 }
 
 // The Title module draws a title box at the top of the screen.
 type Title struct {
 	*config
-	state
-	requests
-
-	env          api.Environment
-	moduleIndex  api.ModuleIndex
+	sharedData
 	curTitleText string
 	curTitle     *sdl.Texture
 	newTitle     *sdl.Texture
@@ -45,27 +44,34 @@ type Title struct {
 	swapped      bool
 }
 
-// Init initializes the module.
-func (t *Title) Init(renderer *sdl.Renderer, env api.Environment, index api.ModuleIndex) error {
-	t.env = env
+// CreateModule creates the Title module.
+func CreateModule(renderer *sdl.Renderer, env api.StaticEnvironment,
+	index api.ModuleIndex) (api.Module, error) {
+	t := new(Title)
 	t.moduleIndex = index
-	t.state.owner = t
 	t.curTitle = nil
-	return nil
+	return t, nil
 }
 
-// Name returns "Scene Title"
-func (*Title) Name() string {
-	return "Scene Title"
+// Descriptor describes the Title module
+var Descriptor = api.ModuleDescriptor{
+	Name: "Scene Title",
+	ID:   "title",
+	ResourceCollections: []api.ResourceSelector{
+		api.ResourceSelector{Subdirectory: "", Suffixes: nil}},
+	Actions: []string{"set"},
+	DefaultConfig: &config{Font: &api.SelectableFont{
+		FamilyIndex: 0, Size: api.HeadingFont, Style: api.Bold}},
+	CreateModule: CreateModule,
 }
 
-// ID returns "title"
-func (*Title) ID() string {
-	return "title"
+// Descriptor returns the descriptor of the Title module
+func (*Title) Descriptor() *api.ModuleDescriptor {
+	return &Descriptor
 }
 
-func (t *Title) genTitleTexture(renderer *sdl.Renderer, text string) *sdl.Texture {
-	face := t.env.Font(
+func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture {
+	face := ctx.Env.Font(
 		t.config.Font.FamilyIndex, t.config.Font.Style, t.config.Font.Size)
 	surface, err := face.RenderUTF8Blended(
 		text, sdl.Color{R: 0, G: 0, B: 0, A: 230})
@@ -73,13 +79,13 @@ func (t *Title) genTitleTexture(renderer *sdl.Renderer, text string) *sdl.Textur
 		log.Println(err)
 		return nil
 	}
-	textTexture, err := renderer.CreateTextureFromSurface(surface)
+	textTexture, err := ctx.Renderer.CreateTextureFromSurface(surface)
 	if err != nil {
 		log.Println(err)
 		return nil
 	}
 	defer textTexture.Destroy()
-	winWidth, _, _ := renderer.GetOutputSize()
+	winWidth, _, _ := ctx.Renderer.GetOutputSize()
 	textWidth := surface.W
 	textHeight := surface.H
 	surface.Free()
@@ -87,50 +93,50 @@ func (t *Title) genTitleTexture(renderer *sdl.Renderer, text string) *sdl.Textur
 		textHeight = textHeight * (winWidth * 2 / 3) / textWidth
 		textWidth = winWidth * 2 / 3
 	}
-	border := t.env.DefaultBorderWidth()
-	ret, err := renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
+	border := ctx.Env.DefaultBorderWidth()
+	ret, err := ctx.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
 		textWidth+6*border, textHeight+2*border)
 	if err != nil {
 		panic(err)
 	}
-	renderer.SetRenderTarget(ret)
-	defer renderer.SetRenderTarget(nil)
-	renderer.Clear()
-	renderer.SetDrawColor(0, 0, 0, 192)
-	renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: int32(textWidth + 6*border), H: int32(textHeight) + 2*border})
-	renderer.SetDrawColor(200, 173, 127, 255)
-	renderer.FillRect(&sdl.Rect{X: border, Y: 0, W: int32(textWidth + 4*border), H: int32(textHeight + border)})
+	ctx.Renderer.SetRenderTarget(ret)
+	defer ctx.Renderer.SetRenderTarget(nil)
+	ctx.Renderer.Clear()
+	ctx.Renderer.SetDrawColor(0, 0, 0, 192)
+	ctx.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: int32(textWidth + 6*border), H: int32(textHeight) + 2*border})
+	ctx.Renderer.SetDrawColor(200, 173, 127, 255)
+	ctx.Renderer.FillRect(&sdl.Rect{X: border, Y: 0, W: int32(textWidth + 4*border), H: int32(textHeight + border)})
 	if t.mask != nil {
 		_, _, maskWidth, maskHeight, _ := t.mask.Query()
 		for x := int32(0); x < textWidth+6*border; x += maskWidth {
 			for y := int32(0); y < textHeight+2*border; y += maskHeight {
-				renderer.Copy(t.mask, nil, &sdl.Rect{X: x, Y: y, W: maskWidth, H: maskHeight})
+				ctx.Renderer.Copy(t.mask, nil, &sdl.Rect{X: x, Y: y, W: maskWidth, H: maskHeight})
 			}
 		}
 	}
-	renderer.Copy(textTexture, nil, &sdl.Rect{X: 3 * border, Y: 0, W: textWidth, H: textHeight})
+	ctx.Renderer.Copy(textTexture, nil, &sdl.Rect{X: 3 * border, Y: 0, W: textWidth, H: textHeight})
 	return ret
 }
 
 // InitTransition initializes a transition.
-func (t *Title) InitTransition(renderer *sdl.Renderer) time.Duration {
-	t.requests.mutex.Lock()
-	if t.requests.kind != changeRequest {
-		t.requests.mutex.Unlock()
+func (t *Title) InitTransition(ctx api.RenderContext) time.Duration {
+	t.sharedData.mutex.Lock()
+	if t.sharedData.kind != changeRequest {
+		t.sharedData.mutex.Unlock()
 		return -1
 	}
-	t.curTitleText = t.requests.caption
-	t.requests.kind = noRequest
-	t.requests.mutex.Unlock()
+	t.curTitleText = t.sharedData.caption
+	t.sharedData.kind = noRequest
+	t.sharedData.mutex.Unlock()
 	if t.curTitleText != "" {
-		t.newTitle = t.genTitleTexture(renderer, t.curTitleText)
+		t.newTitle = t.genTitleTexture(ctx, t.curTitleText)
 	}
 	t.swapped = false
 	return time.Second*2/3 + time.Millisecond*100
 }
 
 // TransitionStep advances the transition.
-func (t *Title) TransitionStep(renderer *sdl.Renderer, elapsed time.Duration) {
+func (t *Title) TransitionStep(ctx api.RenderContext, elapsed time.Duration) {
 	if elapsed < time.Second/3 {
 		if t.curTitle != nil {
 			_, _, _, texHeight, _ := t.curTitle.Query()
@@ -158,29 +164,17 @@ func (t *Title) TransitionStep(renderer *sdl.Renderer, elapsed time.Duration) {
 }
 
 // FinishTransition finalizes the transition.
-func (t *Title) FinishTransition(renderer *sdl.Renderer) {
+func (t *Title) FinishTransition(ctx api.RenderContext) {
 	t.curYOffset = 0
 }
 
 // Render renders the module.
-func (t *Title) Render(renderer *sdl.Renderer) {
-	winWidth, _, _ := renderer.GetOutputSize()
+func (t *Title) Render(ctx api.RenderContext) {
+	winWidth, _, _ := ctx.Renderer.GetOutputSize()
 	_, _, texWidth, texHeight, _ := t.curTitle.Query()
 
 	dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -t.curYOffset, W: texWidth, H: texHeight}
-	_ = renderer.Copy(t.curTitle, nil, &dst)
-}
-
-// EmptyConfig returns an empty configuration
-func (*Title) EmptyConfig() interface{} {
-	return &config{}
-}
-
-// DefaultConfig returns the default configuration
-func (t *Title) DefaultConfig() interface{} {
-	return &config{Font: &api.SelectableFont{
-		Family: t.env.FontCatalog()[0].Name(), FamilyIndex: 0,
-		Size: api.HeadingFont, Style: api.Bold}}
+	_ = ctx.Renderer.Copy(t.curTitle, nil, &dst)
 }
 
 // SetConfig sets the module's configuration
@@ -188,37 +182,43 @@ func (t *Title) SetConfig(value interface{}) {
 	t.config = value.(*config)
 }
 
-// State returns the current state.
-func (t *Title) State() api.ModuleState {
-	return &t.state
+// CreateState creates a state for the Title module.
+func (t *Title) CreateState(yamlSubtree interface{}, env api.Environment) (api.ModuleState, error) {
+	return newState(yamlSubtree, env, &t.sharedData)
 }
 
 // RebuildState queries the new state through the channel and immediately
 // updates everything.
-func (t *Title) RebuildState(renderer *sdl.Renderer) {
-	t.requests.mutex.Lock()
-	switch t.requests.kind {
+func (t *Title) RebuildState(ctx api.RenderContext) {
+	t.sharedData.mutex.Lock()
+	var maskFile api.Resource
+	gotRequest := false
+	switch t.sharedData.kind {
 	case stateRequest:
-		t.curTitleText = t.requests.caption
+		t.curTitleText = t.sharedData.caption
+		maskFile = t.sharedData.mask
+		gotRequest = true
 	case noRequest:
 		break
 	default:
 		panic("RebuildState() called on something else than stateRequest")
 	}
-	t.requests.kind = noRequest
-	t.requests.mutex.Unlock()
-	if t.mask != nil {
-		t.mask.Destroy()
-	}
-	if len(t.state.resources) > 0 {
-		var err error
-		t.mask, err = img.LoadTexture(renderer, t.state.resources[0].Path())
-		if err != nil {
-			log.Println(err)
+	t.sharedData.kind = noRequest
+	t.sharedData.mutex.Unlock()
+	if gotRequest {
+		if t.mask != nil {
+			t.mask.Destroy()
+		}
+		if maskFile != nil {
+			var err error
+			t.mask, err = img.LoadTexture(ctx.Renderer, maskFile.Path())
+			if err != nil {
+				log.Println(err)
+				t.mask = nil
+			}
+		} else {
 			t.mask = nil
 		}
-	} else {
-		t.mask = nil
 	}
 
 	t.curYOffset = 0
@@ -231,13 +231,6 @@ func (t *Title) RebuildState(renderer *sdl.Renderer) {
 		t.newTitle = nil
 	}
 	if t.curTitleText != "" {
-		t.curTitle = t.genTitleTexture(renderer, t.curTitleText)
+		t.curTitle = t.genTitleTexture(ctx, t.curTitleText)
 	}
-}
-
-// ResourceCollections returns a singleton list describing the selector for
-// texture images.
-func (t *Title) ResourceCollections() []api.ResourceSelector {
-	return []api.ResourceSelector{
-		api.ResourceSelector{Subdirectory: "", Suffixes: nil}}
 }

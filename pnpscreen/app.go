@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"log"
+	"os"
 	"os/user"
 	"path/filepath"
 
@@ -33,20 +34,16 @@ func (r *resourceFile) Path() string {
 	return r.path
 }
 
-type moduleEntry struct {
-	module  api.Module
-	enabled bool
-}
-
 // app is the main application. it implements api.Environment and app.App.
 // this is logically a singleton, multiple instances are not supported.
 type app struct {
 	dataDir             string
 	fonts               []api.FontFamily
 	defaultBorderWidth  int32
-	modules             []moduleEntry
+	modules             []api.Module
 	resourceCollections [][][]resourceFile
 	config              data.Config
+	groupState          data.GroupState
 	display             display.Display
 	activeGroup         int
 	activeSystem        int
@@ -85,7 +82,7 @@ func (a *app) Init(fullscreen bool, events display.Events, port uint16) {
 	if a.fonts == nil {
 		panic("No font available. PnP Screen needs at least one font.")
 	}
-	a.modules = make([]moduleEntry, 0, 32)
+	a.modules = make([]api.Module, 0, 32)
 	a.resourceCollections = make([][][]resourceFile, 0, 32)
 	a.activeGroup = -1
 	a.activeSystem = -1
@@ -103,7 +100,7 @@ func (a *app) Init(fullscreen bool, events display.Events, port uint16) {
 	a.css = append(a.css, web.MustAsset("web/css/style.css")...)
 	a.css = append(a.css, '\n')
 	a.css = append(a.css, web.MustAsset("web/css/color.css")...)
-	if err = a.registerPlugin(&base.Base{}, renderer); err != nil {
+	if err = a.registerPlugin(&base.Base, renderer); err != nil {
 		panic(err)
 	}
 	a.html = append(a.html, '\n')
@@ -123,15 +120,11 @@ func (a *app) DataDir(subdirs ...string) string {
 }
 
 func (a *app) ModuleAt(index api.ModuleIndex) api.Module {
-	return a.modules[index].module
+	return a.modules[index]
 }
 
 func (a *app) NumModules() api.ModuleIndex {
 	return api.ModuleIndex(len(a.modules))
-}
-
-func (a *app) ModuleEnabled(index api.ModuleIndex) bool {
-	return a.modules[index].enabled
 }
 
 func (a *app) DefaultBorderWidth() int32 {
@@ -143,6 +136,9 @@ func (a *app) FontCatalog() []api.FontFamily {
 }
 
 func appendDir(resources []resourceFile, path string, group int, system int) []resourceFile {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return resources
+	}
 	files, err := ioutil.ReadDir(path)
 	if err == nil {
 		for _, file := range files {
@@ -166,45 +162,48 @@ func (a *app) listFiles(
 	resources = appendDir(
 		resources, a.DataDir("base", id, selector.Subdirectory), -1, -1)
 	for i := 0; i < a.config.NumSystems(); i++ {
-		if a.config.SystemID(i) != "" {
+		if a.config.System(i).ID() != "" {
 			resources = appendDir(
 				resources, a.DataDir("systems",
-					a.config.SystemID(i), id, selector.Subdirectory), -1, i)
+					a.config.System(i).ID(), id, selector.Subdirectory), -1, i)
 		}
 	}
 	for i := 0; i < a.config.NumGroups(); i++ {
-		if a.config.GroupID(i) != "" {
+		group := a.config.Group(i)
+		if group.ID() != "" {
 			resources = appendDir(resources, a.DataDir("groups",
-				a.config.GroupID(i), id, selector.Subdirectory), i, -1)
+				group.ID(), id, selector.Subdirectory), i, -1)
 		}
 	}
 	return resources
 }
 
-func (a *app) registerModule(module api.Module, renderer *sdl.Renderer) error {
-	if err := module.Init(renderer, a, api.ModuleIndex(len(a.modules))); err != nil {
+func (a *app) registerModule(descr *api.ModuleDescriptor,
+	renderer *sdl.Renderer) error {
+	module, err := descr.CreateModule(renderer, a, api.ModuleIndex(len(a.modules)))
+	if err != nil {
 		a.resourceCollections = a.resourceCollections[:len(a.resourceCollections)-1]
 		return err
 	}
-	a.modules = append(a.modules, moduleEntry{module: module, enabled: true})
+	a.modules = append(a.modules, module)
 	return nil
 }
 
-func (a *app) registerPlugin(plugin api.Plugin, renderer *sdl.Renderer) error {
-	println("Loading plugin", plugin.Name())
-	if js := plugin.AdditionalJS(); js != nil {
+func (a *app) registerPlugin(plugin *api.Plugin, renderer *sdl.Renderer) error {
+	println("Loading plugin", plugin.Name)
+	if js := plugin.AdditionalJS; js != nil {
 		a.js = append(a.js, '\n')
 		a.js = append(a.js, js...)
 	}
-	if html := plugin.AdditionalHTML(); html != nil {
+	if html := plugin.AdditionalHTML; html != nil {
 		a.html = append(a.html, '\n')
 		a.html = append(a.html, html...)
 	}
-	if css := plugin.AdditionalCSS(); css != nil {
+	if css := plugin.AdditionalCSS; css != nil {
 		a.css = append(a.css, '\n')
 		a.css = append(a.css, css...)
 	}
-	modules := plugin.Modules()
+	modules := plugin.Modules
 	for i := range modules {
 		if err := a.registerModule(modules[i], renderer); err != nil {
 			return err
@@ -215,11 +214,11 @@ func (a *app) registerPlugin(plugin api.Plugin, renderer *sdl.Renderer) error {
 
 func (a *app) loadModuleResources() {
 	for i := range a.modules {
-		module := a.modules[i].module
+		descr := a.modules[i].Descriptor()
 		collections := make([][]resourceFile, 0, 32)
-		selectors := module.ResourceCollections()
+		selectors := descr.ResourceCollections
 		for i := range selectors {
-			collections = append(collections, a.listFiles(module.ID(), selectors[i]))
+			collections = append(collections, a.listFiles(descr.ID, selectors[i]))
 		}
 		a.resourceCollections = append(a.resourceCollections, collections)
 	}
@@ -235,26 +234,17 @@ func (emptyHeroList) Length() int {
 	return 0
 }
 
-func (a *app) Heroes() api.HeroList {
+func (a *app) Heroes() api.HeroView {
 	if a.activeGroup == -1 {
-		return emptyHeroList{}
+		return nil
 	}
-	return a.config.GroupHeroes(a.activeGroup)
+	return a.config.Group(a.activeGroup).ViewHeroes()
 }
 
 // Font returns the font face of the selected font.
 func (a *app) Font(
 	fontFamily int, style api.FontStyle, size api.FontSize) *ttf.Font {
 	return a.fonts[fontFamily].Styled(style).Font(size)
-}
-
-func (a *app) findModule(name string) (api.Module, int) {
-	for i := range a.modules {
-		if a.modules[i].module.Name() == name {
-			return a.modules[i].module, i
-		}
-	}
-	return nil, -1
 }
 
 // GetResources filters resources by current group and system.
@@ -273,20 +263,36 @@ func (a *app) GetResources(
 
 func (a *app) pathToState() string {
 	return filepath.Join(a.dataDir, "groups",
-		a.config.GroupID(a.activeGroup), "state.yaml")
+		a.config.Group(a.activeGroup).ID(), "state.yaml")
 }
 
 // SetActiveGroup changes the active group to the group at the given index.
 // it loads the state of that group into all modules.
-func (a *app) setActiveGroup(index int) error {
+//
+// Returns the index of the currently active scene inside the group, and a
+// mapping of scene IDs to scene indexes.
+func (a *app) setActiveGroup(index int) (int, map[string]int, error) {
 	if index < 0 || index >= a.config.NumGroups() {
-		return errors.New("index out of range")
+		return -1, nil, errors.New("index out of range")
 	}
 	a.activeGroup = index
-	a.activeSystem = a.config.GroupLinkedSystem(index)
+	group := a.config.Group(index)
+	a.activeSystem = group.SystemIndex()
 	stateInput, _ := ioutil.ReadFile(a.pathToState())
-	a.config.LoadYamlGroupState(stateInput)
-	return nil
+	groupState, err := data.LoadYamlGroupState(a, group, stateInput)
+	if err != nil {
+		return -1, nil, err
+	}
+	scenes := make(map[string]int)
+	for i := 0; i < group.NumScenes(); i++ {
+		scenes[group.Scene(i).ID()] = i
+	}
+	a.groupState = groupState
+	return groupState.ActiveScene(), scenes, nil
+}
+
+func (a *app) setActiveScene(index int) error {
+	return a.groupState.SetScene(index)
 }
 
 func (a *app) destroy() {

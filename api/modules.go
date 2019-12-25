@@ -1,6 +1,7 @@
 package api
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -18,129 +19,134 @@ type ModuleIndex int
 // ModuleState describes the state of a module. It is written to and loaded
 // from a group's state.yaml.
 //
-// A type implementing this typically holds a reference to its module.
 // All funcs are expected to be called in the server thread.
-// Data should be passed to the module's Renderer via mutex or channel.
+// Data should be passed to the Module via mutex or channel.
 type ModuleState interface {
-	LoadFrom(yamlSubtree interface{}, env Environment) error
-
 	ToYAML(env Environment) interface{}
 	ToJSON() interface{}
 
-	// defines the list of actions that should be registered for this module.
-	Actions() []string
 	// HandleAction updates the state. if no error is returned, the OpenGL
-	// thread will call InitTransition on the module's Renderer.
+	// thread will call InitTransition on the linked Module.
 	//
-	// returns the content to return on success (nil if nothing should be returned).
-	// if not nil, the content must be valid JSON.
-	HandleAction(index int, payload []byte) ([]byte, error)
-}
-
-// Persistence describes a module's persisted data (i.e. data that will be
-// written to the filesystem).
-// It holds the module's current state and supplies generators for generating
-// module configuration.
-//
-// A module's configuration is not stored in Persistence since it is split
-// among three layers: base config, system config, group config.
-// Those layers are held by the global Persistence, which also generates a
-// calculated config from them which is then sent to the Renderer.
-//
-// config and state objects are expected to be a pointer.
-type Persistence interface {
-	// returns an empty configuration
-	// The item defines the type of its configuration.
-	EmptyConfig() interface{}
-	// returns a configuration object with default values.
-	DefaultConfig() interface{}
-	// GetState retrieves the current state of the item.
-	State() ModuleState
-}
-
-// Renderer describes an item that renders to an SDL surface.
-// All funcs of the renderer are expected to be called in the
-// OpenGL thread.
-type Renderer interface {
-	// SetConfig sets the module's calculated configuration.
-	// This must be done in the OpenGL thread; it belongs to the Renderer.
-	// The display will always call RebuildState after SetConfig.
-	SetConfig(config interface{})
-	// InitTransition queries update requests created by the State's
-	// HandleAction. Returns the length of the transition's animation.
-	//
-	// TransitionStep() and Render() will be invoked continuously until the
-	// returned time has been elapsed. after that, FinishTransition() and
-	// Render() will be called.
-	// if 0 is returned, TransitionStep will never be called; if a negative
-	// value is returned, neither FinishTransition() nor Render() will be
-	// called.
-	InitTransition(renderer *sdl.Renderer) time.Duration
-	// updates the renderer's current state while transitioning.
-	// A call to TransitionStep() will always immediately be followed by a call
-	// to Render().
-	//
-	// The given elapsed time is guaranteed to always be smaller than what was
-	// returned by InitTransition().
-	TransitionStep(renderer *sdl.Renderer, elapsed time.Duration)
-	// cleanup after transition.
-	//
-	// will be called exactly once after each time InitTransition() returns a
-	// non-negative value (but TransitionStep() and Render() may be called in
-	// between).
-	FinishTransition(renderer *sdl.Renderer)
-	// Renders the module's output.
-	Render(renderer *sdl.Renderer)
-	// will be called after group has been changed in the web server thread.
-	// Will always be preceded by a call to SetConfig.
-	// Updates the renderer's state according to the current config.
-	RebuildState(renderer *sdl.Renderer)
+	// Returns the content to return on success (nil if nothing should be
+	// returned). If not nil, the content will be encoded into JSON.
+	HandleAction(index int, payload []byte) (interface{}, error)
+	// SendToModule() sends the current complete state to the Module (which will
+	// collect it by RebuildState).
+	SendToModule()
 }
 
 // ResourceSelector defines a subdirectory and a filename suffix list.
-// Those will be used to collect resource files for this modules in the
-// data directory.
+// Those will be used to collect resource files for this module in the
+// data directories.
 type ResourceSelector struct {
 	// may be empty, in which case resource files are searched directly
 	// in the module directories.
 	Subdirectory string
 	// filters files by suffix. If empty or nil, no filter will be applied
-	// (not however that files starting with a dot will always be filtered out).
+	// (note however that files starting with a dot will always be filtered out).
 	Suffixes []string
 }
 
-// Module describes a module usable with PnP Screen.
-// A module consists of a Renderer and a Persistence.
-//
-// The Renderer part belongs with the OpenGL thread, while the Persistence
-// part belongs with the Server thread.
-// It is the implementor's responsibility to make any communication between the
-// two components thread-safe.
-type Module interface {
-	Persistence
-	Renderer
-
-	Name() string
-	// Unique ID string, used for identifying the module via HTTP and
-	// in the filesystem and URL, therefore restricted to ASCII letters digits,
-	// and the symbols `.,-_`
-	// Note that internally, the module is identified by the ModuleIndex given
-	// to its Init() func.
-	ID() string
-	// describes selectors for resource collections of this module.
-	// the maximum ResourceCollectionIndex available to this module is
+// ModuleDescriptor describes a module.
+type ModuleDescriptor struct {
+	// Name is the human-readable name of the module.
+	Name string
+	// ID is a unique string, used for identifying the module inside
+	// HTTP URLs and in the filesystem. Therefore, the ID is restricted to ASCII
+	// letters, digits, and the symbols `.,-_`
+	// Note that internally, a module is identified by the ModuleIndex given
+	// to CreateModule.
+	ID string
+	// ResourceCollections lists selectors for resource collections of this
+	// module. The maximum ResourceCollectionIndex available to this module is
 	// len(ResourceCollections()) - 1.
-	ResourceCollections() []ResourceSelector
-	// initializes the module. This must be called before any funcs of
-	// Persistence or Renderer are called; however Name(), ID() and
-	// ResourceCollections() must work on an uninitialized module.
+	ResourceCollections []ResourceSelector
+	// ConfigType returns the type of the module's configuration.
+
+	ConfigType reflect.Type
+	// Actions() is the list of actions callable via HTTP POST that should be
+	// registered for this module.
+	Actions []string
+	// DefaultConfig returns a configuration object with default values.
+	// This must be a pointer to a struct in which each field is a pointer to an
+	// item implementing ConfigItem.
+	// reflect.TypeOf(DefaultConfig()) must equal ConfigType().
+	// All fields of the struct object must hold a non-nil value.
+	DefaultConfig interface{}
+	// CreateModule creates the module object. This will only be called once
+	// during app initialization, making the module a singleton object.
 	//
-	// index should be retained by the module for identifying itself to the
-	// environment.
-	// This func is called during startup before multithreading begins and
-	// therefore does not need to be threadsafe.
+	// The index argument should be retained by the module for identifying itself
+	// to the environment.
+	CreateModule func(renderer *sdl.Renderer, env StaticEnvironment,
+		index ModuleIndex) (Module, error)
+}
+
+// RenderContext is the context given to all rendering funcs of a module
+type RenderContext struct {
+	Env      Environment
+	Renderer *sdl.Renderer
+}
+
+// Module describes a module object. This object belongs with the OpenGL thread.
+// All funcs are called in the OpenGL thread unless noted otherwise.
+type Module interface {
+	// Descriptor shall return the ModuleDescriptor that has created this module.
+	Descriptor() *ModuleDescriptor
+	// SetConfig sets the module's calculated configuration. The given config
+	// object will be of the type specified by ModuleDescriptor.ConfigType().
+	// The config object will have all fields set to non-nil values.
+	// The rendering thread will always call RebuildState after SetConfig.
+	SetConfig(config interface{})
+	// InitTransition will be called after the current State has been modified via
+	// HandleAction. It should retrieve the data sent by the State in a
+	// thread-safe manner.
 	//
-	// you may not yet call GetResources on env since those will be loaded
-	// after module initialization.
-	Init(renderer *sdl.Renderer, env Environment, index ModuleIndex) error
+	// The return value is the duration of the transition initiated by this call.
+	// For that duration, the render thread will continuously call
+	// TransitionStep() and Render(). After the time has passed,
+	// FinishTransition() and Render() will be called to render the final state.
+	//
+	// if 0 is returned, TransitionStep() will never be called; if a negative
+	// value is returned, neither FinishTransition() nor Render() will be
+	// called.
+	InitTransition(ctx RenderContext) time.Duration
+	// TransitionStep should update the renderer's current state while
+	// transitioning. A call to TransitionStep() will always immediately be
+	// followed by a call to Render().
+	//
+	// The given elapsed time is guaranteed to always be smaller than what was
+	// returned by InitTransition().
+	TransitionStep(ctx RenderContext, elapsed time.Duration)
+	// FinishTransition() is for cleanup after a transition and for preparing the
+	// final state. It will be called exactly once for each call to
+	// InitTransition() that returned a non-negative value.
+	//
+	// A call to FinishTransition() will always immediately be followed by a call
+	// to Render().
+	FinishTransition(ctx RenderContext)
+	// Render renders the Module.s current state.
+	Render(ctx RenderContext)
+	// RebuildState will be called after any action that requires rebuilding the
+	// Module's state, such as a scene, config or group change.
+	//
+	// A call to RebuildState() will always immediately be followed by a call to
+	// Render() and may be preceded by a call to SendToModule on a ModuleState
+	// linked to this module.
+	RebuildState(ctx RenderContext)
+	// CreateState will be called in the server thread. It shall create a
+	// ModuleState that is linked to this module (i.e. actions on the state shall
+	// send data to the module that can be retrieved via InitTransition).
+	//
+	// The exact way of communication between ModuleState and Module is up to the
+	// implementation, but it must be thread-safe since the ModuleState's funcs
+	// will be called in the server thread while the module's funcs will be called
+	// in the OpenGL thread. It is adviced to use a mutex-protected object owned
+	// by the Module and known by the state to transfer data.
+	//
+	// yamlSubtree shall contain a YAML structure loaded into basic Go types
+	// (map / slice / scalar types) from which the state should be created.
+	// It may be nil in which case the state will be created with default values.
+	CreateState(yamlSubtree interface{}, env Environment) (ModuleState, error)
 }

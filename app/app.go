@@ -7,6 +7,5 @@ type App interface {
 	api.Environment
 	DataDir(subdirs ...string) string
 	NumModules() api.ModuleIndex
-	ModuleEnabled(index api.ModuleIndex) bool
 	ModuleAt(index api.ModuleIndex) api.Module
 }

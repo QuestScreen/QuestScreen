@@ -10,7 +10,7 @@ class Background extends ListSelector {
 	}
 
 	async listItemClick(index) {
-		await App.fetch("module/background/set", "POST", index);
+		await App.fetch("state/background/set", "POST", index);
 		this.setListItemSelected(index, true);
 	}
 }
@@ -44,13 +44,13 @@ class HeroList extends ListSelector {
 
 	async listItemClick(index) {
 		let shown = await App.fetch(
-			"module/herolist/switchHero", "POST",  index);
+			"state/herolist/switchHero", "POST",  index);
 		this.setListItemSelected(index, shown);
 	}
 
 	async swapAll(node) {
 		let shown = await App.fetch(
-			"module/herolist/switchGlobal", "POST", null);
+			"state/herolist/switchGlobal", "POST", null);
 		if (shown) {
 			node.classList.add("pure-button-primary");
 			node.textContent = "Hide All";
@@ -61,10 +61,10 @@ class HeroList extends ListSelector {
 	}
 }
 
-class Overlay extends ListSelector {
+class Overlays extends ListSelector {
 	constructor() {
-		super(SelectorKind.multiple, true, "Overlay");
-		this.id = "overlay";
+		super(SelectorKind.multiple, true, "Overlays");
+		this.id = "overlays";
 	}
 
 	ui(app, state) {
@@ -74,7 +74,7 @@ class Overlay extends ListSelector {
 	}
 
 	async listItemClick(index) {
-		let visible = await App.fetch("module/overlay/switch", "POST", index);
+		let visible = await App.fetch("state/overlays/switch", "POST", index);
 		this.setListItemSelected(index, visible);
 	}
 }
@@ -105,12 +105,12 @@ class Title {
 		if (node.classList.contains("pure-button-primary")) {
 			value = input.value;
 		}
-		let newValue = await App.fetch("module/title/set", "POST", value);
+		let newValue = await App.fetch("state/title/set", "POST", value);
 		input.value = newValue;
 	}
 }
 
 app.registerController(new Background());
 app.registerController(new HeroList());
-app.registerController(new Overlay());
+app.registerController(new Overlays());
 app.registerController(new Title());
