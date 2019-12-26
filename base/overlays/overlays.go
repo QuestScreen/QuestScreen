@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/flyx/pnpscreen/api"
+	"gopkg.in/yaml.v3"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
@@ -204,8 +205,9 @@ func (o *Overlays) SetConfig(value interface{}) {
 }
 
 // CreateState creates a new state for this module.
-func (o *Overlays) CreateState(yamlSubtree interface{}, env api.Environment) (api.ModuleState, error) {
-	return newState(yamlSubtree, env, &o.sharedData)
+func (o *Overlays) CreateState(
+	input *yaml.Node, env api.Environment) (api.ModuleState, error) {
+	return newState(input, env, &o.sharedData)
 }
 
 // RebuildState queries the new state through the channel and immediately

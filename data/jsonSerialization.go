@@ -1,12 +1,14 @@
 package data
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
 
 	"github.com/flyx/pnpscreen/api"
 	"github.com/flyx/pnpscreen/app"
+	"gopkg.in/yaml.v3"
 )
 
 type jsonModuleConfig []interface{}
@@ -197,7 +199,7 @@ func (c *Config) LoadGroupJSON(raw []byte, group string) error {
 }
 
 func (c *Config) loadJSONModuleConfigInto(target interface{},
-	raw []interface{}) error {
+	raw []yaml.Node) error {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
 	for i := 0; i < targetModuleType.NumField(); i++ {
@@ -209,7 +211,7 @@ func (c *Config) loadJSONModuleConfigInto(target interface{},
 		targetSetting := targetModule.Field(i).Interface()
 
 		if err := targetSetting.(api.ConfigItem).LoadFrom(
-			raw[i], c.owner, false); err != nil {
+			&raw[i], c.owner, api.Web); err != nil {
 			if wasNil {
 				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 			}
@@ -221,19 +223,16 @@ func (c *Config) loadJSONModuleConfigInto(target interface{},
 
 func (c *Config) loadJSONModuleConfigs(jsonInput []byte,
 	targetConfigs []interface{}) error {
-	var raw []interface{}
-	if err := json.Unmarshal(jsonInput, &raw); err != nil {
+	var raw [][]yaml.Node
+	decoder := yaml.NewDecoder(bytes.NewReader(jsonInput))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&raw); err != nil {
 		return err
 	}
 	var i api.ModuleIndex
 	for i = 0; i < api.ModuleIndex(len(targetConfigs)); i++ {
-		moduleFields, ok := raw[i].([]interface{})
-		if !ok {
-			return fmt.Errorf("data for module\"%s\" is not a JSON array",
-				c.owner.ModuleAt(i).Descriptor().Name)
-		}
 		conf := targetConfigs[i]
-		if err := c.loadJSONModuleConfigInto(conf, moduleFields); err != nil {
+		if err := c.loadJSONModuleConfigInto(conf, raw[i]); err != nil {
 			return err
 		}
 	}
@@ -265,7 +264,7 @@ func (gs *GroupState) BuildSceneStateJSON(a app.App) interface{} {
 	scene := gs.scenes[gs.activeScene]
 	for i = 0; i < a.NumModules(); i++ {
 		if scene[i] != nil {
-			list[i] = scene[i].ToJSON()
+			list[i] = scene[i].SerializableView(a, api.Web)
 		}
 	}
 	return list

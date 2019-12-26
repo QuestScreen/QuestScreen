@@ -43,7 +43,7 @@ type app struct {
 	modules             []api.Module
 	resourceCollections [][][]resourceFile
 	config              data.Config
-	groupState          data.GroupState
+	groupState          *data.GroupState
 	display             display.Display
 	activeGroup         int
 	activeSystem        int
@@ -278,8 +278,7 @@ func (a *app) setActiveGroup(index int) (int, map[string]int, error) {
 	a.activeGroup = index
 	group := a.config.Group(index)
 	a.activeSystem = group.SystemIndex()
-	stateInput, _ := ioutil.ReadFile(a.pathToState())
-	groupState, err := data.LoadYamlGroupState(a, group, stateInput)
+	groupState, err := data.LoadYamlGroupState(a, group, a.pathToState())
 	if err != nil {
 		return -1, nil, err
 	}

@@ -187,12 +187,7 @@ func (c *Config) Group(index int) Group {
 
 func (c *Config) loadBase() []interface{} {
 	path := c.owner.DataDir("base", "config.yaml")
-	rawBaseConfig, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Println(path+":", err)
-		return nil
-	}
-	ret, err := c.loadYamlBase(rawBaseConfig)
+	ret, err := c.loadYamlBase(path)
 	if err != nil {
 		log.Println(path+":", err)
 	}
@@ -207,14 +202,9 @@ func (c *Config) loadSystems() []*system {
 		for _, file := range files {
 			if file.IsDir() {
 				path := filepath.Join(systemsDir, file.Name(), "config.yaml")
-				raw, err := ioutil.ReadFile(path)
+				config, err := c.loadYamlSystem(file.Name(), path)
 				if err == nil {
-					config, err := c.loadYamlSystem(file.Name(), raw)
-					if err == nil {
-						ret = append(ret, config)
-					} else {
-						log.Println(path+":", err)
-					}
+					ret = append(ret, config)
 				} else {
 					log.Println(path+":", err)
 				}
@@ -234,11 +224,8 @@ func (c *Config) loadHeroes(groupPath string) []hero {
 		for _, file := range files {
 			if file.IsDir() {
 				path := filepath.Join(heroesDir, file.Name(), "config.yaml")
-				raw, err := ioutil.ReadFile(path)
 				var h hero
-				if err == nil {
-					h, err = c.loadYamlHero(file.Name(), raw)
-				}
+				h, err = c.loadYamlHero(file.Name(), path)
 				if err == nil {
 					ret = append(ret, h)
 				} else {
@@ -258,11 +245,8 @@ func (c *Config) loadScenes(groupPath string) []scene {
 		for _, file := range files {
 			if file.IsDir() {
 				path := filepath.Join(scenesDir, file.Name(), "config.yaml")
-				raw, err := ioutil.ReadFile(path)
 				var s scene
-				if err == nil {
-					s, err = c.loadYamlScene(file.Name(), raw)
-				}
+				s, err = c.loadYamlScene(file.Name(), path)
 				if err == nil {
 					ret = append(ret, s)
 				} else {
@@ -283,22 +267,17 @@ func (c *Config) loadGroups() []*group {
 			if file.IsDir() {
 				path := filepath.Join(groupsDir, file.Name())
 				configPath := filepath.Join(path, "config.yaml")
-				raw, err := ioutil.ReadFile(configPath)
-				if err == nil {
-					g, err := c.loadYamlGroup(file.Name(), raw)
-					if err != nil {
-						log.Println(path+":", err)
-					} else {
-						g.heroes.data = c.loadHeroes(path)
-						g.scenes = c.loadScenes(path)
-						if len(g.scenes) == 0 {
-							log.Println(path + ": no valid scenes available")
-						} else {
-							ret = append(ret, g)
-						}
-					}
-				} else {
+				g, err := c.loadYamlGroup(file.Name(), configPath)
+				if err != nil {
 					log.Println(configPath+":", err)
+				} else {
+					g.heroes.data = c.loadHeroes(path)
+					g.scenes = c.loadScenes(path)
+					if len(g.scenes) == 0 {
+						log.Println(path + ": no valid scenes available")
+					} else {
+						ret = append(ret, g)
+					}
 				}
 			}
 		}

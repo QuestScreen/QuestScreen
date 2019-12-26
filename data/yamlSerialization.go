@@ -12,23 +12,38 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type yamlBaseConfig struct {
+type persistedBaseConfig struct {
+	Modules map[string]map[string]yaml.Node
+}
+
+type persistingBaseConfig struct {
 	Modules map[string]map[string]interface{}
 }
 
-// yamlSystem is the structure system configuration
+// persistedSystem is the structure system configuration
 // is stored in YAML files. This differs from the internal
 // structure as it uses module names and setting names as
 // keys in YAML mappings rather than using a list which
 // maps config items by position to a module / setting.
-type yamlSystem struct {
+type persistedSystem struct {
 	Name string
 	// module name -> (setting name -> value)
+	Modules map[string]map[string]yaml.Node
+}
+
+type persistingSystem struct {
+	Name    string
 	Modules map[string]map[string]interface{}
 }
 
-// yamlGroup is yamlSystem for groups
-type yamlGroup struct {
+// persistedGroup is yamlSystem for groups
+type persistedGroup struct {
+	Name    string
+	System  string
+	Modules map[string]map[string]yaml.Node
+}
+
+type persistingGroup struct {
 	Name    string
 	System  string
 	Modules map[string]map[string]interface{}
@@ -39,18 +54,18 @@ type yamlHero struct {
 	Description string
 }
 
-type yamlSceneModule struct {
+type persistedSceneModule struct {
 	Enabled bool
-	Config  map[string]interface{}
+	Config  map[string]yaml.Node
 }
 
-type yamlScene struct {
+type persistedScene struct {
 	Name    string
-	Modules map[string]yamlSceneModule
+	Modules map[string]persistedSceneModule
 }
 
 func (c *Config) loadYamlModuleConfigInto(target interface{},
-	values map[string]interface{}, moduleName string) bool {
+	values map[string]yaml.Node, moduleName string) bool {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
 	for i := 0; i < targetModuleType.NumField(); i++ {
@@ -63,9 +78,9 @@ func (c *Config) loadYamlModuleConfigInto(target interface{},
 			targetModule.Field(i).Set(reflect.New(targetModuleType.Field(i).Type.Elem()))
 			wasNil = true
 		}
-		targetSetting := targetModule.Field(i).Interface()
+		targetSetting := targetModule.Field(i).Interface().(api.ConfigItem)
 
-		if err := targetSetting.(api.ConfigItem).LoadFrom(inValue, c.owner, true); err != nil {
+		if err := targetSetting.LoadFrom(&inValue, c.owner, api.Persisted); err != nil {
 			if wasNil {
 				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 			}
@@ -98,7 +113,7 @@ func configType(mod api.Module) reflect.Type {
 }
 
 func (c *Config) loadYamlModuleConfigs(
-	raw map[string]map[string]interface{}) ([]interface{}, error) {
+	raw map[string]map[string]yaml.Node) ([]interface{}, error) {
 	ret := make([]interface{}, c.owner.NumModules())
 	for name, rawItems := range raw {
 		mod, index := findModule(c.owner, name)
@@ -162,36 +177,40 @@ func (c *Config) toYamlStructure(moduleConfigs []interface{}) map[string]map[str
 	return ret
 }
 
-func strictUnmarshalYAML(yamlInput []byte, target interface{}) error {
-	decoder := yaml.NewDecoder(bytes.NewReader(yamlInput))
+func strictUnmarshalYAML(path string, target interface{}) error {
+	raw, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	decoder := yaml.NewDecoder(bytes.NewReader(raw))
 	decoder.KnownFields(true)
 	return decoder.Decode(target)
 }
 
-func (c *Config) loadYamlBase(yamlInput []byte) ([]interface{}, error) {
-	var data yamlBaseConfig
-	if yamlInput != nil {
-		if err := strictUnmarshalYAML(yamlInput, &data); err != nil {
+func (c *Config) loadYamlBase(path string) ([]interface{}, error) {
+	var data persistedBaseConfig
+	if len(path) != 0 {
+		if err := strictUnmarshalYAML(path, &data); err != nil {
 			return make([]interface{}, c.owner.NumModules()), err
 		}
 	} else {
-		data.Modules = make(map[string]map[string]interface{})
+		data.Modules = make(map[string]map[string]yaml.Node)
 	}
 
 	return c.loadYamlModuleConfigs(data.Modules)
 }
 
 func (c *Config) writeYamlBase() {
-	data := yamlBaseConfig{Modules: c.toYamlStructure(c.baseConfigs)}
+	data := persistingBaseConfig{Modules: c.toYamlStructure(c.baseConfigs)}
 	path := c.owner.DataDir("base", "config.yaml")
 	raw, _ := yaml.Marshal(data)
 	ioutil.WriteFile(path, raw, 0644)
 }
 
 func (c *Config) loadYamlSystem(
-	id string, yamlInput []byte) (*system, error) {
-	var data yamlSystem
-	if err := strictUnmarshalYAML(yamlInput, &data); err != nil {
+	id string, path string) (*system, error) {
+	var data persistedSystem
+	if err := strictUnmarshalYAML(path, &data); err != nil {
 		return nil, err
 	}
 	moduleConfigs, err := c.loadYamlModuleConfigs(data.Modules)
@@ -202,7 +221,7 @@ func (c *Config) loadYamlSystem(
 }
 
 func (c *Config) writeYamlSystem(value *system) {
-	data := yamlSystem{
+	data := persistingSystem{
 		Name:    value.name,
 		Modules: c.toYamlStructure(value.modules),
 	}
@@ -212,9 +231,9 @@ func (c *Config) writeYamlSystem(value *system) {
 }
 
 func (c *Config) loadYamlGroup(
-	id string, yamlInput []byte) (*group, error) {
-	var data yamlGroup
-	if err := strictUnmarshalYAML(yamlInput, &data); err != nil {
+	id string, path string) (*group, error) {
+	var data persistedGroup
+	if err := strictUnmarshalYAML(path, &data); err != nil {
 		return nil, err
 	}
 	for i := 0; i < len(c.systems); i++ {
@@ -233,7 +252,7 @@ func (c *Config) loadYamlGroup(
 }
 
 func (c *Config) writeYamlGroup(value *group) {
-	data := yamlGroup{
+	data := persistingGroup{
 		Name:    value.name,
 		System:  c.systems[value.systemIndex].id,
 		Modules: c.toYamlStructure(value.modules),
@@ -243,17 +262,17 @@ func (c *Config) writeYamlGroup(value *group) {
 	ioutil.WriteFile(path, raw, 0644)
 }
 
-func (c *Config) loadYamlHero(id string, yamlInput []byte) (hero, error) {
+func (c *Config) loadYamlHero(id string, path string) (hero, error) {
 	var data yamlHero
-	if err := strictUnmarshalYAML(yamlInput, &data); err != nil {
+	if err := strictUnmarshalYAML(path, &data); err != nil {
 		return hero{}, err
 	}
 	return hero{name: data.Name, description: data.Description}, nil
 }
 
-func (c *Config) loadYamlScene(id string, yamlInput []byte) (scene, error) {
-	var data yamlScene
-	if err := strictUnmarshalYAML(yamlInput, &data); err != nil {
+func (c *Config) loadYamlScene(id string, path string) (scene, error) {
+	var data persistedScene
+	if err := strictUnmarshalYAML(path, &data); err != nil {
 		return scene{}, err
 	}
 	ret := scene{name: data.Name, id: id,
@@ -271,19 +290,26 @@ func (c *Config) loadYamlScene(id string, yamlInput []byte) (scene, error) {
 	return ret, nil
 }
 
-type yamlGroupState struct {
+type persistedGroupState struct {
 	ActiveScene string `yaml:"activeScene"`
 	// scene name -> (module name -> module config)
-	Scenes map[string]map[string]interface{}
+	Scenes map[string]map[string]yaml.Node
+}
+
+type persistingGroupState struct {
+	ActiveScene string `yaml:"activeScene"`
+	Scenes      map[string]map[string]interface{}
 }
 
 // LoadYamlGroupState loads the given YAML input into a GroupState object.
-func LoadYamlGroupState(a app.App, g Group, yamlInput []byte) (GroupState, error) {
-	var data yamlGroupState
-	if err := strictUnmarshalYAML(yamlInput, &data); err != nil {
-		return GroupState{}, err
+func LoadYamlGroupState(a app.App, g Group, path string) (*GroupState, error) {
+	var data persistedGroupState
+	if err := strictUnmarshalYAML(path, &data); err != nil {
+		return nil, err
 	}
-	ret := GroupState{activeScene: -1, scenes: make([][]api.ModuleState, g.NumScenes())}
+	ret := &GroupState{
+		activeScene: -1, scenes: make([][]api.ModuleState, g.NumScenes()),
+		path: path, a: a, group: g}
 	for i := 0; i < g.NumScenes(); i++ {
 		if g.Scene(i).ID() == data.ActiveScene {
 			ret.activeScene = i
@@ -317,7 +343,7 @@ func LoadYamlGroupState(a app.App, g Group, yamlInput []byte) (GroupState, error
 								break
 							}
 
-							state, err := module.CreateState(modRaw, a)
+							state, err := module.CreateState(&modRaw, a)
 							if err != nil {
 								log.Printf(
 									"Scene \"%s\": Could not load state for module %s: %s\n",
@@ -351,9 +377,9 @@ func LoadYamlGroupState(a app.App, g Group, yamlInput []byte) (GroupState, error
 				sceneLoaded[i] = true
 				break
 			}
-			if !sceneFound {
-				log.Printf("Unknown scene \"%s\"", sceneName)
-			}
+		}
+		if !sceneFound {
+			log.Printf("Unknown scene \"%s\"", sceneName)
 		}
 	}
 	for i := 0; i < g.NumScenes(); i++ {
@@ -380,18 +406,18 @@ func LoadYamlGroupState(a app.App, g Group, yamlInput []byte) (GroupState, error
 	return ret, nil
 }
 
-// BuildYaml writes YAML output describing the GroupState.
-func (gs *GroupState) BuildYaml(a app.App, g Group) ([]byte, error) {
-	structure := yamlGroupState{
-		ActiveScene: g.Scene(gs.activeScene).ID(),
+func (gs *GroupState) buildYaml() ([]byte, error) {
+	structure := persistingGroupState{
+		ActiveScene: gs.group.Scene(gs.activeScene).ID(),
 		Scenes:      make(map[string]map[string]interface{})}
-	for i := 0; i < g.NumScenes(); i++ {
-		sceneDescr := g.Scene(i)
+	for i := 0; i < gs.group.NumScenes(); i++ {
+		sceneDescr := gs.group.Scene(i)
 		data := make(map[string]interface{})
 		var j api.ModuleIndex
-		for j = 0; j < a.NumModules(); j++ {
+		for j = 0; j < gs.a.NumModules(); j++ {
 			if sceneDescr.UsesModule(j) {
-				data[a.ModuleAt(j).Descriptor().ID] = gs.scenes[i][j].ToYAML(a)
+				data[gs.a.ModuleAt(j).Descriptor().ID] =
+					gs.scenes[i][j].SerializableView(gs.a, api.Persisted)
 			}
 		}
 		structure.Scenes[sceneDescr.ID()] = data

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"reflect"
 
 	"github.com/flyx/pnpscreen/api"
+	"gopkg.in/yaml.v3"
 )
 
 type state struct {
@@ -16,7 +16,12 @@ type state struct {
 	heroVisible   []bool
 }
 
-func newState(yamlSubtree interface{}, env api.Environment,
+type persistedState struct {
+	GlobalVisible bool
+	HeroVisible   []string
+}
+
+func newState(input *yaml.Node, env api.Environment,
 	shared *sharedData) (*state, error) {
 	heroes := env.Heroes()
 	defer heroes.Close()
@@ -26,46 +31,28 @@ func newState(yamlSubtree interface{}, env api.Environment,
 	for i := 0; i < heroes.NumHeroes(); i++ {
 		s.heroVisible[i] = true
 	}
-	if yamlSubtree == nil {
+	if input == nil {
 		s.globalVisible = true
 	} else {
-		mapping, ok := yamlSubtree.(map[string]interface{})
-		if !ok {
-			return nil, errors.New(
-				"unexpected state for ShowableHeroes: not a mapping, but a " +
-					reflect.TypeOf(yamlSubtree).Name())
+		var tmp persistedState
+		if err := input.Decode(&tmp); err != nil {
+			return nil, err
 		}
-		for k, v := range mapping {
-			switch k {
-			case "globalVisible":
-				boolean, ok := v.(bool)
-				if !ok {
-					return nil,
-						errors.New("unexpected value for globalVisible: not a bool")
+		s.globalVisible = tmp.GlobalVisible
+		for i := range s.heroVisible {
+			s.heroVisible[i] = false
+		}
+		for i := range tmp.HeroVisible {
+			found := false
+			for j := 0; j < heroes.NumHeroes(); j++ {
+				if tmp.HeroVisible[i] == heroes.Hero(j).Name() {
+					found = true
+					s.heroVisible[j] = true
+					break
 				}
-				s.globalVisible = boolean
-			case "heroVisible":
-				for i := 0; i < heroes.NumHeroes(); i++ {
-					s.heroVisible[i] = false
-				}
-				sequence, ok := v.([]interface{})
-				if !ok {
-					return nil, errors.New(
-						"unexpected value for heroesVisible: not a list of strings")
-				}
-				for i := range sequence {
-					found := false
-					for j := 0; j < heroes.NumHeroes(); j++ {
-						if sequence[i].(string) == heroes.Hero(j).Name() {
-							found = true
-							s.heroVisible[j] = true
-							break
-						}
-					}
-					if !found {
-						log.Println("Unknown hero: \"" + sequence[i].(string) + "\"")
-					}
-				}
+			}
+			if !found {
+				log.Println("Unknown hero: \"" + tmp.HeroVisible[i] + "\"")
 			}
 		}
 	}
@@ -95,23 +82,21 @@ func (s *state) visibleHeroesList(env api.Environment) []string {
 	return ret
 }
 
-// ToYAML returns a mapping representing the state, where each
-// hero is identified by its name.
-func (s *state) ToYAML(env api.Environment) interface{} {
-	return map[string]interface{}{
-		"globalVisible": s.globalVisible,
-		"heroVisible":   s.visibleHeroesList(env),
-	}
-}
-
-type jsonState struct {
+type webState struct {
 	Global bool   `json:"global"`
 	Heroes []bool `json:"heroes"`
 }
 
-// ToJSON returns an object with global and hero visibility.
-func (s *state) ToJSON() interface{} {
-	return jsonState{
+// Serializable view returns a structure containing the global flag and
+// - a list containing each visible hero as ID for Persisted
+// - a list containing boolean flags for each hero for Web
+func (s *state) SerializableView(
+	env api.Environment, layout api.DataLayout) interface{} {
+	if layout == api.Persisted {
+		return persistedState{GlobalVisible: s.globalVisible,
+			HeroVisible: s.visibleHeroesList(env)}
+	}
+	return webState{
 		Global: s.globalVisible, Heroes: s.heroVisible,
 	}
 }

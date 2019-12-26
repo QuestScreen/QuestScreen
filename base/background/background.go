@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/flyx/pnpscreen/api"
+	"gopkg.in/yaml.v3"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
@@ -165,8 +166,8 @@ func (bg *Background) SetConfig(config interface{}) {
 
 // CreateState returns the current state.
 func (bg *Background) CreateState(
-	yamlSubtree interface{}, env api.Environment) (api.ModuleState, error) {
-	return newState(yamlSubtree, env, &bg.sharedData)
+	input *yaml.Node, env api.Environment) (api.ModuleState, error) {
+	return newState(input, env, &bg.sharedData)
 }
 
 // RebuildState queries the texture index through the channel and immediately

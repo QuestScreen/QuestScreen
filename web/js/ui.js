@@ -18,7 +18,6 @@ class DropdownHandler {
 			if (e.target !== this.link && !this.menu.contains(e.target)) {
 				this.hide();
 			}
-			e.preventDefault();
 		});
 	}
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/flyx/pnpscreen/api"
+	"gopkg.in/yaml.v3"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -289,8 +290,8 @@ func (l *HeroList) SetConfig(value interface{}) {
 }
 
 // CreateState creates a new state for the HeroList
-func (l *HeroList) CreateState(yamlSubtree interface{}, env api.Environment) (api.ModuleState, error) {
-	return newState(yamlSubtree, env, &l.sharedData)
+func (l *HeroList) CreateState(input *yaml.Node, env api.Environment) (api.ModuleState, error) {
+	return newState(input, env, &l.sharedData)
 }
 
 // RebuildState queries the new state through the channel and immediately

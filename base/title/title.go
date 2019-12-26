@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/veandco/go-sdl2/img"
+	"gopkg.in/yaml.v3"
 
 	"github.com/flyx/pnpscreen/api"
 
@@ -183,8 +184,8 @@ func (t *Title) SetConfig(value interface{}) {
 }
 
 // CreateState creates a state for the Title module.
-func (t *Title) CreateState(yamlSubtree interface{}, env api.Environment) (api.ModuleState, error) {
-	return newState(yamlSubtree, env, &t.sharedData)
+func (t *Title) CreateState(input *yaml.Node, env api.Environment) (api.ModuleState, error) {
+	return newState(input, env, &t.sharedData)
 }
 
 // RebuildState queries the new state through the channel and immediately

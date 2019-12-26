@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/flyx/pnpscreen/api"
+	"gopkg.in/yaml.v3"
 )
 
 type state struct {
@@ -15,32 +16,30 @@ type state struct {
 	resources []api.Resource
 }
 
-func newState(yamlSubtree interface{}, env api.Environment,
+type persistentState []string
+
+func newState(input *yaml.Node, env api.Environment,
 	shared *sharedData) (*state, error) {
 	s := new(state)
 	s.resources = env.GetResources(shared.moduleIndex, 0)
 	s.visible = make([]bool, len(s.resources))
 	s.shared = shared
-	if yamlSubtree != nil {
-		names, ok := yamlSubtree.([]interface{})
-		if !ok {
-			return nil, errors.New("value of Persons is not a sequence")
+	if input != nil {
+		var tmp persistentState
+		if err := input.Decode(&tmp); err != nil {
+			return nil, err
 		}
-		for i := range names {
-			name, ok := names[i].(string)
-			if !ok {
-				return nil, errors.New("item in Persons is not a string")
-			}
+		for i := range tmp {
 			found := false
 			for j := range s.resources {
-				if s.resources[j].Name() == name {
+				if s.resources[j].Name() == tmp[i] {
 					found = true
 					s.visible[j] = true
 					break
 				}
 			}
 			if !found {
-				log.Println("Did not find resource \"" + name + "\"")
+				log.Println("Did not find resource \"" + tmp[i] + "\"")
 			}
 		}
 	}
@@ -60,28 +59,28 @@ func (s *state) SendToModule() {
 	s.shared.mutex.Unlock()
 }
 
-// ToYAML returns a slice containing the names of all visible items.
-func (s *state) ToYAML(env api.Environment) interface{} {
-	ret := make([]string, 0, len(s.resources))
-	for i := range s.visible {
-		if s.visible[i] {
-			ret = append(ret, s.resources[i].Name())
-		}
-	}
-	return ret
-}
-
-type jsonStateItem struct {
+type webStateItem struct {
 	Name     string `json:"name"`
 	Selected bool   `json:"selected"`
 }
 
-type jsonState []jsonStateItem
+type webState []webStateItem
 
-// ToJSON returns a list of resource names together with a flag telling whether
-// the resource is visible
-func (s *state) ToJSON() interface{} {
-	ret := make(jsonState, len(s.resources))
+// SerializableView returns
+// - a list of selected resource names for Persisted
+// - a list of resources descriptors (name & visible) for Web
+func (s *state) SerializableView(
+	env api.Environment, layout api.DataLayout) interface{} {
+	if layout == api.Persisted {
+		ret := make([]string, 0, len(s.resources))
+		for i := range s.visible {
+			if s.visible[i] {
+				ret = append(ret, s.resources[i].Name())
+			}
+		}
+		return ret
+	}
+	ret := make(webState, len(s.resources))
 	for i := range s.resources {
 		ret[i].Name = s.resources[i].Name()
 		ret[i].Selected = s.visible[i]

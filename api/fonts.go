@@ -1,10 +1,10 @@
 package api
 
 import (
-	"errors"
-	"strconv"
+	"fmt"
 
 	"github.com/veandco/go-sdl2/ttf"
+	"gopkg.in/yaml.v3"
 )
 
 // FontStyle describes possible styles of a font
@@ -65,9 +65,9 @@ type FontFamily interface {
 }
 
 // UnmarshalYAML sets the font style from a YAML scalar
-func (fs *FontStyle) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (fs *FontStyle) UnmarshalYAML(value *yaml.Node) error {
 	var name string
-	if err := unmarshal(&name); err != nil {
+	if err := value.Decode(&name); err != nil {
 		return err
 	}
 	switch name {
@@ -80,7 +80,7 @@ func (fs *FontStyle) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	case "BoldItalic":
 		*fs = BoldItalic
 	default:
-		return errors.New("Unknown font style: " + name)
+		return fmt.Errorf("Unknown font style: %s", name)
 	}
 	return nil
 }
@@ -97,14 +97,14 @@ func (fs *FontStyle) MarshalYAML() (interface{}, error) {
 	case BoldItalic:
 		return "BoldItalic", nil
 	default:
-		return nil, errors.New("Unknown font style: " + strconv.Itoa(int(*fs)))
+		return nil, fmt.Errorf("Unknown font style: %v", *fs)
 	}
 }
 
 // UnmarshalYAML sets the font size from a YAML scalar
-func (fs *FontSize) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (fs *FontSize) UnmarshalYAML(value *yaml.Node) error {
 	var name string
-	if err := unmarshal(&name); err != nil {
+	if err := value.Decode(&name); err != nil {
 		return err
 	}
 	switch name {
@@ -121,7 +121,7 @@ func (fs *FontSize) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	case "Huge":
 		*fs = HugeFont
 	default:
-		return errors.New("Unknown font size: " + name)
+		return fmt.Errorf("Unknown font size: %s", name)
 	}
 	return nil
 }
@@ -142,6 +142,6 @@ func (fs *FontSize) MarshalYAML() (interface{}, error) {
 	case HugeFont:
 		return "Huge", nil
 	default:
-		return nil, errors.New("Unknown font size: " + strconv.Itoa(int(*fs)))
+		return nil, fmt.Errorf("Unknown font size: %v", *fs)
 	}
 }

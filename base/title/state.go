@@ -2,9 +2,9 @@ package title
 
 import (
 	"encoding/json"
-	"errors"
 
 	"github.com/flyx/pnpscreen/api"
+	"gopkg.in/yaml.v3"
 )
 
 type state struct {
@@ -13,19 +13,17 @@ type state struct {
 	resources []api.Resource
 }
 
-func newState(yamlSubtree interface{}, env api.Environment,
+func newState(input *yaml.Node, env api.Environment,
 	shared *sharedData) (*state, error) {
 	s := new(state)
 	s.resources = env.GetResources(shared.moduleIndex, 0)
 	s.shared = shared
 
-	if yamlSubtree == nil {
+	if input == nil {
 		s.caption = ""
 	} else {
-		var ok bool
-		s.caption, ok = yamlSubtree.(string)
-		if !ok {
-			return nil, errors.New("title caption is not a string")
+		if err := input.Decode(&s.caption); err != nil {
+			return nil, err
 		}
 	}
 
@@ -44,11 +42,9 @@ func (s *state) SendToModule() {
 	s.shared.mutex.Unlock()
 }
 
-func (s *state) ToYAML(env api.Environment) interface{} {
-	return s.caption
-}
-
-func (s *state) ToJSON() interface{} {
+// SerializableView returns the current caption of the title as string.
+func (s *state) SerializableView(
+	env api.Environment, layout api.DataLayout) interface{} {
 	return s.caption
 }
 

@@ -47,6 +47,11 @@ body {
 	}
 }
 
+/* ensure link clicks are always issued by the link itself */
+.pure-menu-link span, .pure-menu-link i {
+	pointer-events: none;
+}
+
 hr {
 	border: 0;
 	height: 3px;

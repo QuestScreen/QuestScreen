@@ -2,8 +2,12 @@ package data
 
 import (
 	"errors"
+	"io/ioutil"
+	"log"
+	"sync"
 
 	"github.com/flyx/pnpscreen/api"
+	"github.com/flyx/pnpscreen/app"
 )
 
 // GroupState holds the complete state for the currently active group.
@@ -12,16 +16,20 @@ import (
 type GroupState struct {
 	activeScene int
 	scenes      [][]api.ModuleState
+	path        string
+	writeMutex  sync.Mutex
+	a           app.App
+	group       Group
 }
 
 // SetScene sets the scene index.
-func (g *GroupState) SetScene(index int) error {
-	if index < 0 || index >= len(g.scenes) {
+func (gs *GroupState) SetScene(index int) error {
+	if index < 0 || index >= len(gs.scenes) {
 		return errors.New("index out of range")
 	}
-	g.activeScene = index
-	for j := range g.scenes[index] {
-		state := g.scenes[index][j]
+	gs.activeScene = index
+	for j := range gs.scenes[index] {
+		state := gs.scenes[index][j]
 		if state != nil {
 			state.SendToModule()
 		}
@@ -30,11 +38,26 @@ func (g *GroupState) SetScene(index int) error {
 }
 
 // ActiveScene returns the index of the currently active scene
-func (g *GroupState) ActiveScene() int {
-	return g.activeScene
+func (gs *GroupState) ActiveScene() int {
+	return gs.activeScene
 }
 
 // State returns the module state for the given module in the active scene
-func (g *GroupState) State(moduleIndex api.ModuleIndex) api.ModuleState {
-	return g.scenes[g.activeScene][moduleIndex]
+func (gs *GroupState) State(moduleIndex api.ModuleIndex) api.ModuleState {
+	return gs.scenes[gs.activeScene][moduleIndex]
+}
+
+// Persist writes the group state to its YAML file.
+// The actual writing operation is done asynchronous.
+func (gs *GroupState) Persist() {
+	raw, err := gs.buildYaml()
+	if err != nil {
+		log.Printf("%s[w]: %s", gs.path, err)
+	} else {
+		go func(content []byte, gs *GroupState) {
+			gs.writeMutex.Lock()
+			defer gs.writeMutex.Unlock()
+			ioutil.WriteFile(gs.path, content, 0644)
+		}(raw, gs)
+	}
 }

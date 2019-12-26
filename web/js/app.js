@@ -199,12 +199,16 @@ class App {
 		this.cfgPage = new ConfigPage(this);
 		this.statePage = new StatePage(this);
 		document.querySelector("#show-config").addEventListener(
-			"click", e => {
-				e.target.blur();
-				this.showConfig();
-			});
+				"click", e => {
+					e.target.blur();
+					this.showConfig();
+					e.preventDefault();
+				});
 		document.querySelector("#header-toggle").addEventListener(
-				"click", e => { this.toggleHeader(e.currentTarget); });
+				"click", e => {
+					this.toggleHeader(e.currentTarget);
+					e.preventDefault();
+				});
 	}
 }
 

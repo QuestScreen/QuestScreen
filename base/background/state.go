@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/flyx/pnpscreen/api"
+	"gopkg.in/yaml.v3"
 )
 
 type state struct {
@@ -16,25 +17,24 @@ type state struct {
 }
 
 // LoadFrom loads the stored selection, defaults to no item being selected.
-func newState(yamlSubtree interface{}, env api.Environment,
+func newState(input *yaml.Node, env api.Environment,
 	shared *sharedData) (*state, error) {
 	s := new(state)
 	s.shared = shared
 	s.resources = env.GetResources(shared.moduleIndex, 0)
 	s.curIndex = -1
-	if yamlSubtree != nil {
-		scalar, ok := yamlSubtree.(string)
-		if !ok {
+	if input != nil {
+		if input.Kind != yaml.ScalarNode {
 			return nil, errors.New("unexpected YAML for Background state: not a string")
 		}
 		for i := range s.resources {
-			if s.resources[i].Name() == scalar {
+			if s.resources[i].Name() == input.Value {
 				s.curIndex = i
 				break
 			}
 		}
 		if s.curIndex == -1 {
-			log.Println("Didn't find resource \"" + scalar + "\"")
+			log.Println("Didn't find resource \"" + input.Value + "\"")
 		}
 	}
 	return s, nil
@@ -51,22 +51,23 @@ func (s *state) SendToModule() {
 	s.shared.mutex.Unlock()
 }
 
-// ToYAML returns the name of the currently selected resource, or nil if none
-func (s *state) ToYAML(env api.Environment) interface{} {
-	if s.curIndex == -1 {
-		return nil
-	}
-	return s.resources[s.curIndex].Name()
-}
-
-type jsonState struct {
+type webState struct {
 	CurIndex int      `json:"curIndex"`
 	Items    []string `json:"items"`
 }
 
-// ToJSON returns the index of the current item (-1 if none)
-func (s *state) ToJSON() interface{} {
-	return jsonState{CurIndex: s.curIndex, Items: api.ResourceNames(s.resources)}
+// SerializableView returns
+// - the name of the currently selected resource (nil if none) for Persisted
+// - the list of all available resources plus the current index for Web
+func (s *state) SerializableView(
+	env api.Environment, layout api.DataLayout) interface{} {
+	if layout == api.Persisted {
+		if s.curIndex == -1 {
+			return nil
+		}
+		return s.resources[s.curIndex].Name()
+	}
+	return webState{CurIndex: s.curIndex, Items: api.ResourceNames(s.resources)}
 }
 
 func (s *state) HandleAction(index int, payload []byte) (interface{}, error) {

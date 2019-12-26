@@ -234,6 +234,7 @@ func (ep *sceneChangeEndpoint) Handle(
 	sendScene(a, ep.sceneChan)
 	mergeAndSendConfigs(a, ep.moduleConfigChan)
 	sdl.PushEvent(&sdl.UserEvent{Type: ep.env.events.SceneChangeID})
+	a.groupState.Persist()
 	moduleStates := a.groupState.BuildSceneStateJSON(a)
 	ret, err := json.Marshal(groupChangeResponse{
 		ActiveScene: a.groupState.ActiveScene(),
@@ -436,14 +437,7 @@ func (ep *moduleStateEndpoint) Handle(
 			w.WriteHeader(http.StatusOK)
 			w.Write(response)
 		}
-		newStateYaml, err :=
-			ep.env.a.groupState.BuildYaml(ep.env.a, ep.env.a.config.Group(ep.env.a.activeGroup))
-		if err != nil {
-			panic(err)
-		}
-		go func(content []byte, filename string) {
-			ioutil.WriteFile(filename, content, 0644)
-		}(newStateYaml, ep.env.a.pathToState())
+		ep.env.a.groupState.Persist()
 	}
 }
 
