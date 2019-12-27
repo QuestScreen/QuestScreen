@@ -28,12 +28,6 @@ func (gs *GroupState) SetScene(index int) error {
 		return errors.New("index out of range")
 	}
 	gs.activeScene = index
-	for j := range gs.scenes[index] {
-		state := gs.scenes[index][j]
-		if state != nil {
-			state.SendToModule()
-		}
-	}
 	return nil
 }
 

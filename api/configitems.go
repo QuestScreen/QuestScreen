@@ -1,7 +1,7 @@
 package api
 
 import (
-	"errors"
+	"fmt"
 	"log"
 
 	"gopkg.in/yaml.v3"
@@ -44,6 +44,12 @@ type persistedSelectableFont struct {
 	Style  FontStyle `yaml:"style"`
 }
 
+type webSelectableFont struct {
+	FamilyIndex int `yaml:"familyIndex"`
+	Size        int
+	Style       int
+}
+
 // LoadFrom loads values from a JSON/YAML subtree
 func (sf *SelectableFont) LoadFrom(input *yaml.Node, env Environment,
 	layout DataLayout) error {
@@ -66,14 +72,21 @@ func (sf *SelectableFont) LoadFrom(input *yaml.Node, env Environment,
 		return nil
 	}
 
-	var tmp SelectableFont
+	var tmp webSelectableFont
 	if err := input.Decode(&tmp); err != nil {
 		return err
 	}
 	if tmp.FamilyIndex < 0 || tmp.FamilyIndex >= len(fonts) {
-		return errors.New("font index out of range")
+		return fmt.Errorf("font index out of range: %d", tmp.FamilyIndex)
 	}
-	*sf = tmp
+	if tmp.Size < 0 || tmp.Size > int(HugeFont) {
+		return fmt.Errorf("font size out of range: %d", tmp.Size)
+	}
+	if tmp.Style < 0 || tmp.Style > int(BoldItalic) {
+		return fmt.Errorf("font style out of range: %d", tmp.Style)
+	}
+	*sf = SelectableFont{FamilyIndex: tmp.FamilyIndex, Size: FontSize(tmp.Size),
+		Style: FontStyle(tmp.Style)}
 	return nil
 }
 

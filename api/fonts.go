@@ -86,8 +86,8 @@ func (fs *FontStyle) UnmarshalYAML(value *yaml.Node) error {
 }
 
 // MarshalYAML maps the given font style to a string
-func (fs *FontStyle) MarshalYAML() (interface{}, error) {
-	switch *fs {
+func (fs FontStyle) MarshalYAML() (interface{}, error) {
+	switch fs {
 	case Standard:
 		return "Standard", nil
 	case Bold:
@@ -97,7 +97,7 @@ func (fs *FontStyle) MarshalYAML() (interface{}, error) {
 	case BoldItalic:
 		return "BoldItalic", nil
 	default:
-		return nil, fmt.Errorf("Unknown font style: %v", *fs)
+		return nil, fmt.Errorf("Unknown font style: %v", fs)
 	}
 }
 
@@ -127,8 +127,8 @@ func (fs *FontSize) UnmarshalYAML(value *yaml.Node) error {
 }
 
 // MarshalYAML maps the given font size to a string
-func (fs *FontSize) MarshalYAML() (interface{}, error) {
-	switch *fs {
+func (fs FontSize) MarshalYAML() (interface{}, error) {
+	switch fs {
 	case SmallFont:
 		return "Small", nil
 	case ContentFont:
@@ -142,6 +142,6 @@ func (fs *FontSize) MarshalYAML() (interface{}, error) {
 	case HugeFont:
 		return "Huge", nil
 	default:
-		return nil, fmt.Errorf("Unknown font size: %v", *fs)
+		return nil, fmt.Errorf("Unknown font size: %v", fs)
 	}
 }

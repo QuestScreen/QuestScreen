@@ -2,7 +2,6 @@ package overlays
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 
@@ -11,7 +10,6 @@ import (
 )
 
 type state struct {
-	shared    *sharedData
 	visible   []bool
 	resources []api.Resource
 }
@@ -19,11 +17,9 @@ type state struct {
 type persistentState []string
 
 func newState(input *yaml.Node, env api.Environment,
-	shared *sharedData) (*state, error) {
-	s := new(state)
-	s.resources = env.GetResources(shared.moduleIndex, 0)
+	index api.ModuleIndex) (api.ModuleState, error) {
+	s := &state{resources: env.GetResources(index, 0)}
 	s.visible = make([]bool, len(s.resources))
-	s.shared = shared
 	if input != nil {
 		var tmp persistentState
 		if err := input.Decode(&tmp); err != nil {
@@ -47,16 +43,12 @@ func newState(input *yaml.Node, env api.Environment,
 	return s, nil
 }
 
-func (s *state) SendToModule() {
+func (s *state) CreateModuleData() interface{} {
 	visible := make([]bool, len(s.visible))
 	copy(visible, s.visible)
 	resources := make([]api.Resource, len(s.resources))
 	copy(resources, s.resources)
-	s.shared.mutex.Lock()
-	s.shared.kind = stateRequest
-	s.shared.state = visible
-	s.shared.resources = resources
-	s.shared.mutex.Unlock()
+	return &fullRequest{visible: visible, resources: resources}
 }
 
 type webStateItem struct {
@@ -92,26 +84,18 @@ func (*state) Actions() []string {
 	return []string{"switch"}
 }
 
-func (s *state) HandleAction(index int, payload []byte) (interface{}, error) {
+func (s *state) HandleAction(index int, payload []byte) (interface{}, interface{}, error) {
 	if index != 0 {
 		panic("Index out of range")
 	}
 	var value int
 	if err := json.Unmarshal(payload, &value); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if value < 0 || value >= len(s.resources) {
-		return nil, fmt.Errorf("Index %d not in range 0..%d",
+		return nil, nil, fmt.Errorf("Index %d not in range 0..%d",
 			value, len(s.resources)-1)
 	}
-	s.shared.mutex.Lock()
-	defer s.shared.mutex.Unlock()
-	if s.shared.kind != noRequest {
-		return nil, errors.New("Too many requests")
-	}
 	s.visible[value] = !s.visible[value]
-	s.shared.kind = itemRequest
-	s.shared.itemIndex = value
-	s.shared.itemShown = s.visible[value]
-	return s.visible[value], nil
+	return s.visible[value], &itemRequest{index: value, visible: s.visible[value]}, nil
 }

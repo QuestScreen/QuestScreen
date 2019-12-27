@@ -2,7 +2,6 @@ package herolist
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 
@@ -11,7 +10,6 @@ import (
 )
 
 type state struct {
-	shared        *sharedData
 	globalVisible bool
 	heroVisible   []bool
 }
@@ -22,12 +20,10 @@ type persistedState struct {
 }
 
 func newState(input *yaml.Node, env api.Environment,
-	shared *sharedData) (*state, error) {
+	index api.ModuleIndex) (api.ModuleState, error) {
 	heroes := env.Heroes()
 	defer heroes.Close()
-	s := new(state)
-	s.heroVisible = make([]bool, heroes.NumHeroes())
-	s.shared = shared
+	s := &state{heroVisible: make([]bool, heroes.NumHeroes())}
 	for i := 0; i < heroes.NumHeroes(); i++ {
 		s.heroVisible[i] = true
 	}
@@ -60,14 +56,10 @@ func newState(input *yaml.Node, env api.Environment,
 	return s, nil
 }
 
-func (s *state) SendToModule() {
+func (s *state) CreateModuleData() interface{} {
 	states := make([]bool, len(s.heroVisible))
 	copy(states, s.heroVisible)
-	s.shared.mutex.Lock()
-	defer s.shared.mutex.Unlock()
-	s.shared.globalVisible = s.globalVisible
-	s.shared.heroes = states
-	s.shared.kind = stateRequest
+	return &fullRequest{heroes: states, global: s.globalVisible}
 }
 
 func (s *state) visibleHeroesList(env api.Environment) []string {
@@ -101,36 +93,28 @@ func (s *state) SerializableView(
 	}
 }
 
-func (s *state) HandleAction(index int, payload []byte) (interface{}, error) {
-	s.shared.mutex.Lock()
-	defer s.shared.mutex.Unlock()
-	if s.shared.kind != noRequest {
-		return nil, errors.New("too many requests")
-	}
-
+func (s *state) HandleAction(index int, payload []byte) (interface{}, interface{}, error) {
 	var ret bool
+	var data interface{}
 	switch index {
 	case 0:
 		s.globalVisible = !s.globalVisible
 		ret = s.globalVisible
-		s.shared.kind = globalRequest
-		s.shared.globalVisible = s.globalVisible
+		data = &globalRequest{visible: s.globalVisible}
 	case 1:
 		var value int
 		if err := json.Unmarshal(payload, &value); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if value < 0 || value >= len(s.heroVisible) {
-			return nil, fmt.Errorf("index %d out of range 0..%d",
+			return nil, nil, fmt.Errorf("index %d out of range 0..%d",
 				value, len(s.heroVisible)-1)
 		}
 		s.heroVisible[value] = !s.heroVisible[value]
 		ret = s.heroVisible[value]
-		s.shared.kind = heroRequest
-		s.shared.heroIndex = int32(value)
-		s.shared.heroVisible = s.heroVisible[value]
+		data = &heroRequest{index: int32(value), visible: s.heroVisible[value]}
 	default:
 		panic("Index out of range")
 	}
-	return ret, nil
+	return ret, data, nil
 }

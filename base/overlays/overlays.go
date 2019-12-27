@@ -2,11 +2,9 @@ package overlays
 
 import (
 	"log"
-	"sync"
 	"time"
 
 	"github.com/flyx/pnpscreen/api"
-	"gopkg.in/yaml.v3"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
@@ -29,43 +27,28 @@ const (
 	fadeOut
 )
 
-type requestKind int
+type itemRequest struct {
+	index   int
+	visible bool
+}
 
-const (
-	noRequest requestKind = iota
-	itemRequest
-	stateRequest
-)
-
-type sharedData struct {
-	moduleIndex api.ModuleIndex
-	mutex       sync.Mutex
-	kind        requestKind
-	itemIndex   int
-	itemShown   bool
-	state       []bool
-	resources   []api.Resource
+type fullRequest struct {
+	visible   []bool
+	resources []api.Resource
 }
 
 // The Overlays module can show pictures above the current background.
 type Overlays struct {
 	*config
 	status
-	sharedData
 	textures     []textureData
 	curIndex     int
 	curScale     float32
 	curOrigWidth int32
 }
 
-// CreateModule creates the Overlays module.
-func CreateModule(renderer *sdl.Renderer, env api.StaticEnvironment,
-	index api.ModuleIndex) (api.Module, error) {
-	o := new(Overlays)
-	o.moduleIndex = index
-	o.curScale = 1
-	o.status = resting
-	return o, nil
+func newModule(renderer *sdl.Renderer, env api.StaticEnvironment) (api.Module, error) {
+	return &Overlays{curScale: 1, status: resting}, nil
 }
 
 // Descriptor describes the Overlays module
@@ -76,7 +59,7 @@ var Descriptor = api.ModuleDescriptor{
 		{Subdirectory: "", Suffixes: nil}},
 	Actions:       []string{"switch"},
 	DefaultConfig: &config{},
-	CreateModule:  CreateModule,
+	CreateModule:  newModule, CreateState: newState,
 }
 
 // Descriptor returns the descriptor of the Overlays module
@@ -112,32 +95,24 @@ func (o *Overlays) loadTexture(renderer *sdl.Renderer, data *textureData) {
 }
 
 // InitTransition initializes a transition.
-func (o *Overlays) InitTransition(ctx api.RenderContext) time.Duration {
-	o.sharedData.mutex.Lock()
-	if o.sharedData.kind != itemRequest {
-		o.sharedData.mutex.Unlock()
-		return -1
-	}
-	o.sharedData.kind = noRequest
-	index := o.sharedData.itemIndex
-	shown := o.sharedData.itemShown
-	o.sharedData.mutex.Unlock()
-	if shown {
-		o.loadTexture(ctx.Renderer, &o.textures[index])
+func (o *Overlays) InitTransition(ctx api.RenderContext, data interface{}) time.Duration {
+	req := data.(*itemRequest)
+	if req.visible {
+		o.loadTexture(ctx.Renderer, &o.textures[req.index])
 		o.status = fadeIn
-		if err := o.textures[index].tex.SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
+		if err := o.textures[req.index].tex.SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
 			log.Println(err)
 		}
-		o.textures[index].shown = true
-		o.curIndex = index
+		o.textures[req.index].shown = true
+		o.curIndex = req.index
 	} else {
-		o.textures[index].shown = false
+		o.textures[req.index].shown = false
 		o.status = fadeOut
-		if err := o.textures[index].tex.SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
+		if err := o.textures[req.index].tex.SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
 			log.Println(err)
 		}
-		o.textures[index].shown = false
-		o.curIndex = index
+		o.textures[req.index].shown = false
+		o.curIndex = req.index
 	}
 	return time.Second
 }
@@ -204,32 +179,13 @@ func (o *Overlays) SetConfig(value interface{}) {
 	o.config = value.(*config)
 }
 
-// CreateState creates a new state for this module.
-func (o *Overlays) CreateState(
-	input *yaml.Node, env api.Environment) (api.ModuleState, error) {
-	return newState(input, env, &o.sharedData)
-}
-
 // RebuildState queries the new state through the channel and immediately
 // updates everything.
-func (o *Overlays) RebuildState(ctx api.RenderContext) {
-	var newState []bool = nil
-	var newResources []api.Resource
-	o.sharedData.mutex.Lock()
-	switch o.sharedData.kind {
-	case stateRequest:
-		newState = o.sharedData.state
-		newResources = o.sharedData.resources
-	case noRequest:
-		break
-	default:
-		panic("RebuildState() called on something which is not stateRequest")
-	}
-	o.sharedData.kind = noRequest
-	o.sharedData.mutex.Unlock()
-	if newState == nil {
+func (o *Overlays) RebuildState(ctx api.RenderContext, data interface{}) {
+	if data == nil {
 		return
 	}
+	req := data.(*fullRequest)
 	o.curOrigWidth = 0
 	o.curScale = 1
 	for i := range o.textures {
@@ -237,10 +193,10 @@ func (o *Overlays) RebuildState(ctx api.RenderContext) {
 			o.textures[i].tex.Destroy()
 		}
 	}
-	o.textures = make([]textureData, len(newState))
+	o.textures = make([]textureData, len(req.resources))
 	for i := range o.textures {
-		o.textures[i].file = newResources[i]
-		if newState[i] {
+		o.textures[i].file = req.resources[i]
+		if req.visible[i] {
 			o.loadTexture(ctx.Renderer, &o.textures[i])
 			o.textures[i].shown = true
 		} else {

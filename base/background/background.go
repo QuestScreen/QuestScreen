@@ -2,11 +2,9 @@ package background
 
 import (
 	"log"
-	"sync"
 	"time"
 
 	"github.com/flyx/pnpscreen/api"
-	"gopkg.in/yaml.v3"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
@@ -14,27 +12,20 @@ import (
 
 type backgroundConfig struct{}
 
-type sharedData struct {
-	moduleIndex   api.ModuleIndex // read-only, therefore not protected with mutex
-	mutex         sync.Mutex
-	activeRequest bool
-	file          api.Resource
+type request struct {
+	file api.Resource
 }
 
 // Background is a module for painting background images
 type Background struct {
-	sharedData
 	config                 *backgroundConfig
 	curTexture, newTexture *sdl.Texture
 	curFile                api.Resource
 	curTextureSplit        float32
 }
 
-// CreateModule creates a new Background module
-func CreateModule(renderer *sdl.Renderer,
-	env api.StaticEnvironment, index api.ModuleIndex) (api.Module, error) {
+func newModule(renderer *sdl.Renderer, env api.StaticEnvironment) (api.Module, error) {
 	bg := new(Background)
-	bg.moduleIndex = index
 	bg.curTexture = nil
 	bg.newTexture = nil
 	bg.curTextureSplit = 0
@@ -50,7 +41,8 @@ var Descriptor = api.ModuleDescriptor{
 		api.ResourceSelector{Subdirectory: "", Suffixes: nil}},
 	Actions:       []string{"set"},
 	DefaultConfig: &backgroundConfig{},
-	CreateModule:  CreateModule,
+	CreateModule:  newModule,
+	CreateState:   newState,
 }
 
 // Descriptor returns the Background's descriptor
@@ -100,24 +92,17 @@ func (bg *Background) genTexture(
 }
 
 // InitTransition initializes a transition
-func (bg *Background) InitTransition(ctx api.RenderContext) time.Duration {
+func (bg *Background) InitTransition(ctx api.RenderContext, data interface{}) time.Duration {
 	var ret time.Duration = -1
+	req := data.(*request)
 
-	bg.sharedData.mutex.Lock()
-	reqFile, available := bg.sharedData.file, bg.sharedData.activeRequest
-	bg.sharedData.activeRequest = false
-	bg.sharedData.mutex.Unlock()
-
-	if available && reqFile != bg.curFile {
-		bg.curFile = reqFile
+	if req.file != bg.curFile {
+		bg.curFile = req.file
 		if bg.curFile != nil {
 			bg.newTexture = bg.genTexture(ctx.Renderer, bg.curFile)
 		}
 		bg.curTextureSplit = 0
 		ret = time.Second
-	} else {
-		log.Println("background transition skiping, available=", available,
-			", reqIndex=", reqFile)
 	}
 	return ret
 }
@@ -164,26 +149,16 @@ func (bg *Background) SetConfig(config interface{}) {
 	bg.config = config.(*backgroundConfig)
 }
 
-// CreateState returns the current state.
-func (bg *Background) CreateState(
-	input *yaml.Node, env api.Environment) (api.ModuleState, error) {
-	return newState(input, env, &bg.sharedData)
-}
-
 // RebuildState queries the texture index through the channel and immediately
 // sets that texture as background.
-func (bg *Background) RebuildState(ctx api.RenderContext) {
-	bg.sharedData.mutex.Lock()
-	reqFile, available := bg.sharedData.file, bg.sharedData.activeRequest
-	bg.activeRequest = false
-	bg.sharedData.mutex.Unlock()
-
-	if available {
-		if reqFile != bg.curFile {
+func (bg *Background) RebuildState(ctx api.RenderContext, data interface{}) {
+	if data != nil {
+		req := data.(*request)
+		if req.file != bg.curFile {
 			if bg.curTexture != nil {
 				bg.curTexture.Destroy()
 			}
-			bg.curFile = reqFile
+			bg.curFile = req.file
 			if bg.curFile != nil {
 				bg.curTexture = bg.genTexture(ctx.Renderer, bg.curFile)
 			} else {

@@ -13,8 +13,6 @@ import (
 	"github.com/flyx/pnpscreen/web"
 
 	"github.com/flyx/pnpscreen/display"
-
-	"github.com/veandco/go-sdl2/sdl"
 )
 
 type httpMethods int
@@ -169,26 +167,24 @@ func (ep *staticResourceEndpoint) add(path string, contentType string) {
 		contentType: contentType, content: web.MustAsset("web" + path)}
 }
 
-func sendScene(a *app, sceneChan chan<- display.SceneUpdate) {
+func sendScene(a *app, req *display.Request) {
 	data := make([]bool, len(a.modules))
 	scene := a.config.Group(a.activeGroup).Scene(a.groupState.ActiveScene())
 	for i := api.ModuleIndex(0); i < api.ModuleIndex(len(a.modules)); i++ {
 		data[i] = scene.UsesModule(i)
 		if data[i] {
-			a.groupState.State(i).SendToModule()
+			req.SendModuleData(i, a.groupState.State(i).CreateModuleData())
 		}
 	}
-	sceneChan <- display.SceneUpdate{ModuleEnabled: data}
+	req.SendEnabledModulesList(data)
 }
 
-func mergeAndSendConfigs(a *app,
-	moduleConfigChan chan<- display.ModuleConfigUpdate) {
+func mergeAndSendConfigs(a *app, req *display.Request) {
 	scene := a.config.Group(a.activeGroup).Scene(a.groupState.ActiveScene())
 	for i := api.ModuleIndex(0); i < api.ModuleIndex(len(a.modules)); i++ {
 		if scene.UsesModule(i) {
-			moduleConfigChan <- display.ModuleConfigUpdate{Index: i,
-				Config: a.config.MergeConfig(i,
-					a.activeSystem, a.activeGroup, a.groupState.ActiveScene())}
+			req.SendModuleConfig(i, a.config.MergeConfig(i,
+				a.activeSystem, a.activeGroup, a.groupState.ActiveScene()))
 		}
 	}
 }
@@ -205,17 +201,12 @@ func sendJSON(w http.ResponseWriter, content []byte, err error) {
 }
 
 type sceneChangeEndpoint struct {
-	env              *endpointEnv
-	moduleConfigChan chan<- display.ModuleConfigUpdate
-	sceneChan        chan<- display.SceneUpdate
-	scenes           map[string]int
+	env    *endpointEnv
+	scenes map[string]int
 }
 
-func newSceneChangeEndpoint(env *endpointEnv,
-	moduleConfigChan chan<- display.ModuleConfigUpdate,
-	sceneChan chan<- display.SceneUpdate) *sceneChangeEndpoint {
-	return &sceneChangeEndpoint{env: env, moduleConfigChan: moduleConfigChan,
-		sceneChan: sceneChan}
+func newSceneChangeEndpoint(env *endpointEnv) *sceneChangeEndpoint {
+	return &sceneChangeEndpoint{env: env}
 }
 
 func (ep *sceneChangeEndpoint) Handle(
@@ -226,14 +217,21 @@ func (ep *sceneChangeEndpoint) Handle(
 		return
 	}
 	a := ep.env.a
-	if err := a.setActiveScene(sceneIndex); err != nil {
+	req, err := a.display.StartRequest(ep.env.events.SceneChangeID, 0)
+	if err != nil {
+		http.Error(w, "503: Previous request still processing",
+			http.StatusServiceUnavailable)
+		return
+	}
+	defer req.Close()
+	if err = a.groupState.SetScene(sceneIndex); err != nil {
 		http.Error(w, "500: Failed to load active scene for target group",
 			http.StatusInternalServerError)
 		return
 	}
-	sendScene(a, ep.sceneChan)
-	mergeAndSendConfigs(a, ep.moduleConfigChan)
-	sdl.PushEvent(&sdl.UserEvent{Type: ep.env.events.SceneChangeID})
+	sendScene(a, &req)
+	mergeAndSendConfigs(a, &req)
+	req.Commit()
 	a.groupState.Persist()
 	moduleStates := a.groupState.BuildSceneStateJSON(a)
 	ret, err := json.Marshal(groupChangeResponse{
@@ -274,20 +272,29 @@ func (ep *groupChangeEndpoint) Handle(
 		return
 	}
 	a := ep.env.a
+	req, err := a.display.StartRequest(ep.env.events.SceneChangeID, 0)
+	if err != nil {
+		http.Error(w, "503: Previous request still pending",
+			http.StatusServiceUnavailable)
+		return
+	}
+	defer req.Close()
+
 	activeScene, sceneNames, err := a.setActiveGroup(groupIndex)
 	if err != nil {
 		http.Error(w, "400: Could not set group: "+err.Error(),
 			http.StatusBadRequest)
 		return
 	}
-	if err = a.setActiveScene(activeScene); err != nil {
+	if err = a.groupState.SetScene(activeScene); err != nil {
 		http.Error(w, "500: Failed to load active scene for target group",
 			http.StatusInternalServerError)
 		return
 	}
-	sendScene(a, ep.sceneChangeEP.sceneChan)
-	mergeAndSendConfigs(a, ep.sceneChangeEP.moduleConfigChan)
-	sdl.PushEvent(&sdl.UserEvent{Type: ep.env.events.SceneChangeID})
+
+	sendScene(a, &req)
+	mergeAndSendConfigs(a, &req)
+	req.Commit()
 	moduleStates := a.groupState.BuildSceneStateJSON(a)
 	ep.sceneChangeEP.scenes = sceneNames
 	ret, _ := json.Marshal(groupChangeResponse{
@@ -298,13 +305,11 @@ func (ep *groupChangeEndpoint) Handle(
 }
 
 type configEndpoint struct {
-	env              *endpointEnv
-	moduleConfigChan chan<- display.ModuleConfigUpdate
+	env *endpointEnv
 }
 
-func newConfigEndpoint(env *endpointEnv,
-	moduleConfigChan chan<- display.ModuleConfigUpdate) *configEndpoint {
-	return &configEndpoint{env: env, moduleConfigChan: moduleConfigChan}
+func newConfigEndpoint(env *endpointEnv) *configEndpoint {
+	return &configEndpoint{env: env}
 }
 
 // ServeHTTP implements the HTTP server
@@ -350,9 +355,16 @@ func (ch *configEndpoint) Handle(
 				if err := a.config.LoadGroupJSON(raw, groupName); err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 				} else {
+					req, err := a.display.StartRequest(ch.env.events.ModuleConfigID, 0)
+					if err != nil {
+						http.Error(w, "503: Previous request still pending",
+							http.StatusServiceUnavailable)
+						return
+					}
 					w.WriteHeader(http.StatusNoContent)
-					mergeAndSendConfigs(a, ch.moduleConfigChan)
-					sdl.PushEvent(&sdl.UserEvent{Type: ch.env.events.ModuleConfigID})
+					defer req.Close()
+					mergeAndSendConfigs(a, &req)
+					req.Commit()
 				}
 			} else {
 				var err error
@@ -369,9 +381,17 @@ func (ch *configEndpoint) Handle(
 				if err := a.config.LoadSystemJSON(raw, systemName); err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 				} else {
+					req, err := a.display.StartRequest(ch.env.events.ModuleConfigID, 0)
+					if err != nil {
+						http.Error(w, "503: Previous request still pending",
+							http.StatusServiceUnavailable)
+						return
+					}
+					defer req.Close()
+
 					w.WriteHeader(http.StatusNoContent)
-					mergeAndSendConfigs(a, ch.moduleConfigChan)
-					sdl.PushEvent(&sdl.UserEvent{Type: ch.env.events.ModuleConfigID})
+					mergeAndSendConfigs(a, &req)
+					req.Commit()
 				}
 			} else {
 				var err error
@@ -411,7 +431,8 @@ func (ep *moduleStateEndpoint) Handle(
 			http.StatusNotFound)
 		return
 	}
-	state := ep.env.a.groupState.State(ep.moduleIndex)
+	a := ep.env.a
+	state := a.groupState.State(ep.moduleIndex)
 	if state == nil {
 		http.Error(w, "400: module \""+
 			ep.env.a.modules[ep.moduleIndex].Descriptor().ID+
@@ -419,17 +440,26 @@ func (ep *moduleStateEndpoint) Handle(
 		return
 	}
 
+	req, err := a.display.StartRequest(
+		ep.env.events.ModuleUpdateID, int32(ep.moduleIndex))
+	if err != nil {
+		http.Error(w, "503: Previous request still pending",
+			http.StatusServiceUnavailable)
+		return
+	}
+	defer req.Close()
+
 	payload, _ := ioutil.ReadAll(r.Body)
-	responseObj, err := state.HandleAction(actionIndex, payload)
+	responseObj, data, err := state.HandleAction(actionIndex, payload)
 	var response []byte
 	if err == nil {
 		response, err = json.Marshal(responseObj)
 	}
 	if err != nil {
-		http.Error(w, "400: "+err.Error(), http.StatusBadRequest)
+		http.Error(w, "500: "+err.Error(), http.StatusBadRequest)
 	} else {
-		sdl.PushEvent(&sdl.UserEvent{
-			Type: ep.env.events.ModuleUpdateID, Code: int32(ep.moduleIndex)})
+		req.SendModuleData(ep.moduleIndex, data)
+		req.Commit()
 		if response == nil {
 			w.WriteHeader(http.StatusNoContent)
 		} else {
@@ -445,10 +475,7 @@ func reg(h *handler) {
 	http.Handle(h.path, h)
 }
 
-func startServer(owner *app,
-	moduleConfigChan chan<- display.ModuleConfigUpdate,
-	sceneChan chan<- display.SceneUpdate, events display.Events,
-	port uint16) *http.Server {
+func startServer(owner *app, events display.Events, port uint16) *http.Server {
 	server := &http.Server{Addr: ":" + strconv.Itoa(int(port))}
 	base := &endpointEnv{a: owner, events: events}
 
@@ -464,7 +491,7 @@ func startServer(owner *app,
 	sep.add("/webfonts/fa-solid-900.woff2", "font/woff2")
 	reg(&handler{name: "StaticResourceHandler", path: "/", allowedMethods: httpGet, ep: sep})
 
-	scep := newSceneChangeEndpoint(base, moduleConfigChan, sceneChan)
+	scep := newSceneChangeEndpoint(base)
 	reg(&handler{name: "SceneChangeHandler", path: "/setscene",
 		allowedMethods: httpPost, subject: jsonSubject, ep: scep})
 
@@ -483,7 +510,7 @@ func startServer(owner *app,
 		sendJSON(w, ret, err)
 	})
 
-	cfgEp := newConfigEndpoint(base, moduleConfigChan)
+	cfgEp := newConfigEndpoint(base)
 	reg(&handler{name: "ConfigHandler", path: "/config/",
 		subject: noSubject, allowedMethods: httpGet | httpPost, ep: cfgEp})
 

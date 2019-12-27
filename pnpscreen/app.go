@@ -180,7 +180,7 @@ func (a *app) listFiles(
 
 func (a *app) registerModule(descr *api.ModuleDescriptor,
 	renderer *sdl.Renderer) error {
-	module, err := descr.CreateModule(renderer, a, api.ModuleIndex(len(a.modules)))
+	module, err := descr.CreateModule(renderer, a)
 	if err != nil {
 		a.resourceCollections = a.resourceCollections[:len(a.resourceCollections)-1]
 		return err
@@ -288,10 +288,6 @@ func (a *app) setActiveGroup(index int) (int, map[string]int, error) {
 	}
 	a.groupState = groupState
 	return groupState.ActiveScene(), scenes, nil
-}
-
-func (a *app) setActiveScene(index int) error {
-	return a.groupState.SetScene(index)
 }
 
 func (a *app) destroy() {

@@ -1,7 +1,10 @@
 package display
 
 import (
+	"errors"
+	"fmt"
 	"log"
+	"sync/atomic"
 	"time"
 
 	"github.com/flyx/pnpscreen/api"
@@ -9,38 +12,32 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-// ModuleConfigUpdate is a message requesting to configure the item with the
-// given index with the given config.
-type ModuleConfigUpdate struct {
-	Index  api.ModuleIndex
-	Config interface{}
+type moduleState struct {
+	queuedData, queuedConfig interface{}
+	transStart, transEnd     time.Time
+	transitioning            bool
 }
 
-// SceneUpdate is a message originating in a scene change. It carries the
-// information of which modules shall be enabled in the new scene.
-type SceneUpdate struct {
-	ModuleEnabled []bool
-}
-
-type animationState struct {
-	transStart    time.Time
-	transEnd      time.Time
-	transitioning bool
-}
+const (
+	noRequest uint32 = iota
+	activeRequest
+)
 
 // Display describes a display rendering scenes.
 type Display struct {
 	Events
-	owner          app.App
-	Renderer       *sdl.Renderer
-	Window         *sdl.Window
-	textureBuffer  uint32
-	moduleStates   []animationState
-	numTransitions int32
-	popupTexture   *sdl.Texture
-	welcomeTexture *sdl.Texture
-	initial        bool
-	enabledModules []bool
+	owner                app.App
+	Renderer             *sdl.Renderer
+	Window               *sdl.Window
+	textureBuffer        uint32
+	moduleStates         []moduleState
+	numTransitions       int32
+	popupTexture         *sdl.Texture
+	welcomeTexture       *sdl.Texture
+	initial              bool
+	enabledModules       []bool
+	queuedEnabledModules []bool
+	request              uint32
 }
 
 // Init initializes the display. The renderer and window need to be generated
@@ -65,7 +62,7 @@ func (d *Display) Init(
 		return err
 	}
 
-	d.moduleStates = make([]animationState, d.owner.NumModules())
+	d.moduleStates = make([]moduleState, d.owner.NumModules())
 	return nil
 }
 
@@ -103,12 +100,17 @@ func (d *Display) render(cur time.Time, popup bool) {
 func (d *Display) startTransition(moduleIndex api.ModuleIndex) {
 	ctx := api.RenderContext{Renderer: d.Renderer, Env: d.owner}
 	module := d.owner.ModuleAt(moduleIndex)
-	transDur := module.InitTransition(ctx)
+	state := &d.moduleStates[moduleIndex]
+	if state.queuedData == nil {
+		panic("Trying to call InitTransition without data")
+	}
+	transDur := module.InitTransition(ctx, state.queuedData)
+	state.queuedData = nil
 	if transDur == 0 {
 		module.FinishTransition(ctx)
 	} else if transDur > 0 {
 		d.numTransitions++
-		state := &d.moduleStates[moduleIndex]
+
 		state.transStart = time.Now()
 		state.transEnd = state.transStart.Add(transDur)
 		state.transitioning = true
@@ -117,8 +119,7 @@ func (d *Display) startTransition(moduleIndex api.ModuleIndex) {
 
 // RenderLoop implements the rendering loop for the display.
 // This function MUST be called in the main thread
-func (d *Display) RenderLoop(
-	modConfigChan chan ModuleConfigUpdate, sceneChan chan SceneUpdate) {
+func (d *Display) RenderLoop() {
 	render := true
 	popup := false
 
@@ -173,32 +174,29 @@ func (d *Display) RenderLoop(
 				case d.Events.ModuleUpdateID:
 					d.startTransition(api.ModuleIndex(e.Code))
 					render = true
+					atomic.StoreUint32(&d.request, noRequest)
 				case d.Events.SceneChangeID:
-				outer1:
-					for {
-						select {
-						case data := <-sceneChan:
-							d.enabledModules = data.ModuleEnabled
-							render = true
-						default:
-							break outer1
-						}
-					}
+					d.enabledModules = d.queuedEnabledModules
+					d.queuedEnabledModules = nil
 					fallthrough
 				case d.Events.ModuleConfigID:
 					ctx := api.RenderContext{Renderer: d.Renderer, Env: d.owner}
-				outer2:
-					for {
-						select {
-						case data := <-modConfigChan:
-							module := d.owner.ModuleAt(data.Index)
-							module.SetConfig(data.Config)
-							module.RebuildState(ctx)
-							render = true
-						default:
-							break outer2
+					for i := range d.moduleStates {
+						module := d.owner.ModuleAt(api.ModuleIndex(i))
+						state := &d.moduleStates[i]
+						forceRebuild := false
+						if state.queuedConfig != nil {
+							module.SetConfig(state.queuedConfig)
+							state.queuedConfig = nil
+							forceRebuild = true
+						}
+						if forceRebuild || state.queuedData != nil {
+							module.RebuildState(ctx, state.queuedData)
+							state.queuedData = nil
 						}
 					}
+					render = true
+					atomic.StoreUint32(&d.request, noRequest)
 					d.initial = false
 				}
 			}
@@ -207,6 +205,99 @@ func (d *Display) RenderLoop(
 			start = time.Now()
 			frameCount = 0
 		}
+	}
+}
+
+// Request is a pending message to the display thread.
+// Successful generation of a request leads to exclusive access to the display's
+// communication channel.
+// A Request must be either committed or closed.
+type Request struct {
+	d         *Display
+	eventID   uint32
+	eventCode int32
+}
+
+var errTooManyRequests = errors.New("Too many requests")
+var errInvalidEventID = errors.New("Invalid event ID")
+var errMultipleModuleConfigs = errors.New("Cannot send multiple configs to same module in one request")
+var errMultipleModuleData = errors.New("Cannot send multiple data objects to same module in one request")
+var errMultipleEnabledModules = errors.New("Cannot send multiple enabledModules lists in one request")
+var errAlreadyCommitted = errors.New("Request has already been committed")
+
+// StartRequest starts a new request to the display thread.
+// Returns an error if there is already a pending request.
+func (d *Display) StartRequest(eventID uint32, eventCode int32) (Request, error) {
+	if eventID == sdl.FIRSTEVENT {
+		return Request{}, errInvalidEventID
+	}
+	if atomic.CompareAndSwapUint32(&d.request, noRequest, activeRequest) {
+		return Request{d: d, eventID: eventID, eventCode: eventCode}, nil
+	}
+	return Request{}, errTooManyRequests
+}
+
+// SendModuleConfig queues the given config for the module at the given ID as
+// part of the request.
+func (r *Request) SendModuleConfig(index api.ModuleIndex, config interface{}) error {
+	if index < 0 || index >= api.ModuleIndex(len(r.d.moduleStates)) {
+		return fmt.Errorf("Module index %d outside of range 0..%d", index, len(r.d.moduleStates))
+	}
+	state := &r.d.moduleStates[index]
+	if state.queuedConfig != nil {
+		return errMultipleModuleConfigs
+	}
+	state.queuedConfig = config
+	return nil
+}
+
+// SendModuleData queues the given data for the module at the given ID as part
+// of the request. Whether the data is used for RebuiltState or InitTransition
+// depends on the event ID of the request.
+func (r *Request) SendModuleData(index api.ModuleIndex, data interface{}) error {
+	if index < 0 || index >= api.ModuleIndex(len(r.d.moduleStates)) {
+		return fmt.Errorf("Module index %d outside of range 0..%d", index, len(r.d.moduleStates))
+	}
+	state := &r.d.moduleStates[index]
+	if state.queuedData != nil {
+		return errMultipleModuleData
+	}
+	state.queuedData = data
+	return nil
+}
+
+// SendEnabledModulesList queues the list of enabled modules as part of the
+// request.
+func (r *Request) SendEnabledModulesList(value []bool) error {
+	if r.d.queuedEnabledModules != nil {
+		return errMultipleEnabledModules
+	}
+	r.d.queuedEnabledModules = value
+	return nil
+}
+
+// Commit sends the request to the display thread
+func (r *Request) Commit() error {
+	if r.eventID == sdl.FIRSTEVENT {
+		return errAlreadyCommitted
+	}
+	sdl.PushEvent(&sdl.UserEvent{Type: r.eventID, Code: r.eventCode})
+	r.eventID = sdl.FIRSTEVENT
+	return nil
+}
+
+// Close closes the request. If the request has not been committed, the queued
+// data will be erased. This function is idempotent.
+func (r *Request) Close() {
+	if r.eventID != sdl.FIRSTEVENT {
+		for i := range r.d.moduleStates {
+			state := r.d.moduleStates[i]
+			state.queuedData = nil
+			state.queuedConfig = nil
+		}
+		r.d.queuedEnabledModules = nil
+		r.eventID = sdl.FIRSTEVENT
+		atomic.StoreUint32(&r.d.request, noRequest)
 	}
 }
 

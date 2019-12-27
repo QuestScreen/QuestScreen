@@ -203,6 +203,11 @@ func (c *Config) loadJSONModuleConfigInto(target interface{},
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
 	for i := 0; i < targetModuleType.NumField(); i++ {
+		node := &raw[i]
+		if node.Kind == yaml.ScalarNode && node.Tag == "!!null" {
+			targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
+			continue
+		}
 		wasNil := false
 		if targetModule.Field(i).IsNil() {
 			targetModule.Field(i).Set(reflect.New(targetModuleType.Field(i).Type.Elem()))
@@ -211,7 +216,7 @@ func (c *Config) loadJSONModuleConfigInto(target interface{},
 		targetSetting := targetModule.Field(i).Interface()
 
 		if err := targetSetting.(api.ConfigItem).LoadFrom(
-			&raw[i], c.owner, api.Web); err != nil {
+			node, c.owner, api.Web); err != nil {
 			if wasNil {
 				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 			}

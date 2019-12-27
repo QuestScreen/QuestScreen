@@ -2,11 +2,9 @@ package title
 
 import (
 	"log"
-	"sync"
 	"time"
 
 	"github.com/veandco/go-sdl2/img"
-	"gopkg.in/yaml.v3"
 
 	"github.com/flyx/pnpscreen/api"
 
@@ -17,26 +15,18 @@ type config struct {
 	Font *api.SelectableFont `config:"Font" yaml:"Font"`
 }
 
-type requestKind int
+type changeRequest struct {
+	caption string
+}
 
-const (
-	noRequest requestKind = iota
-	changeRequest
-	stateRequest
-)
-
-type sharedData struct {
-	moduleIndex api.ModuleIndex
-	mutex       sync.Mutex
-	kind        requestKind
-	caption     string
-	mask        api.Resource
+type fullRequest struct {
+	caption string
+	mask    api.Resource
 }
 
 // The Title module draws a title box at the top of the screen.
 type Title struct {
 	*config
-	sharedData
 	curTitleText string
 	curTitle     *sdl.Texture
 	newTitle     *sdl.Texture
@@ -45,13 +35,9 @@ type Title struct {
 	swapped      bool
 }
 
-// CreateModule creates the Title module.
-func CreateModule(renderer *sdl.Renderer, env api.StaticEnvironment,
-	index api.ModuleIndex) (api.Module, error) {
-	t := new(Title)
-	t.moduleIndex = index
-	t.curTitle = nil
-	return t, nil
+func newModule(renderer *sdl.Renderer,
+	env api.StaticEnvironment) (api.Module, error) {
+	return &Title{curTitle: nil}, nil
 }
 
 // Descriptor describes the Title module
@@ -63,7 +49,7 @@ var Descriptor = api.ModuleDescriptor{
 	Actions: []string{"set"},
 	DefaultConfig: &config{Font: &api.SelectableFont{
 		FamilyIndex: 0, Size: api.HeadingFont, Style: api.Bold}},
-	CreateModule: CreateModule,
+	CreateModule: newModule, CreateState: newState,
 }
 
 // Descriptor returns the descriptor of the Title module
@@ -120,15 +106,9 @@ func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture
 }
 
 // InitTransition initializes a transition.
-func (t *Title) InitTransition(ctx api.RenderContext) time.Duration {
-	t.sharedData.mutex.Lock()
-	if t.sharedData.kind != changeRequest {
-		t.sharedData.mutex.Unlock()
-		return -1
-	}
-	t.curTitleText = t.sharedData.caption
-	t.sharedData.kind = noRequest
-	t.sharedData.mutex.Unlock()
+func (t *Title) InitTransition(ctx api.RenderContext, data interface{}) time.Duration {
+	req := data.(*changeRequest)
+	t.curTitleText = req.caption
 	if t.curTitleText != "" {
 		t.newTitle = t.genTitleTexture(ctx, t.curTitleText)
 	}
@@ -183,29 +163,17 @@ func (t *Title) SetConfig(value interface{}) {
 	t.config = value.(*config)
 }
 
-// CreateState creates a state for the Title module.
-func (t *Title) CreateState(input *yaml.Node, env api.Environment) (api.ModuleState, error) {
-	return newState(input, env, &t.sharedData)
-}
-
 // RebuildState queries the new state through the channel and immediately
 // updates everything.
-func (t *Title) RebuildState(ctx api.RenderContext) {
-	t.sharedData.mutex.Lock()
+func (t *Title) RebuildState(ctx api.RenderContext, data interface{}) {
 	var maskFile api.Resource
 	gotRequest := false
-	switch t.sharedData.kind {
-	case stateRequest:
-		t.curTitleText = t.sharedData.caption
-		maskFile = t.sharedData.mask
+	if data != nil {
+		req := data.(*fullRequest)
+		t.curTitleText = req.caption
 		gotRequest = true
-	case noRequest:
-		break
-	default:
-		panic("RebuildState() called on something else than stateRequest")
+		maskFile = req.mask
 	}
-	t.sharedData.kind = noRequest
-	t.sharedData.mutex.Unlock()
 	if gotRequest {
 		if t.mask != nil {
 			t.mask.Destroy()

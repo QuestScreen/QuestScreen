@@ -8,16 +8,13 @@ import (
 )
 
 type state struct {
-	shared    *sharedData
 	caption   string
 	resources []api.Resource
 }
 
 func newState(input *yaml.Node, env api.Environment,
-	shared *sharedData) (*state, error) {
-	s := new(state)
-	s.resources = env.GetResources(shared.moduleIndex, 0)
-	s.shared = shared
+	index api.ModuleIndex) (api.ModuleState, error) {
+	s := &state{resources: env.GetResources(index, 0)}
 
 	if input == nil {
 		s.caption = ""
@@ -30,16 +27,12 @@ func newState(input *yaml.Node, env api.Environment,
 	return s, nil
 }
 
-func (s *state) SendToModule() {
-	s.shared.mutex.Lock()
-	s.shared.kind = stateRequest
-	s.shared.caption = s.caption
+func (s *state) CreateModuleData() interface{} {
+	ret := &fullRequest{caption: s.caption}
 	if len(s.resources) > 0 {
-		s.shared.mask = s.resources[0]
-	} else {
-		s.shared.mask = nil
+		ret.mask = s.resources[0]
 	}
-	s.shared.mutex.Unlock()
+	return ret
 }
 
 // SerializableView returns the current caption of the title as string.
@@ -48,18 +41,15 @@ func (s *state) SerializableView(
 	return s.caption
 }
 
-func (s *state) HandleAction(index int, payload []byte) (interface{}, error) {
+func (s *state) HandleAction(index int,
+	payload []byte) (interface{}, interface{}, error) {
 	if index != 0 {
 		panic("Index out of range")
 	}
 	var value string
 	if err := json.Unmarshal(payload, &value); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	s.caption = value
-	s.shared.mutex.Lock()
-	s.shared.kind = changeRequest
-	s.shared.caption = value
-	s.shared.mutex.Unlock()
-	return value, nil
+	return value, &changeRequest{caption: value}, nil
 }

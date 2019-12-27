@@ -39,11 +39,9 @@ func main() {
 		log.Println("Could not set swap interval to -1")
 	}
 
-	moduleConfigChan := make(chan display.ModuleConfigUpdate, len(a.modules))
-	sceneChan := make(chan display.SceneUpdate, len(a.modules))
-	server := startServer(&a, moduleConfigChan, sceneChan, events, *port)
+	server := startServer(&a, events, *port)
 
-	a.display.RenderLoop(moduleConfigChan, sceneChan)
+	a.display.RenderLoop()
 	_ = server.Close()
 	a.destroy()
 }

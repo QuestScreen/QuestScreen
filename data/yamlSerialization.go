@@ -167,7 +167,7 @@ func (c *Config) toYamlStructure(moduleConfigs []interface{}) map[string]map[str
 				if fields == nil {
 					fields = make(map[string]interface{})
 				}
-				fields[fieldName] = fieldVal.Interface()
+				fields[fieldName] = fieldVal.Interface().(api.ConfigItem).SerializableView(c.owner, api.Persisted)
 			}
 		}
 		if fields != nil {
@@ -343,7 +343,7 @@ func LoadYamlGroupState(a app.App, g Group, path string) (*GroupState, error) {
 								break
 							}
 
-							state, err := module.CreateState(&modRaw, a)
+							state, err := module.Descriptor().CreateState(&modRaw, a, j)
 							if err != nil {
 								log.Printf(
 									"Scene \"%s\": Could not load state for module %s: %s\n",
@@ -365,7 +365,7 @@ func LoadYamlGroupState(a app.App, g Group, path string) (*GroupState, error) {
 						log.Printf(
 							"Scene \"%s\": Missing data for module %s, loading default\n",
 							sceneName, module.Descriptor().ID)
-						state, err := module.CreateState(nil, a)
+						state, err := module.Descriptor().CreateState(nil, a, j)
 						if err != nil {
 							panic("Failed to create state with default values for module " +
 								module.Descriptor().ID)
@@ -392,7 +392,7 @@ func LoadYamlGroupState(a app.App, g Group, path string) (*GroupState, error) {
 			for j = 0; j < a.NumModules(); j++ {
 				if sceneDescr.UsesModule(j) {
 					module := a.ModuleAt(j)
-					state, err := module.CreateState(nil, a)
+					state, err := module.Descriptor().CreateState(nil, a, j)
 					if err != nil {
 						panic("Failed to create state with default values for module " +
 							module.Descriptor().ID)
