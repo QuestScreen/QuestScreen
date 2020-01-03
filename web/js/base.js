@@ -18,7 +18,7 @@ class Background extends ListSelector {
 tmpl.herolist = {
 	state: new Template("#tmpl-base-herolist-state",
 			function (state, ctrl, listUI) {
-		let allSwitch = this.querySelector(".herolist-switch-all");
+		const allSwitch = this.querySelector(".herolist-switch-all");
 		if (!state.global) {
 			allSwitch.textContent = "Show All";
 		} else {
@@ -37,19 +37,19 @@ class HeroList extends ListSelector {
 	}
 
 	ui(app, state) {
-		let captions = app.groups[app.activeGroup].heroes.map(h => h.name);
-		let listUI = this.genListUi(state.heroes, captions);
+		const captions = app.groups[app.activeGroup].heroes.map(h => h.name);
+		const listUI = this.genListUi(state.heroes, captions);
 		return tmpl.herolist.state.render(state, this, listUI);
 	}
 
 	async listItemClick(index) {
-		let shown = await App.fetch(
+		const shown = await App.fetch(
 			"state/herolist/switchHero", "POST",  index);
 		this.setListItemSelected(index, shown);
 	}
 
 	async swapAll(node) {
-		let shown = await App.fetch(
+		const shown = await App.fetch(
 			"state/herolist/switchGlobal", "POST", null);
 		if (shown) {
 			node.classList.add("pure-button-primary");
@@ -68,13 +68,13 @@ class Overlays extends ListSelector {
 	}
 
 	ui(app, state) {
-		let captions = state.map(s => s.name);
-		let visible = state.map(s => s.selected);
+		const captions = state.map(s => s.name);
+		const visible = state.map(s => s.selected);
 		return this.genListUi(visible, captions);
 	}
 
 	async listItemClick(index) {
-		let visible = await App.fetch("state/overlays/switch", "POST", index);
+		const visible = await App.fetch("state/overlays/switch", "POST", index);
 		this.setListItemSelected(index, visible);
 	}
 }
@@ -101,11 +101,11 @@ class Title {
 
 	async update(node) {
 		let value = "";
-		let input = node.parentNode.querySelector("input");
+		const input = node.parentNode.querySelector("input");
 		if (node.classList.contains("pure-button-primary")) {
 			value = input.value;
 		}
-		let newValue = await App.fetch("state/title/set", "POST", value);
+		const newValue = await App.fetch("state/title/set", "POST", value);
 		input.value = newValue;
 	}
 }

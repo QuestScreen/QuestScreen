@@ -13,9 +13,9 @@ class Template {
 	}
 
 	static genMenuEntry(name, handler, handlerContext, ...handlerArgs) {
-		let item = document.createElement("li");
+		const item = document.createElement("li");
 		item.classList.add("pure-menu-item");
-		let a = document.createElement("a");
+		const a = document.createElement("a");
 		item.appendChild(a);
 		a.href = "#";
 		a.classList.add("pure-menu-link");

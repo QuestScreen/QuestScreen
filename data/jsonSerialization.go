@@ -198,6 +198,50 @@ func (c *Config) LoadGroupJSON(raw []byte, group string) error {
 	return fmt.Errorf("unknown group \"%s\"", group)
 }
 
+// BuildSceneJSON serializes the config for modules in the given scene of the
+// given group to JSON.
+func (c *Config) BuildSceneJSON(groupID string, sceneID string) ([]byte, error) {
+	for i := range c.groups {
+		if c.groups[i].id == groupID {
+			group := c.groups[i]
+			for j := range group.scenes {
+				scene := &group.scenes[j]
+				if scene.id == sceneID {
+					return json.Marshal(c.buildSceneConfigJSON(scene.modules))
+				}
+			}
+		}
+	}
+	return nil, fmt.Errorf("unknown scene \"%s/%s\"", groupID, sceneID)
+}
+
+// LoadSceneJSON parses the given config as JSON, updates the internal
+// config and writes it to the group's config.yaml file.
+func (c *Config) LoadSceneJSON(
+	raw []byte, groupID string, sceneID string) error {
+	for i := range c.groups {
+		if c.groups[i].id == groupID {
+			group := c.groups[i]
+			for j := range group.scenes {
+				scene := &group.scenes[j]
+				if scene.id == sceneID {
+					simpleList := make([]interface{}, c.owner.NumModules())
+					for i := api.ModuleIndex(0); i < c.owner.NumModules(); i++ {
+						simpleList[i] = scene.modules[i].config
+					}
+					if err := c.loadJSONModuleConfigs(raw, simpleList); err != nil {
+						return err
+					}
+					c.writeYamlScene(group, scene)
+					return nil
+				}
+			}
+			break
+		}
+	}
+	return fmt.Errorf("unknown scene \"%s/%s\"", groupID, sceneID)
+}
+
 func (c *Config) loadJSONModuleConfigInto(target interface{},
 	raw []yaml.Node) error {
 	targetModule := reflect.ValueOf(target).Elem()
@@ -237,8 +281,14 @@ func (c *Config) loadJSONModuleConfigs(jsonInput []byte,
 	var i api.ModuleIndex
 	for i = 0; i < api.ModuleIndex(len(targetConfigs)); i++ {
 		conf := targetConfigs[i]
-		if err := c.loadJSONModuleConfigInto(conf, raw[i]); err != nil {
-			return err
+		if conf == nil {
+			if raw[i] != nil {
+				return fmt.Errorf("got non-nil value for nil module")
+			}
+		} else {
+			if err := c.loadJSONModuleConfigInto(conf, raw[i]); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -256,6 +306,27 @@ func (c *Config) buildModuleConfigJSON(config []interface{}) []jsonModuleConfig 
 		jsonConfig := make(jsonModuleConfig, 0, itemValue.NumField())
 		for j := 0; j < itemValue.NumField(); j++ {
 			jsonConfig = append(jsonConfig, itemValue.Field(j).Interface())
+		}
+		ret = append(ret, jsonConfig)
+	}
+	return ret
+}
+
+func (c *Config) buildSceneConfigJSON(config []sceneModule) []jsonModuleConfig {
+	ret := make([]jsonModuleConfig, 0, c.owner.NumModules())
+	var i api.ModuleIndex
+	for i = 0; i < c.owner.NumModules(); i++ {
+		moduleConfig := config[i]
+		var jsonConfig jsonModuleConfig
+		if moduleConfig.config != nil {
+			itemValue := reflect.ValueOf(moduleConfig.config).Elem()
+			for ; itemValue.Kind() == reflect.Interface ||
+				itemValue.Kind() == reflect.Ptr; itemValue = itemValue.Elem() {
+			}
+			jsonConfig = make(jsonModuleConfig, 0, itemValue.NumField())
+			for j := 0; j < itemValue.NumField(); j++ {
+				jsonConfig = append(jsonConfig, itemValue.Field(j).Interface())
+			}
 		}
 		ret = append(ret, jsonConfig)
 	}

@@ -1,7 +1,7 @@
 tmpl.app = {
 	groupEntry: new Template("#tmpl-app-group-entry",
 			function(app, name, groupIndex) {
-		let link = this.querySelector(".pure-menu-link");
+		const link = this.querySelector(".pure-menu-link");
 		link.textContent = name;
 		link.addEventListener('click', e => {
 			const groupMenuBtn = document.querySelector("#open-group-menu");
@@ -14,9 +14,21 @@ tmpl.app = {
 		return this.children[0];
 	}),
 	pageMenuEntry: new Template("#tmpl-app-page-menu-entry",
-			function(app, handler, name) {
-		let link = this.querySelector(".pure-menu-link");
-		link.textContent = name;
+			function(app, handler, name, icon, parent) {
+		const link = this.querySelector(".pure-menu-link");
+		link.insertBefore(document.createTextNode(" " + name), link.firstChild);
+		if (parent != null) {
+			const parentSpan = document.createElement("span");
+			parentSpan.classList.add("submenu-parent-name");
+			parentSpan.textContent = " " + parent + " –";
+			link.insertBefore(parentSpan, link.firstChild);
+			link.classList.add("submenu-link");
+		}
+		const i = document.createElement("i");
+		i.classList.add("fas");
+		i.classList.add(icon);
+		link.insertBefore(i, link.firstChild);
+
 		link.addEventListener("click", e => {
 			if (app.handlePageMenuClick(link.parentNode)) {
 				handler();
@@ -42,12 +54,12 @@ class App {
 	}
 
 	static async fetch(url, method, content) {
-		let body = content == null ? null : JSON.stringify(content);
-		let headers = { 'X-Clacks-Overhead': 'GNU Terry Pratchett'};
+		const body = content == null ? null : JSON.stringify(content);
+		const headers = { 'X-Clacks-Overhead': 'GNU Terry Pratchett'};
 		if (body != null) {
 			headers['Content-Type'] = 'application/json';
 		}
-		let response = await fetch(url, {
+		const response = await fetch(url, {
 				method: method, mode: 'no-cors', cache: 'no-cache',
 				credentials: 'omit', redirect: 'follow', referrer: 'no-referrer',
 				headers: headers, body: body,
@@ -62,8 +74,8 @@ class App {
 	}
 
 	setMenu(content) {
-		let pagemenu = document.querySelector("#pagemenu");
-		let newMenu = pagemenu.cloneNode(false);
+		const pagemenu = document.querySelector("#pagemenu");
+		const newMenu = pagemenu.cloneNode(false);
 		newMenu.appendChild(content);
 		pagemenu.parentNode.replaceChild(newMenu, pagemenu);
 	}
@@ -164,10 +176,10 @@ class App {
 	}
 
 	regenGroupListUI() {
-		let groupList = document.querySelector("#menu-groups");
+		const groupList = document.querySelector("#menu-groups");
 		while (groupList.firstChild && !groupList.firstChild.remove());
 		for (const [index, group] of this.groups.entries()) {
-			let entry = tmpl.app.groupEntry.render(app, group.name, index);
+			const entry = tmpl.app.groupEntry.render(app, group.name, index);
 			groupList.appendChild(entry);
 		}
 		if (!this.groupDropdownHandler) {
@@ -179,7 +191,7 @@ class App {
 
 	/* queries the global config from the server and initializes the app. */
 	async init() {
-		let returned = await App.fetch("/app", "GET", null);
+		const returned = await App.fetch("/app", "GET", null);
 		for (const module of returned.modules) {
 			if (this.controllers.hasOwnProperty(module.id)) {
 				module.controller = this.controllers[module.id];
@@ -212,4 +224,4 @@ class App {
 	}
 }
 
-let app = new App();
+const app = new App();

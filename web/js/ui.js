@@ -33,7 +33,7 @@ class DropdownHandler {
 		} else {
 			this.parent.classList.remove(ACTIVE_CLASS_NAME);
 			if (smartphoneMode.matches) this.menu.style.height = "";
-
+			this.link.blur();
 		}
 		this.closed = !this.closed;
 	}

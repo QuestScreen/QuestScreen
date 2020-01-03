@@ -64,13 +64,23 @@ type persistedScene struct {
 	Modules map[string]persistedSceneModule
 }
 
+type persistingSceneModule struct {
+	Enabled bool
+	Config  interface{} // will be serialized to mapping since config must be a struct.
+}
+
+type persistingScene struct {
+	Name    string
+	Modules map[string]persistingSceneModule
+}
+
 func (c *Config) loadYamlModuleConfigInto(target interface{},
 	values map[string]yaml.Node, moduleName string) bool {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
 	for i := 0; i < targetModuleType.NumField(); i++ {
 		inValue, ok := values[targetModuleType.Field(i).Name]
-		if !ok {
+		if !ok || inValue.Kind == yaml.ScalarNode && inValue.Tag == "!!null" {
 			continue
 		}
 		wasNil := false
@@ -220,14 +230,17 @@ func (c *Config) loadYamlSystem(
 		modules: moduleConfigs}, err
 }
 
-func (c *Config) writeYamlSystem(value *system) {
+func (c *Config) writeYamlSystem(value *system) error {
 	data := persistingSystem{
 		Name:    value.name,
 		Modules: c.toYamlStructure(value.modules),
 	}
 	path := c.owner.DataDir("systems", value.id, "config.yaml")
-	raw, _ := yaml.Marshal(data)
-	ioutil.WriteFile(path, raw, 0644)
+	raw, err := yaml.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, raw, 0644)
 }
 
 func (c *Config) loadYamlGroup(
@@ -251,23 +264,18 @@ func (c *Config) loadYamlGroup(
 		fmt.Errorf("Group config references unknown system \"%s\"", data.System)
 }
 
-func (c *Config) writeYamlGroup(value *group) {
+func (c *Config) writeYamlGroup(value *group) error {
 	data := persistingGroup{
 		Name:    value.name,
 		System:  c.systems[value.systemIndex].id,
 		Modules: c.toYamlStructure(value.modules),
 	}
 	path := c.owner.DataDir("groups", value.id, "config.yaml")
-	raw, _ := yaml.Marshal(data)
-	ioutil.WriteFile(path, raw, 0644)
-}
-
-func (c *Config) loadYamlHero(id string, path string) (hero, error) {
-	var data yamlHero
-	if err := strictUnmarshalYAML(path, &data); err != nil {
-		return hero{}, err
+	raw, err := yaml.Marshal(data)
+	if err != nil {
+		return err
 	}
-	return hero{name: data.Name, description: data.Description}, nil
+	return ioutil.WriteFile(path, raw, 0644)
 }
 
 func (c *Config) loadYamlScene(id string, path string) (scene, error) {
@@ -288,6 +296,31 @@ func (c *Config) loadYamlScene(id string, path string) (scene, error) {
 		}
 	}
 	return ret, nil
+}
+
+func (c *Config) writeYamlScene(g *group, value *scene) error {
+	data := persistingScene{
+		Name: value.name, Modules: make(map[string]persistingSceneModule)}
+	for i := api.ModuleIndex(0); i < c.owner.NumModules(); i++ {
+		moduleDesc := c.owner.ModuleAt(i).Descriptor()
+		moduleData := &value.modules[i]
+		data.Modules[moduleDesc.ID] = persistingSceneModule{
+			Enabled: moduleData.enabled, Config: moduleData.config}
+	}
+	path := c.owner.DataDir("groups", g.id, "scenes", value.id, "config.yaml")
+	raw, err := yaml.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, raw, 0644)
+}
+
+func (c *Config) loadYamlHero(id string, path string) (hero, error) {
+	var data yamlHero
+	if err := strictUnmarshalYAML(path, &data); err != nil {
+		return hero{}, err
+	}
+	return hero{name: data.Name, description: data.Description}, nil
 }
 
 type persistedGroupState struct {

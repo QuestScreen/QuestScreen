@@ -140,9 +140,25 @@ nav#mainmenu > div > a > i.fas {
 	content: " – ";
 }
 
+nav#pagemenu .submenu-link {
+	padding-left: 2em;
+}
+
+nav#pagemenu .submenu-parent-name {
+	display: none;
+}
+
 @media screen and (max-width: 35.5em) {
 	#subtitle {
 		display: none;
+	}
+
+	nav#pagemenu .submenu-link {
+		padding-left: 1em;
+	}
+
+	nav#pagemenu .submenu-parent-name {
+		display: inline;
 	}
 }
 

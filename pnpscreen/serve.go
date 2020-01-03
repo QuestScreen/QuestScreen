@@ -180,11 +180,13 @@ func sendScene(a *app, req *display.Request) {
 }
 
 func mergeAndSendConfigs(a *app, req *display.Request) {
-	scene := a.config.Group(a.activeGroup).Scene(a.groupState.ActiveScene())
-	for i := api.ModuleIndex(0); i < api.ModuleIndex(len(a.modules)); i++ {
-		if scene.UsesModule(i) {
-			req.SendModuleConfig(i, a.config.MergeConfig(i,
-				a.activeSystem, a.activeGroup, a.groupState.ActiveScene()))
+	if a.activeGroup >= 0 {
+		scene := a.config.Group(a.activeGroup).Scene(a.groupState.ActiveScene())
+		for i := api.ModuleIndex(0); i < api.ModuleIndex(len(a.modules)); i++ {
+			if scene.UsesModule(i) {
+				req.SendModuleConfig(i, a.config.MergeConfig(i,
+					a.activeSystem, a.activeGroup, a.groupState.ActiveScene()))
+			}
 		}
 	}
 }
@@ -317,9 +319,9 @@ func (ch *configEndpoint) Handle(
 	method httpMethods, idParam string, w http.ResponseWriter, r *http.Request) {
 	post := method == httpPost
 	var raw []byte
+	var err error
 	if post {
 		post = true
-		var err error
 		raw, err = ioutil.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -333,44 +335,46 @@ func (ch *configEndpoint) Handle(
 	case "base":
 		if !isLast {
 			http.Error(w, "404: \""+r.URL.Path+"\" not found", http.StatusNotFound)
-		} else {
-			if post {
-				if err := a.config.LoadBaseJSON(raw); err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
-				} else {
-					w.WriteHeader(http.StatusNoContent)
-				}
-			} else {
-				var err error
-				raw, err := a.config.BuildBaseJSON()
-				sendJSON(w, raw, err)
-			}
+			return
 		}
+		if post {
+			if err := a.config.LoadBaseJSON(raw); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			break
+		}
+		raw, err = a.config.BuildBaseJSON()
 	case "groups":
 		if isLast {
 			http.Error(w, "400: group missing", http.StatusBadRequest)
-		} else {
-			groupName := r.URL.Path[len("/config/groups/"):]
+			return
+		}
+		groupName, isLast := nextPathItem(r.URL.Path[len("/config/groups/"):])
+		if isLast {
 			if post {
 				if err := a.config.LoadGroupJSON(raw, groupName); err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
-				} else {
-					req, err := a.display.StartRequest(ch.env.events.ModuleConfigID, 0)
-					if err != nil {
-						http.Error(w, "503: Previous request still pending",
-							http.StatusServiceUnavailable)
-						return
-					}
-					w.WriteHeader(http.StatusNoContent)
-					defer req.Close()
-					mergeAndSendConfigs(a, &req)
-					req.Commit()
+					return
 				}
 			} else {
-				var err error
 				raw, err = a.config.BuildGroupJSON(groupName)
-				sendJSON(w, raw, err)
 			}
+			break
+		}
+		sceneName, isLast :=
+			nextPathItem(r.URL.Path[len("/config/groups//")+len(groupName):])
+		if !isLast {
+			http.Error(w, "404: not found", http.StatusNotFound)
+			return
+		}
+		if post {
+			if err := a.config.LoadSceneJSON(raw, groupName, sceneName); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+		} else {
+			raw, err = a.config.BuildSceneJSON(groupName, sceneName)
 		}
 	case "systems":
 		if isLast {
@@ -380,27 +384,32 @@ func (ch *configEndpoint) Handle(
 			if post {
 				if err := a.config.LoadSystemJSON(raw, systemName); err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
-				} else {
-					req, err := a.display.StartRequest(ch.env.events.ModuleConfigID, 0)
-					if err != nil {
-						http.Error(w, "503: Previous request still pending",
-							http.StatusServiceUnavailable)
-						return
-					}
-					defer req.Close()
-
-					w.WriteHeader(http.StatusNoContent)
-					mergeAndSendConfigs(a, &req)
-					req.Commit()
+					return
 				}
 			} else {
-				var err error
 				raw, err = a.config.BuildSystemJSON(systemName)
-				sendJSON(w, raw, err)
 			}
 		}
 	default:
 		http.Error(w, "404: \""+r.URL.Path+"\" not found", http.StatusNotFound)
+		return
+	}
+
+	if post {
+		if a.activeGroup != -1 {
+			req, err := a.display.StartRequest(ch.env.events.ModuleConfigID, 0)
+			if err != nil {
+				http.Error(w, "503: Previous request still pending",
+					http.StatusServiceUnavailable)
+				return
+			}
+			defer req.Close()
+			mergeAndSendConfigs(a, &req)
+			req.Commit()
+		}
+		w.WriteHeader(http.StatusNoContent)
+	} else {
+		sendJSON(w, raw, err)
 	}
 }
 
