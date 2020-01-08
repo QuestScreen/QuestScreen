@@ -56,6 +56,15 @@
 			<p>No group selected.</p>
 		</article>
 	</main>
+
+	<div id="popup-wrapper">
+		<div id="popup">
+			<h3 id="popup-title"></h3>
+			<section id="popup-content"></section>
+			<button class="pure-button" id="popup-cancel"></button>
+			<button class="pure-button pure-button-primary" id="popup-confirm"></button>
+		</div>
+	</div>
 </div>
 
 <!-- app templates -->
@@ -66,7 +75,7 @@
 	</li>
 </template>
 
-<template id="tmpl-app-config-menu">
+<template id="tmpl-app-data-menu">
 	<ul class="pure-menu-list">
 		<li class="pure-menu-heading config-menu-system-heading">
 			<!-- this is an <a> so that it can include padding as the surrounding <li>
@@ -179,6 +188,64 @@
 			</li>
 		</ul>
 	</div>
+</template>
+
+<!-- templates for editing datasets -->
+
+<template id="tmpl-data-base">
+	<article class="pure-g">
+		<div class="pure-u-1 pure-u-md-1-2">
+			<div class="pure-menu">
+				<span class="pure-menu-heading">Systems</span>
+				<ul class="pure-menu-list data-system-list">
+					<li class="pure-menu-item data-list-add">
+						<a class="pure-menu-link">
+							<i class="fas fa-plus-square"></i>
+						</a>
+					</li>
+				</ul>
+			</div>
+		</div>
+		<div class="pure-u-1 pure-u-md-1-2">
+			<div class="pure-menu">
+				<span class="pure-menu-heading">Groups</span>
+				<ul class="pure-menu-list data-group-list">
+					<li class="pure-menu-item data-list-add">
+						<a class="pure-menu-link">
+							<i class="fas fa-plus-square"></i>
+						</a>
+					</li>
+				</ul>
+			</div>
+		</div>
+	</article>
+</template>
+
+<template id="tmpl-data-list-item">
+	<li class="pure-menu-item data-list-item">
+		<span></span>
+		<button><i class="fas fa-minus-square"></i></button>
+	</li>
+</template>
+
+<template id="tmpl-popup-template-item">
+	<li class="pure-menu-item template-item">
+		<a class="pure-menu-link" href="#">
+			<div class="template-container">
+				<span class="plugin-name"></span>
+				<i class="fas fa-angle-right"></i>
+				<span class="template-name"></span>
+				<p class="template-descr"></p>
+			</div>
+			<i class="fas fa-sort"></i>
+		</a>
+	</li>
+</template>
+
+<template id="tmpl-popup-template-list">
+	<nav class="pure-menu">
+		<ul class="pure-menu-list"></ul>
+	</nav>
 </template>
 
 <!-- templates injected via plugins -->

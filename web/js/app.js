@@ -36,8 +36,96 @@ tmpl.app = {
 			e.preventDefault();
 		});
 		return this.children[0];
-	})
+	}),
+	dataMenu: new Template("#tmpl-app-data-menu",
+			function(app, controller) {
+		controller.activeMenuEntry = null;
+		const list = this.querySelector(".pure-menu-list");
+		const baseEntry = tmpl.app.pageMenuEntry.render(
+			app, controller.viewBase.bind(controller), "Base", "fa-tools");
+		list.insertBefore(baseEntry, list.firstChild);
+		if (app.activeGroup == -1) {
+			controller.activeMenuEntry = baseEntry;
+		}
+
+		let curLast = list.querySelector(".config-menu-system-heading");
+		for (const [index, system] of app.systems.entries()) {
+			const entry = tmpl.app.pageMenuEntry.render(app,
+				controller.viewSystem.bind(controller, system), system.name, "fa-book");
+			// Safari doesn't support firstElementChild on DocumentFragment
+			curLast = curLast.parentNode.insertBefore(entry, curLast.nextSibling);
+			if (app.activeGroup == -1 && index == 0) {
+				controller.activeMenuEntry = entry;
+			}
+		}
+
+		curLast = this.querySelector(".config-menu-group-heading");
+		for (const [index, group] of app.groups.entries()) {
+			const entry = tmpl.app.pageMenuEntry.render(app,
+				controller.viewGroup.bind(controller, group), group.name, "fa-users");
+			curLast = curLast.parentNode.insertBefore(entry, curLast.nextSibling);
+			if (index == app.activeGroup) {
+				controller.activeMenuEntry = entry;
+			}
+			for (const scene of group.scenes) {
+				const sceneEntry = tmpl.app.pageMenuEntry.render(app,
+					controller.viewScene.bind(controller, group, scene), scene.name, "fa-image",
+					group.name);
+				curLast = curLast.parentNode.insertBefore(
+					sceneEntry, curLast.nextSibling);
+			}
+		}
+	}),
 };
+
+const datakind = {
+	Base: "Base", System: "System", Group: "Group", Scene: "Scene"
+}
+
+class DataPage {
+	constructor(app, rootPath, viewgen, name, fetchOnLoad) {
+		this.app = app;
+		this.rootPath = rootPath;
+		this.viewgen = viewgen;
+		this.name = name;
+		this.fetchOnLoad = fetchOnLoad;
+	}
+
+	async loadView(subpath, kind, subtitle) {
+		const url = this.rootPath + subpath;
+
+		if (this.fetchOnLoad) {
+			const cfgData = await App.fetch(url, "GET", null);
+			const view = this.viewgen(this.app, kind, cfgData, url);
+			this.app.setPage(view.ui(cfgData));
+		} else {
+			const view = this.viewgen(this.app, kind, url);
+			this.app.setPage(view.ui());
+		}
+		this.app.setTitle(kind + " " + this.name, subtitle);
+	}
+
+	async viewBase() {
+		this.loadView("/base", datakind.Base, "");
+	}
+
+	async viewSystem(system) {
+		this.loadView("/systems/" + system.id, datakind.System, system.name);
+	}
+
+	async viewGroup(group) {
+		this.loadView("/groups/" + group.id, datakind.Group, group.name);
+	}
+
+	async viewScene(group, scene) {
+		this.loadView("/groups/" + group.id + "/" + scene.id,
+									datakind.Scene, group.name + " " + scene.name);
+	}
+
+	genMenu() {
+		return tmpl.app.dataMenu.render(this.app, this);
+	}
+}
 
 class App {
 	constructor() {
@@ -112,20 +200,25 @@ class App {
 	}
 
 	async setGroup(groupIndex) {
-		const groupState = await App.fetch(
-			"/setgroup", "POST", this.groups[groupIndex].id);
-		if (!Array.isArray(groupState.modules) ||
-			groupState.modules.length != this.modules.length) {
+		const response = await App.fetch(
+			"/state", "POST", {action: "setgroup", index: groupIndex});
+		this.updateViewFromStateResponse(response);
+	}
+
+	updateViewFromStateResponse(response) {
+		if (!Array.isArray(response.modules) ||
+				response.modules.length != this.modules.length) {
 			throw Error(
 					"Invalid response structure (resp.modules not an array or wrong length)");
-		} else if (groupState.activeScene < 0 ||
-			         groupState.activeScene >= this.groups[groupIndex].scenes.length) {
+		} else if (response.activeGroup < 0 ||
+				response.activeGroup >= this.groups.length ||response.activeScene < 0 ||
+				response.activeScene >= this.groups[response.activeGroup].scenes.length) {
 			throw Error("Invalid response (resp.activeScene outside of group scene range)")
 		}
-		this.activeGroup = groupIndex;
-		this.setTitle(this.groups[groupIndex].name, "");
-		this.setMenu(this.statePage.genMenu(groupState.activeScene));
-		this.statePage.setSceneData(groupState.modules);
+		this.activeGroup = response.activeGroup;
+		this.setTitle(this.groups[response.activeGroup].name, "");
+		this.setMenu(this.statePage.genMenu(response.activeScene));
+		this.statePage.setSceneData(response.modules);
 		for(const [index, entry] of
 				document.querySelectorAll(".rp-menu-group-entry").entries()) {
 			if (index == this.activeGroup) {
@@ -147,6 +240,11 @@ class App {
 		} else {
 			this.cfgPage.activeMenuEntry.querySelector("a").click();
 		}
+	}
+
+	async showDatasets() {
+		this.setMenu(this.datasetPage.genMenu());
+		this.datasetPage.viewBase();
 	}
 
 	async toggleHeader(link) {
@@ -191,7 +289,7 @@ class App {
 
 	/* queries the global config from the server and initializes the app. */
 	async init() {
-		const returned = await App.fetch("/app", "GET", null);
+		const returned = await App.fetch("/static", "GET", null);
 		for (const module of returned.modules) {
 			if (this.controllers.hasOwnProperty(module.id)) {
 				module.controller = this.controllers[module.id];
@@ -200,16 +298,26 @@ class App {
 				console.error("Missing controller for module \"%s\"", module.id);
 			}
 		}
-		this.systems = returned.systems;
-		this.groups = returned.groups;
 		this.fonts = returned.fonts;
-		this.activeGroup = returned.activeGroup;
+		this.plugins = returned.plugins;
+
+		const config = await App.fetch("/datasets", "GET", null);
+		this.systems = config.systems;
+		this.groups = config.groups;
+		this.activeGroup = -1;
 		this.regenGroupListUI();
-		if (this.activeGroup != -1) {
-			this.setGroup(this.activeGroup);
-		}
-		this.cfgPage = new ConfigPage(this);
+
 		this.statePage = new StatePage(this);
+		const stateResp = await App.fetch("/state", "GET", null);
+		if (stateResp.activeGroup != -1) {
+			this.updateViewFromStateResponse(stateResp);
+		}
+
+		this.cfgPage = new DataPage(this, "/config",
+				(app, _, data, url) => new ConfigView(app, data, url), "Configuration",
+				true);
+		this.datasetPage = new DataPage(this, "/datasets", genDatasetView,
+				"Dataset", false);
 		document.querySelector("#show-config").addEventListener(
 				"click", e => {
 					e.target.blur();
@@ -221,6 +329,11 @@ class App {
 					this.toggleHeader(e.currentTarget);
 					e.preventDefault();
 				});
+		document.querySelector("#show-datasets").addEventListener(
+			"click", e => {
+				this.showDatasets();
+				e.preventDefault();
+			});
 	}
 }
 

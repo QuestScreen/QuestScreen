@@ -61,6 +61,44 @@ hr {
 	margin-right: auto;
 }
 
+/* popup */
+
+#popup-wrapper {
+	background-color: rgba(0, 0, 0, .5);
+	position: fixed;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	margin: 0;
+	padding: 0;
+	display: none;
+  align-items: center;
+  justify-content: center;
+	z-index: 9;
+}
+
+#popup {
+	background-color: white;
+	border-radius: 5px;
+	padding: .5em;
+	width: 30em;
+	text-align: right;
+}
+
+#popup h3 {
+	text-align: center;
+	font-weight: bold;
+	margin-top: 0;
+	margin-bottom: .5em;
+}
+
+#popup-content {
+	text-align: left;
+	display: block;
+	min-height: 2em;
+}
+
 /* header */
 
 header {

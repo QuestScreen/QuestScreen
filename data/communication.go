@@ -2,7 +2,6 @@ package data
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -10,6 +9,12 @@ import (
 	"github.com/flyx/pnpscreen/app"
 	"gopkg.in/yaml.v3"
 )
+
+// Communication implements (de)serialization of data for communication to the
+// client via HTTP/JSON
+type Communication struct {
+	*Config
+}
 
 type jsonModuleConfig []interface{}
 
@@ -50,19 +55,19 @@ func jsonFonts(env api.Environment) []string {
 	return ret
 }
 
-func (c *Config) jsonSystems() []jsonItem {
-	ret := make([]jsonItem, 0, len(c.systems))
-	for i := range c.systems {
-		ret = append(ret, jsonItem{Name: c.systems[i].name,
-			ID: c.systems[i].id})
+func (c Communication) systems() []jsonItem {
+	ret := make([]jsonItem, 0, len(c.Config.systems))
+	for i := range c.Config.systems {
+		ret = append(ret, jsonItem{Name: c.Config.systems[i].name,
+			ID: c.Config.systems[i].id})
 	}
 	return ret
 }
 
-func (c *Config) jsonGroups() []jsonGroup {
-	ret := make([]jsonGroup, 0, len(c.groups))
-	for i := range c.groups {
-		source := &c.groups[i].heroes
+func (c Communication) groups() []jsonGroup {
+	ret := make([]jsonGroup, 0, len(c.Config.groups))
+	for i := range c.Config.groups {
+		source := &c.Config.groups[i].heroes
 		source.mutex.Lock()
 		heroes := make([]jsonHero, 0, len(source.data))
 		for j := range source.data {
@@ -70,24 +75,24 @@ func (c *Config) jsonGroups() []jsonGroup {
 		}
 		source.mutex.Unlock()
 
-		scenes := make([]jsonItem, 0, len(c.groups[i].scenes))
-		for j := range c.groups[i].scenes {
+		scenes := make([]jsonItem, 0, len(c.Config.groups[i].scenes))
+		for j := range c.Config.groups[i].scenes {
 			scenes = append(scenes, jsonItem{
-				Name: c.groups[i].scenes[j].name,
-				ID:   c.groups[i].scenes[j].id,
+				Name: c.Config.groups[i].scenes[j].name,
+				ID:   c.Config.groups[i].scenes[j].id,
 			})
 		}
 
-		ret = append(ret, jsonGroup{Name: c.groups[i].name,
-			ID:          c.groups[i].id,
-			SystemIndex: c.groups[i].systemIndex,
+		ret = append(ret, jsonGroup{Name: c.Config.groups[i].name,
+			ID:          c.Config.groups[i].id,
+			SystemIndex: c.Config.groups[i].systemIndex,
 			Heroes:      heroes,
 			Scenes:      scenes})
 	}
 	return ret
 }
 
-func (c *Config) jsonModules(app app.App) []jsonModuleDesc {
+func (c Communication) modules(app app.App) []jsonModuleDesc {
 	ret := make([]jsonModuleDesc, 0, app.NumModules())
 	for i := api.ModuleIndex(0); i < app.NumModules(); i++ {
 		module := app.ModuleAt(i).Descriptor()
@@ -110,104 +115,97 @@ func (c *Config) jsonModules(app app.App) []jsonModuleDesc {
 	return ret
 }
 
-type jsonGlobal struct {
-	Systems     []jsonItem       `json:"systems"`
-	Groups      []jsonGroup      `json:"groups"`
-	Fonts       []string         `json:"fonts"`
-	Modules     []jsonModuleDesc `json:"modules"`
-	ActiveGroup int              `json:"activeGroup"`
-	ActiveScene int              `json:"activeScene"`
+// StaticData returns a serializable view of all static data (i.e. data that
+// will never change during the execution of PnPScreen)
+func (c Communication) StaticData(app app.App, plugins interface{}) interface{} {
+	return struct {
+		Fonts            []string         `json:"fonts"`
+		Modules          []jsonModuleDesc `json:"modules"`
+		NumPluginSystems int              `json:"numPluginSystems"`
+		Plugins          interface{}      `json:"plugins"`
+	}{Fonts: jsonFonts(app), Modules: c.modules(app),
+		NumPluginSystems: c.numPluginSystems, Plugins: plugins}
 }
 
-// BuildGlobalJSON serializes the global config & environment state
-// to JSON. It contains a list of systems, groups, fonts, modules and
-// the currently active group index.
-func (c *Config) BuildGlobalJSON(
-	app app.App, activeGroup int, activeScene int) ([]byte, error) {
-	return json.Marshal(jsonGlobal{
-		Systems: c.jsonSystems(), Groups: c.jsonGroups(),
-		Fonts: jsonFonts(app), Modules: c.jsonModules(app),
-		ActiveGroup: activeGroup, ActiveScene: activeScene,
-	})
+// Datasets returns a serializable view of all dataset items (systems, groups,
+// scenes, heroes).
+func (c Communication) Datasets(app app.App) interface{} {
+	return struct {
+		Systems []jsonItem  `json:"systems"`
+		Groups  []jsonGroup `json:"groups"`
+	}{Systems: c.systems(), Groups: c.groups()}
 }
 
-// BuildBaseJSON returns a JSON serialization of the base configuration
-// of each module.
-func (c *Config) BuildBaseJSON() ([]byte, error) {
-	return json.Marshal(c.buildModuleConfigJSON(c.baseConfigs))
+// Base returns a serializable view of the base configuration.
+func (c Communication) Base() interface{} {
+	return c.moduleConfigs(c.baseConfigs)
 }
 
-// LoadBaseJSON parses the given config as JSON, updates the internal
-// config and writes it to the base/config.yaml file
-func (c *Config) LoadBaseJSON(raw []byte) error {
-	if err := c.loadJSONModuleConfigs(raw, c.baseConfigs); err != nil {
+// LoadBase parses the given config as JSON and updates the internal config
+func (c Communication) LoadBase(raw []byte) error {
+	if err := c.loadModuleConfigs(raw, c.baseConfigs); err != nil {
 		return err
 	}
-	c.writeYamlBase()
 	return nil
 }
 
-// BuildSystemJSON serializes the config of the given system identified by its
-// external ID, to JSON
-func (c *Config) BuildSystemJSON(system string) ([]byte, error) {
-	for i := range c.systems {
-		if c.systems[i].id == system {
-			return json.Marshal(c.buildModuleConfigJSON(c.systems[i].modules))
+// System returns a serializable view the config of the given system identified
+// by its ID
+func (c Communication) System(systemID string) (interface{}, error) {
+	for i := range c.Config.systems {
+		if c.Config.systems[i].id == systemID {
+			return c.moduleConfigs(c.Config.systems[i].modules), nil
 		}
 	}
-	return nil, fmt.Errorf("unknown system \"%s\"", system)
+	return nil, fmt.Errorf("unknown system \"%s\"", systemID)
 }
 
-// LoadSystemJSON parses the given config as JSON, updates the internal
-// config and writes it to the system's config.yaml file
-func (c *Config) LoadSystemJSON(raw []byte, system string) error {
-	for i := range c.systems {
-		if c.systems[i].id == system {
-			if err := c.loadJSONModuleConfigs(raw, c.systems[i].modules); err != nil {
-				return err
+// LoadSystem parses the given config as JSON and updates the internal config
+func (c Communication) LoadSystem(raw []byte, systemID string) (System, error) {
+	for i := range c.Config.systems {
+		if c.Config.systems[i].id == systemID {
+			if err := c.loadModuleConfigs(raw, c.Config.systems[i].modules); err != nil {
+				return nil, err
 			}
-			c.writeYamlSystem(c.systems[i])
-			return nil
+			return c.Config.systems[i], nil
 		}
 	}
-	return fmt.Errorf("unknown system \"%s\"", system)
+	return nil, fmt.Errorf("unknown system \"%s\"", systemID)
 }
 
-// BuildGroupJSON serializes the config of the given group to JSON
-func (c *Config) BuildGroupJSON(group string) ([]byte, error) {
-	for i := range c.groups {
-		if c.groups[i].id == group {
-			return json.Marshal(c.buildModuleConfigJSON(c.groups[i].modules))
+// Group returns a serializable view of the config of the given group
+func (c Communication) Group(groupID string) (interface{}, error) {
+	for i := range c.Config.groups {
+		if c.Config.groups[i].id == groupID {
+			return c.moduleConfigs(c.Config.groups[i].modules), nil
 		}
 	}
-	return nil, fmt.Errorf("unknown group \"%s\"", group)
+	return nil, fmt.Errorf("unknown group \"%s\"", groupID)
 }
 
-// LoadGroupJSON parses the given config as JSON, updates the internal
-// config and writes it to the group's config.yaml file.
-func (c *Config) LoadGroupJSON(raw []byte, group string) error {
-	for i := range c.groups {
-		if c.groups[i].id == group {
-			if err := c.loadJSONModuleConfigs(raw, c.groups[i].modules); err != nil {
-				return err
+// LoadGroup parses the given config as JSON and updates the internal config
+func (c Communication) LoadGroup(raw []byte, groupID string) (Group, error) {
+	for i := range c.Config.groups {
+		if c.Config.groups[i].id == groupID {
+			if err := c.loadModuleConfigs(raw, c.Config.groups[i].modules); err != nil {
+				return nil, err
 			}
-			c.writeYamlGroup(c.groups[i])
-			return nil
+			return c.Config.groups[i], nil
 		}
 	}
-	return fmt.Errorf("unknown group \"%s\"", group)
+	return nil, fmt.Errorf("unknown group \"%s\"", groupID)
 }
 
-// BuildSceneJSON serializes the config for modules in the given scene of the
-// given group to JSON.
-func (c *Config) BuildSceneJSON(groupID string, sceneID string) ([]byte, error) {
-	for i := range c.groups {
-		if c.groups[i].id == groupID {
-			group := c.groups[i]
+// Scene returns a serializable view of the config of the given scene of the
+// given group.
+func (c Communication) Scene(groupID string, sceneID string) (interface{}, error) {
+	for i := range c.Config.groups {
+		group := c.Config.groups[i]
+		if group.id == groupID {
 			for j := range group.scenes {
 				scene := &group.scenes[j]
 				if scene.id == sceneID {
-					return json.Marshal(c.buildSceneConfigJSON(scene.modules))
+					return c.sceneConfig(scene.modules), nil
 				}
 			}
 		}
@@ -215,13 +213,12 @@ func (c *Config) BuildSceneJSON(groupID string, sceneID string) ([]byte, error) 
 	return nil, fmt.Errorf("unknown scene \"%s/%s\"", groupID, sceneID)
 }
 
-// LoadSceneJSON parses the given config as JSON, updates the internal
-// config and writes it to the group's config.yaml file.
-func (c *Config) LoadSceneJSON(
-	raw []byte, groupID string, sceneID string) error {
-	for i := range c.groups {
-		if c.groups[i].id == groupID {
-			group := c.groups[i]
+// LoadScene parses the given config as JSON and updates the internal config
+func (c Communication) LoadScene(
+	raw []byte, groupID string, sceneID string) (Group, Scene, error) {
+	for i := range c.Config.groups {
+		group := c.Config.groups[i]
+		if group.id == groupID {
 			for j := range group.scenes {
 				scene := &group.scenes[j]
 				if scene.id == sceneID {
@@ -229,20 +226,19 @@ func (c *Config) LoadSceneJSON(
 					for i := api.ModuleIndex(0); i < c.owner.NumModules(); i++ {
 						simpleList[i] = scene.modules[i].config
 					}
-					if err := c.loadJSONModuleConfigs(raw, simpleList); err != nil {
-						return err
+					if err := c.loadModuleConfigs(raw, simpleList); err != nil {
+						return nil, nil, err
 					}
-					c.writeYamlScene(group, scene)
-					return nil
+					return group, scene, nil
 				}
 			}
 			break
 		}
 	}
-	return fmt.Errorf("unknown scene \"%s/%s\"", groupID, sceneID)
+	return nil, nil, fmt.Errorf("unknown scene \"%s/%s\"", groupID, sceneID)
 }
 
-func (c *Config) loadJSONModuleConfigInto(target interface{},
+func (c Communication) loadModuleConfigInto(target interface{},
 	raw []yaml.Node) error {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
@@ -270,7 +266,7 @@ func (c *Config) loadJSONModuleConfigInto(target interface{},
 	return nil
 }
 
-func (c *Config) loadJSONModuleConfigs(jsonInput []byte,
+func (c Communication) loadModuleConfigs(jsonInput []byte,
 	targetConfigs []interface{}) error {
 	var raw [][]yaml.Node
 	decoder := yaml.NewDecoder(bytes.NewReader(jsonInput))
@@ -286,7 +282,7 @@ func (c *Config) loadJSONModuleConfigs(jsonInput []byte,
 				return fmt.Errorf("got non-nil value for nil module")
 			}
 		} else {
-			if err := c.loadJSONModuleConfigInto(conf, raw[i]); err != nil {
+			if err := c.loadModuleConfigInto(conf, raw[i]); err != nil {
 				return err
 			}
 		}
@@ -294,7 +290,7 @@ func (c *Config) loadJSONModuleConfigs(jsonInput []byte,
 	return nil
 }
 
-func (c *Config) buildModuleConfigJSON(config []interface{}) []jsonModuleConfig {
+func (c Communication) moduleConfigs(config []interface{}) []jsonModuleConfig {
 	ret := make([]jsonModuleConfig, 0, c.owner.NumModules())
 	var i api.ModuleIndex
 	for i = 0; i < c.owner.NumModules(); i++ {
@@ -312,7 +308,7 @@ func (c *Config) buildModuleConfigJSON(config []interface{}) []jsonModuleConfig 
 	return ret
 }
 
-func (c *Config) buildSceneConfigJSON(config []sceneModule) []jsonModuleConfig {
+func (c Communication) sceneConfig(config []sceneModule) []jsonModuleConfig {
 	ret := make([]jsonModuleConfig, 0, c.owner.NumModules())
 	var i api.ModuleIndex
 	for i = 0; i < c.owner.NumModules(); i++ {
@@ -333,8 +329,8 @@ func (c *Config) buildSceneConfigJSON(config []sceneModule) []jsonModuleConfig {
 	return ret
 }
 
-// BuildSceneStateJSON returns a JSON serialization of the current scene.
-func (gs *GroupState) BuildSceneStateJSON(a app.App) interface{} {
+// CommunicateSceneState returns a serializatable view of the current scene.
+func (gs *GroupState) CommunicateSceneState(a app.App) interface{} {
 	list := make([]interface{}, a.NumModules())
 	var i api.ModuleIndex
 	scene := gs.scenes[gs.activeScene]

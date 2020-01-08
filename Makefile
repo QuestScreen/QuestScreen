@@ -7,7 +7,9 @@ WEBFILES = \
 	web/js/app.js\
 	web/js/base.js\
 	web/js/config.js\
+	web/js/datasets.js\
 	web/js/init.js\
+	web/js/popup.js\
 	web/js/state.js\
 	web/js/template.js\
 	web/js/ui.js\

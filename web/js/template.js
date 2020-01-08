@@ -8,8 +8,9 @@ class Template {
 	}
 
 	render(...args) {
-		return this.renderer.apply(
-				document.importNode(this.source, true).content, args);
+		const node = document.importNode(this.source, true).content;
+		const ret = this.renderer.apply(node, args);
+		return ret === undefined ? node : ret;
 	}
 
 	static genMenuEntry(name, handler, handlerContext, ...handlerArgs) {

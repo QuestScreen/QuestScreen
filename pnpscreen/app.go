@@ -41,13 +41,24 @@ type app struct {
 	fonts               []api.FontFamily
 	defaultBorderWidth  int32
 	modules             []api.Module
+	plugins             []*api.Plugin
 	resourceCollections [][][]resourceFile
 	config              data.Config
+	persistence         data.Persistence
+	communication       data.Communication
 	groupState          *data.GroupState
 	display             display.Display
-	activeGroup         int
-	activeSystem        int
+	activeGroupIndex    int
+	activeSystemIndex   int
 	html, js, css       []byte
+}
+
+func appendAssets(buffer []byte, paths ...string) []byte {
+	for i := range paths {
+		buffer = append(buffer, web.MustAsset(paths[i])...)
+		buffer = append(buffer, '\n')
+	}
+	return buffer
 }
 
 // Init initializes the static data
@@ -84,33 +95,24 @@ func (a *app) Init(fullscreen bool, events display.Events, port uint16) {
 	}
 	a.modules = make([]api.Module, 0, 32)
 	a.resourceCollections = make([][][]resourceFile, 0, 32)
-	a.activeGroup = -1
-	a.activeSystem = -1
+	a.activeGroupIndex = -1
+	a.activeSystemIndex = -1
 
-	a.html = append(a.html, web.MustAsset("web/html/index-top.html")...)
-	a.js = append(a.js, web.MustAsset("web/js/ui.js")...)
-	a.js = append(a.js, '\n')
-	a.js = append(a.js, web.MustAsset("web/js/template.js")...)
-	a.js = append(a.js, '\n')
-	a.js = append(a.js, web.MustAsset("web/js/config.js")...)
-	a.js = append(a.js, '\n')
-	a.js = append(a.js, web.MustAsset("web/js/app.js")...)
-	a.js = append(a.js, '\n')
-	a.js = append(a.js, web.MustAsset("web/js/state.js")...)
-	a.css = append(a.css, web.MustAsset("web/css/style.css")...)
-	a.css = append(a.css, '\n')
-	a.css = append(a.css, web.MustAsset("web/css/color.css")...)
+	a.html = appendAssets(a.html, "web/html/index-top.html")
+	a.js = appendAssets(a.js, "web/js/ui.js", "web/js/template.js",
+		"web/js/popup.js", "web/js/datasets.js",
+		"web/js/config.js", "web/js/app.js", "web/js/state.js")
+	a.css = appendAssets(a.css, "web/css/style.css", "web/css/color.css")
 	if err = a.registerPlugin(&base.Base, renderer); err != nil {
 		panic(err)
 	}
-	a.html = append(a.html, '\n')
-	a.html = append(a.html, web.MustAsset("web/html/index-bottom.html")...)
-	a.js = append(a.js, '\n')
-	a.js = append(a.js, web.MustAsset("web/js/init.js")...)
+	a.html = appendAssets(a.html, "web/html/index-bottom.html")
+	a.js = appendAssets(a.js, "web/js/init.js")
 
-	a.config.Init(a)
+	a.persistence, a.communication = a.config.LoadPersisted(a)
 	a.loadModuleResources()
-	if err := a.display.Init(a, events, fullscreen, port, window, renderer); err != nil {
+	if err := a.display.Init(
+		a, events, fullscreen, port, window, renderer); err != nil {
 		panic(err)
 	}
 }
@@ -133,6 +135,14 @@ func (a *app) DefaultBorderWidth() int32 {
 
 func (a *app) FontCatalog() []api.FontFamily {
 	return a.fonts
+}
+
+func (a *app) NumPlugins() int {
+	return len(a.plugins)
+}
+
+func (a *app) Plugin(index int) *api.Plugin {
+	return a.plugins[index]
 }
 
 func appendDir(resources []resourceFile, path string, group int, system int) []resourceFile {
@@ -209,6 +219,7 @@ func (a *app) registerPlugin(plugin *api.Plugin, renderer *sdl.Renderer) error {
 			return err
 		}
 	}
+	a.plugins = append(a.plugins, plugin)
 	return nil
 }
 
@@ -224,6 +235,13 @@ func (a *app) loadModuleResources() {
 	}
 }
 
+func (a *app) activeGroup() data.Group {
+	if a.activeGroupIndex == -1 {
+		return nil
+	}
+	return a.config.Group(a.activeGroupIndex)
+}
+
 type emptyHeroList struct{}
 
 func (emptyHeroList) Item(index int) api.Hero {
@@ -235,10 +253,11 @@ func (emptyHeroList) Length() int {
 }
 
 func (a *app) Heroes() api.HeroView {
-	if a.activeGroup == -1 {
+	g := a.activeGroup()
+	if g == nil {
 		return nil
 	}
-	return a.config.Group(a.activeGroup).ViewHeroes()
+	return g.ViewHeroes()
 }
 
 // Font returns the font face of the selected font.
@@ -253,8 +272,8 @@ func (a *app) GetResources(
 	complete := a.resourceCollections[moduleIndex][index]
 	ret := make([]api.Resource, 0, len(complete))
 	for i := range complete {
-		if (complete[i].group == -1 || complete[i].group == a.activeGroup) &&
-			(complete[i].system == -1 || complete[i].system == a.activeSystem) {
+		if (complete[i].group == -1 || complete[i].group == a.activeGroupIndex) &&
+			(complete[i].system == -1 || complete[i].system == a.activeSystemIndex) {
 			ret = append(ret, &complete[i])
 		}
 	}
@@ -263,31 +282,26 @@ func (a *app) GetResources(
 
 func (a *app) pathToState() string {
 	return filepath.Join(a.dataDir, "groups",
-		a.config.Group(a.activeGroup).ID(), "state.yaml")
+		a.activeGroup().ID(), "state.yaml")
 }
 
 // SetActiveGroup changes the active group to the group at the given index.
 // it loads the state of that group into all modules.
 //
-// Returns the index of the currently active scene inside the group, and a
-// mapping of scene IDs to scene indexes.
-func (a *app) setActiveGroup(index int) (int, map[string]int, error) {
+// Returns the index of the currently active scene inside the group
+func (a *app) setActiveGroup(index int) (int, error) {
 	if index < 0 || index >= a.config.NumGroups() {
-		return -1, nil, errors.New("index out of range")
+		return -1, errors.New("index out of range")
 	}
-	a.activeGroup = index
-	group := a.config.Group(index)
-	a.activeSystem = group.SystemIndex()
-	groupState, err := data.LoadYamlGroupState(a, group, a.pathToState())
+	a.activeGroupIndex = index
+	group := a.activeGroup()
+	a.activeSystemIndex = group.SystemIndex()
+	groupState, err := data.LoadPersistedGroupState(a, group, a.pathToState())
 	if err != nil {
-		return -1, nil, err
-	}
-	scenes := make(map[string]int)
-	for i := 0; i < group.NumScenes(); i++ {
-		scenes[group.Scene(i).ID()] = i
+		return -1, err
 	}
 	a.groupState = groupState
-	return groupState.ActiveScene(), scenes, nil
+	return groupState.ActiveScene(), nil
 }
 
 func (a *app) destroy() {

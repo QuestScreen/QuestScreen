@@ -26,7 +26,6 @@ tmpl.herolist = {
 		}
 		allSwitch.addEventListener('click', ctrl.swapAll.bind(ctrl, allSwitch));
 		this.querySelector(".herolist-container").appendChild(listUI);
-		return this;
 	})
 }
 

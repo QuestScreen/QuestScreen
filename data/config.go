@@ -5,10 +5,8 @@ package data
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"path/filepath"
 	"reflect"
 	"sync"
 
@@ -157,10 +155,17 @@ func (g *group) ViewHeroes() api.HeroView {
 // Configuration is rebuilt whenever the selected scene or group changes and
 // whenever the configuration is edited (via web interface).
 type Config struct {
-	owner       app.App
-	baseConfigs []interface{}
-	systems     []*system
-	groups      []*group
+	owner            app.App
+	baseConfigs      []interface{}
+	systems          []*system
+	numPluginSystems int
+	groups           []*group
+}
+
+// NumPluginSystems returns the number of systems required by plugins.
+// these systems are always in front of the systems list.
+func (c *Config) NumPluginSystems() int {
+	return c.numPluginSystems
 }
 
 // NumSystems returns the number of available systems.
@@ -185,118 +190,25 @@ func (c *Config) Group(index int) Group {
 	return c.groups[index]
 }
 
-func (c *Config) loadBase() []interface{} {
-	path := c.owner.DataDir("base", "config.yaml")
-	ret, err := c.loadYamlBase(path)
-	if err != nil {
-		log.Println(path+":", err)
-	}
-	return ret
-}
-
-func (c *Config) loadSystems() []*system {
-	ret := make([]*system, 0, 16)
-	systemsDir := c.owner.DataDir("systems")
-	files, err := ioutil.ReadDir(systemsDir)
-	if err == nil {
-		for _, file := range files {
-			if file.IsDir() {
-				path := filepath.Join(systemsDir, file.Name(), "config.yaml")
-				config, err := c.loadYamlSystem(file.Name(), path)
-				if err == nil {
-					ret = append(ret, config)
-				} else {
-					log.Println(path+":", err)
-				}
-			}
-		}
-	} else {
-		log.Println(err)
-	}
-	return ret
-}
-
-func (c *Config) loadHeroes(groupPath string) []hero {
-	ret := make([]hero, 0, 16)
-	heroesDir := filepath.Join(groupPath, "heroes")
-	files, err := ioutil.ReadDir(heroesDir)
-	if err == nil {
-		for _, file := range files {
-			if file.IsDir() {
-				path := filepath.Join(heroesDir, file.Name(), "config.yaml")
-				var h hero
-				h, err = c.loadYamlHero(file.Name(), path)
-				if err == nil {
-					ret = append(ret, h)
-				} else {
-					log.Println(path+":", err)
-				}
-			}
-		}
-	}
-	return ret
-}
-
-func (c *Config) loadScenes(groupPath string) []scene {
-	ret := make([]scene, 0, 16)
-	scenesDir := filepath.Join(groupPath, "scenes")
-	files, err := ioutil.ReadDir(scenesDir)
-	if err == nil {
-		for _, file := range files {
-			if file.IsDir() {
-				path := filepath.Join(scenesDir, file.Name(), "config.yaml")
-				var s scene
-				s, err = c.loadYamlScene(file.Name(), path)
-				if err == nil {
-					ret = append(ret, s)
-				} else {
-					log.Println(path+":", err)
-				}
-			}
-		}
-	}
-	return ret
-}
-
-func (c *Config) loadGroups() []*group {
-	ret := make([]*group, 0, 16)
-	groupsDir := c.owner.DataDir("groups")
-	files, err := ioutil.ReadDir(groupsDir)
-	if err == nil {
-		for _, file := range files {
-			if file.IsDir() {
-				path := filepath.Join(groupsDir, file.Name())
-				configPath := filepath.Join(path, "config.yaml")
-				g, err := c.loadYamlGroup(file.Name(), configPath)
-				if err != nil {
-					log.Println(configPath+":", err)
-				} else {
-					g.heroes.data = c.loadHeroes(path)
-					g.scenes = c.loadScenes(path)
-					if len(g.scenes) == 0 {
-						log.Println(path + ": no valid scenes available")
-					} else {
-						ret = append(ret, g)
-					}
-				}
-			}
-		}
-	} else {
-		log.Println(err)
-	}
-	return ret
-}
-
-// Init loads all config.yaml files and parses them according to the module's
-// config types. Parsing errors lead to a panic while structural errors are
-// logged and ignored.
+// LoadPersisted loads all config.yaml files and parses them according to the
+// module's config types. Returns a Persistence value linked to the config that
+// can be used to persist data into the file system, and a Communication value
+// that (de)serializes data for client communication.
 //
-// You must call Init before doing anything with a Config value.
-func (c *Config) Init(owner app.App) {
+// All errors are logged and erratic files ignored.
+// You must call LoadPersisted before doing anything with a Config value.
+func (c *Config) LoadPersisted(owner app.App) (Persistence, Communication) {
+	p := Persistence{c}
 	c.owner = owner
-	c.baseConfigs = c.loadBase()
-	c.systems = c.loadSystems()
-	c.groups = c.loadGroups()
+	basePath := c.owner.DataDir("base", "config.yaml")
+	ret, err := p.loadBase(basePath)
+	if err != nil {
+		log.Println(basePath+":", err)
+	}
+	c.baseConfigs = ret
+	p.loadSystems()
+	p.loadGroups()
+	return p, Communication{c}
 }
 
 func confValue(conf interface{}) *reflect.Value {

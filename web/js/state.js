@@ -6,14 +6,8 @@ const SelectorKind = Object.freeze({
 
 tmpl.state = {
 	list: {
-		visible: new Template("#tmpl-state-list-visible",
-				function() {
-			return this;
-		}),
-		invisible: new Template("#tmpl-state-list-invisible",
-				function() {
-			return this;
-		}),
+		visible: new Template("#tmpl-state-list-visible", function() {}),
+		invisible: new Template("#tmpl-state-list-invisible", function() {}),
 		item: new Template("#tmpl-state-list-item",
 				function(ctrl, index, visible, caption) {
 			const name = this.querySelector(".state-list-item-name");
@@ -29,7 +23,6 @@ tmpl.state = {
 				ctrl.listItemClick(index);
 				e.preventDefault();
 			});
-			return this;
 		}),
 		root: new Template("#tmpl-state-list",
 				function(ctrl, visible, captions) {
@@ -54,7 +47,6 @@ tmpl.state = {
 			} else {
 				menuCaption.textContent = captions[visible];
 			}
-			return this;
 		})
 	},
 	module: new Template("#tmpl-state-module",
@@ -62,12 +54,9 @@ tmpl.state = {
 		const wrapper = this.querySelector(".state-module-content");
 		this.querySelector(".state-module-name").textContent =
 				app.modules[moduleIndex].name;
-		wrapper.appendChild(
-				app.modules[moduleIndex].controller.ui(app, state));
-		return this;
+		wrapper.appendChild(app.modules[moduleIndex].controller.ui(app, state));
 	}),
-	scene: new Template("#tmpl-state-scene",
-				function(app, moduleStates) {
+	scene: new Template("#tmpl-state-scene", function(app, moduleStates) {
 		const stateWrapper = this.querySelector("#module-state-wrapper");
 		for (const [index, state] of moduleStates.entries()) {
 			if (state != null) {
@@ -75,19 +64,17 @@ tmpl.state = {
 						tmpl.state.module.render(app, index, state));
 			}
 		}
-		return this;
 	}),
 	menu: new Template("#tmpl-state-menu", function(app, statePage, activeScene) {
 		const list = this.querySelector(".pure-menu-list");
 		for (const [index, scene] of app.groups[app.activeGroup].scenes.entries()) {
 			const entry = tmpl.app.pageMenuEntry.render(app,
-				statePage.setScene.bind(statePage, scene.id), scene.name, "fa-image");
+				statePage.setScene.bind(statePage, index), scene.name, "fa-image");
 			if (index == activeScene) {
 				entry.classList.add("pure-menu-active");
 			}
 			list.appendChild(entry);
 		}
-		return this;
 	})
 }
 
@@ -150,8 +137,9 @@ class StatePage {
 
 	}
 
-	async setScene(scene) {
-		const sceneResp = await App.fetch("/setscene", "POST", scene);
+	async setScene(sceneIndex) {
+		const sceneResp = await App.fetch("/state", "POST",
+				{action: "setscene", index: sceneIndex});
 		this.setSceneData(sceneResp.modules);
 	}
 

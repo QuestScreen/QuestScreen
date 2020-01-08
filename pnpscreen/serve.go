@@ -131,7 +131,7 @@ type staticResource struct {
 }
 
 type staticResourceEndpoint struct {
-	env       *endpointEnv
+	*endpointEnv
 	resources map[string]staticResource
 }
 
@@ -149,7 +149,7 @@ func (ep *staticResourceEndpoint) Handle(
 
 func newStaticResourceEndpoint(env *endpointEnv) *staticResourceEndpoint {
 	ep := &staticResourceEndpoint{
-		env: env, resources: make(map[string]staticResource)}
+		endpointEnv: env, resources: make(map[string]staticResource)}
 
 	indexRes := staticResource{
 		contentType: "text/html; charset=utf-8", content: env.a.html}
@@ -169,7 +169,7 @@ func (ep *staticResourceEndpoint) add(path string, contentType string) {
 
 func sendScene(a *app, req *display.Request) {
 	data := make([]bool, len(a.modules))
-	scene := a.config.Group(a.activeGroup).Scene(a.groupState.ActiveScene())
+	scene := a.activeGroup().Scene(a.groupState.ActiveScene())
 	for i := api.ModuleIndex(0); i < api.ModuleIndex(len(a.modules)); i++ {
 		data[i] = scene.UsesModule(i)
 		if data[i] {
@@ -180,18 +180,20 @@ func sendScene(a *app, req *display.Request) {
 }
 
 func mergeAndSendConfigs(a *app, req *display.Request) {
-	if a.activeGroup >= 0 {
-		scene := a.config.Group(a.activeGroup).Scene(a.groupState.ActiveScene())
+	g := a.activeGroup()
+	if g != nil {
+		scene := g.Scene(a.groupState.ActiveScene())
 		for i := api.ModuleIndex(0); i < api.ModuleIndex(len(a.modules)); i++ {
 			if scene.UsesModule(i) {
 				req.SendModuleConfig(i, a.config.MergeConfig(i,
-					a.activeSystem, a.activeGroup, a.groupState.ActiveScene()))
+					a.activeSystemIndex, a.activeGroupIndex, a.groupState.ActiveScene()))
 			}
 		}
 	}
 }
 
-func sendJSON(w http.ResponseWriter, content []byte, err error) {
+func sendJSON(w http.ResponseWriter, data interface{}) {
+	content, err := json.Marshal(data)
 	if err == nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
@@ -202,124 +204,128 @@ func sendJSON(w http.ResponseWriter, content []byte, err error) {
 	}
 }
 
-type sceneChangeEndpoint struct {
-	env    *endpointEnv
-	scenes map[string]int
+type staticDataEndpoint struct {
+	*endpointEnv
 }
 
-func newSceneChangeEndpoint(env *endpointEnv) *sceneChangeEndpoint {
-	return &sceneChangeEndpoint{env: env}
+func (sd *staticDataEndpoint) Handle(
+	method httpMethods, subject string, w http.ResponseWriter, r *http.Request) {
+	sendJSON(w, sd.a.communication.StaticData(sd.a, sd.a.plugins))
 }
 
-func (ep *sceneChangeEndpoint) Handle(
+func newStaticDataEndpoint(env *endpointEnv) *staticDataEndpoint {
+	return &staticDataEndpoint{endpointEnv: env}
+}
+
+type stateEndpoint struct {
+	*endpointEnv
+}
+
+func newStateEndpoint(env *endpointEnv) *stateEndpoint {
+	return &stateEndpoint{endpointEnv: env}
+}
+
+func (se *stateEndpoint) Handle(
 	method httpMethods, idParam string, w http.ResponseWriter, r *http.Request) {
-	sceneIndex, ok := ep.scenes[idParam]
-	if !ok {
-		http.Error(w, "404: unknown scene \""+idParam+"\"", http.StatusNotFound)
-		return
+	activeScene := -1
+	var modules interface{} = nil
+	if method == httpPost {
+		var request struct {
+			Action string `json:"action"`
+			Index  int    `json:"index"`
+		}
+		raw, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "500: could not read request body", http.StatusInternalServerError)
+			return
+		}
+		if err = json.Unmarshal(raw, &request); err != nil {
+			http.Error(w, "400: could not unmarshal request body: "+err.Error(),
+				http.StatusBadRequest)
+			return
+		}
+
+		req, err := se.a.display.StartRequest(se.events.SceneChangeID, 0)
+		if err != nil {
+			http.Error(w, "503: Previous request still pending",
+				http.StatusServiceUnavailable)
+			return
+		}
+		defer req.Close()
+
+		switch request.Action {
+		case "setgroup":
+			if request.Index < 0 || request.Index >= se.a.config.NumGroups() {
+				http.Error(w, "400: group index out of range", http.StatusBadRequest)
+				return
+			}
+
+			activeScene, err = se.a.setActiveGroup(request.Index)
+			if err != nil {
+				http.Error(w, "400: Could not set group: "+err.Error(),
+					http.StatusBadRequest)
+				return
+			}
+			if err = se.a.groupState.SetScene(activeScene); err != nil {
+				http.Error(w, "500: Failed to load active scene for target group",
+					http.StatusInternalServerError)
+				return
+			}
+		case "setscene":
+			g := se.a.activeGroup()
+			if g == nil || request.Index < 0 || request.Index >= g.NumScenes() {
+				http.Error(w, "400: scene index out of range", http.StatusBadRequest)
+				return
+			}
+			activeScene = request.Index
+			if err := se.a.groupState.SetScene(activeScene); err != nil {
+				http.Error(w, "500: Failed to load active scene for target group",
+					http.StatusInternalServerError)
+				return
+			}
+			se.a.groupState.Persist()
+		default:
+			http.Error(w, "400: unknown action: "+request.Action, http.StatusBadRequest)
+			return
+		}
+
+		sendScene(se.a, &req)
+		mergeAndSendConfigs(se.a, &req)
+		req.Commit()
+		modules = se.a.groupState.CommunicateSceneState(se.a)
+	} else {
+		if se.a.groupState != nil {
+			activeScene = se.a.groupState.ActiveScene()
+			modules = se.a.groupState.CommunicateSceneState(se.a)
+		}
 	}
-	a := ep.env.a
-	req, err := a.display.StartRequest(ep.env.events.SceneChangeID, 0)
-	if err != nil {
-		http.Error(w, "503: Previous request still processing",
-			http.StatusServiceUnavailable)
-		return
-	}
-	defer req.Close()
-	if err = a.groupState.SetScene(sceneIndex); err != nil {
-		http.Error(w, "500: Failed to load active scene for target group",
-			http.StatusInternalServerError)
-		return
-	}
-	sendScene(a, &req)
-	mergeAndSendConfigs(a, &req)
-	req.Commit()
-	a.groupState.Persist()
-	moduleStates := a.groupState.BuildSceneStateJSON(a)
-	ret, err := json.Marshal(groupChangeResponse{
-		ActiveScene: a.groupState.ActiveScene(),
-		Modules:     moduleStates,
+
+	sendJSON(w, struct {
+		ActiveGroup int         `json:"activeGroup"`
+		ActiveScene int         `json:"activeScene"`
+		Modules     interface{} `json:"modules"`
+	}{
+		ActiveGroup: se.a.activeGroupIndex,
+		ActiveScene: activeScene,
+		Modules:     modules,
 	})
-	sendJSON(w, ret, err)
-}
-
-type groupChangeEndpoint struct {
-	env           *endpointEnv
-	sceneChangeEP *sceneChangeEndpoint
-	groups        map[string]int
-}
-
-func newGroupChangeEndpoint(env *endpointEnv,
-	sceneChangeEP *sceneChangeEndpoint) *groupChangeEndpoint {
-	ep := &groupChangeEndpoint{env: env, sceneChangeEP: sceneChangeEP,
-		groups: make(map[string]int)}
-	for i := 0; i < env.a.config.NumGroups(); i++ {
-		group := env.a.config.Group(i)
-		ep.groups[group.ID()] = i
-	}
-	return ep
-}
-
-type groupChangeResponse struct {
-	ActiveScene int         `json:"activeScene"`
-	Modules     interface{} `json:"modules"`
-}
-
-// ServeHTTP implements the HTTP server
-func (ep *groupChangeEndpoint) Handle(
-	method httpMethods, idParam string, w http.ResponseWriter, r *http.Request) {
-	groupIndex, ok := ep.groups[idParam]
-	if !ok {
-		http.Error(w, "404: unknown group \""+idParam+"\"", http.StatusNotFound)
-		return
-	}
-	a := ep.env.a
-	req, err := a.display.StartRequest(ep.env.events.SceneChangeID, 0)
-	if err != nil {
-		http.Error(w, "503: Previous request still pending",
-			http.StatusServiceUnavailable)
-		return
-	}
-	defer req.Close()
-
-	activeScene, sceneNames, err := a.setActiveGroup(groupIndex)
-	if err != nil {
-		http.Error(w, "400: Could not set group: "+err.Error(),
-			http.StatusBadRequest)
-		return
-	}
-	if err = a.groupState.SetScene(activeScene); err != nil {
-		http.Error(w, "500: Failed to load active scene for target group",
-			http.StatusInternalServerError)
-		return
-	}
-
-	sendScene(a, &req)
-	mergeAndSendConfigs(a, &req)
-	req.Commit()
-	moduleStates := a.groupState.BuildSceneStateJSON(a)
-	ep.sceneChangeEP.scenes = sceneNames
-	ret, _ := json.Marshal(groupChangeResponse{
-		ActiveScene: a.groupState.ActiveScene(),
-		Modules:     moduleStates,
-	})
-	sendJSON(w, ret, err)
 }
 
 type configEndpoint struct {
-	env *endpointEnv
+	*endpointEnv
 }
 
 func newConfigEndpoint(env *endpointEnv) *configEndpoint {
-	return &configEndpoint{env: env}
+	return &configEndpoint{endpointEnv: env}
 }
 
 // ServeHTTP implements the HTTP server
-func (ch *configEndpoint) Handle(
+func (ce *configEndpoint) Handle(
 	method httpMethods, idParam string, w http.ResponseWriter, r *http.Request) {
 	post := method == httpPost
 	var raw []byte
 	var err error
+	var view interface{}
 	if post {
 		post = true
 		raw, err = ioutil.ReadAll(r.Body)
@@ -329,8 +335,12 @@ func (ch *configEndpoint) Handle(
 		}
 	}
 
+	if len(r.URL.Path) <= len("/config/") {
+		http.Error(w, "404: not found", http.StatusNotFound)
+		return
+	}
+
 	item, isLast := nextPathItem(r.URL.Path[len("/config/"):])
-	a := ch.env.a
 	switch item {
 	case "base":
 		if !isLast {
@@ -338,13 +348,14 @@ func (ch *configEndpoint) Handle(
 			return
 		}
 		if post {
-			if err := a.config.LoadBaseJSON(raw); err != nil {
+			if err := ce.a.communication.LoadBase(raw); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
+			ce.a.persistence.WriteBase()
 			break
 		}
-		raw, err = a.config.BuildBaseJSON()
+		view = ce.a.communication.Base()
 	case "groups":
 		if isLast {
 			http.Error(w, "400: group missing", http.StatusBadRequest)
@@ -353,12 +364,14 @@ func (ch *configEndpoint) Handle(
 		groupName, isLast := nextPathItem(r.URL.Path[len("/config/groups/"):])
 		if isLast {
 			if post {
-				if err := a.config.LoadGroupJSON(raw, groupName); err != nil {
+				group, err := ce.a.communication.LoadGroup(raw, groupName)
+				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					return
 				}
+				ce.a.persistence.WriteGroup(group)
 			} else {
-				raw, err = a.config.BuildGroupJSON(groupName)
+				view, err = ce.a.communication.Group(groupName)
 			}
 			break
 		}
@@ -369,25 +382,33 @@ func (ch *configEndpoint) Handle(
 			return
 		}
 		if post {
-			if err := a.config.LoadSceneJSON(raw, groupName, sceneName); err != nil {
+			group, scene, err := ce.a.communication.LoadScene(raw, groupName, sceneName)
+			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
+			ce.a.persistence.WriteScene(group, scene)
 		} else {
-			raw, err = a.config.BuildSceneJSON(groupName, sceneName)
+			view, err = ce.a.communication.Scene(groupName, sceneName)
 		}
 	case "systems":
 		if isLast {
 			http.Error(w, "400: system missing", http.StatusBadRequest)
 		} else {
-			systemName := r.URL.Path[len("/config/systems/"):]
+			systemName, isLast := nextPathItem(r.URL.Path[len("/config/systems/"):])
+			if !isLast {
+				http.Error(w, "404: not found", http.StatusNotFound)
+				return
+			}
 			if post {
-				if err := a.config.LoadSystemJSON(raw, systemName); err != nil {
+				system, err := ce.a.communication.LoadSystem(raw, systemName)
+				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					return
 				}
+				ce.a.persistence.WriteSystem(system)
 			} else {
-				raw, err = a.config.BuildSystemJSON(systemName)
+				view, err = ce.a.communication.System(systemName)
 			}
 		}
 	default:
@@ -396,20 +417,22 @@ func (ch *configEndpoint) Handle(
 	}
 
 	if post {
-		if a.activeGroup != -1 {
-			req, err := a.display.StartRequest(ch.env.events.ModuleConfigID, 0)
+		if ce.a.activeGroupIndex != -1 {
+			req, err := ce.a.display.StartRequest(ce.events.ModuleConfigID, 0)
 			if err != nil {
 				http.Error(w, "503: Previous request still pending",
 					http.StatusServiceUnavailable)
 				return
 			}
 			defer req.Close()
-			mergeAndSendConfigs(a, &req)
+			mergeAndSendConfigs(ce.a, &req)
 			req.Commit()
 		}
 		w.WriteHeader(http.StatusNoContent)
+	} else if err != nil {
+		http.Error(w, fmt.Sprintf("400: %s", err.Error()), http.StatusBadRequest)
 	} else {
-		sendJSON(w, raw, err)
+		sendJSON(w, view)
 	}
 }
 
@@ -431,7 +454,6 @@ func newModuleStateEndpoint(env *endpointEnv, actions []string,
 	return ep
 }
 
-// ServeHTTP implements the HTTP server
 func (ep *moduleStateEndpoint) Handle(
 	method httpMethods, subject string, w http.ResponseWriter, r *http.Request) {
 	actionIndex, ok := ep.actions[subject]
@@ -480,6 +502,120 @@ func (ep *moduleStateEndpoint) Handle(
 	}
 }
 
+type datasetsEndpoint struct {
+	*endpointEnv
+}
+
+func (de *datasetsEndpoint) Handle(
+	method httpMethods, subject string, w http.ResponseWriter, r *http.Request) {
+	sendJSON(w, de.a.communication.Datasets(de.a))
+}
+
+func newDatasetsEndpoint(env *endpointEnv) *datasetsEndpoint {
+	return &datasetsEndpoint{endpointEnv: env}
+}
+
+type systemDeleteEndpoint struct {
+	env *endpointEnv
+}
+
+func newSystemDeleteEndpoint(env *endpointEnv) *systemDeleteEndpoint {
+	return &systemDeleteEndpoint{env: env}
+}
+
+func (sd *systemDeleteEndpoint) Handle(
+	method httpMethods, subject string, w http.ResponseWriter, r *http.Request) {
+	a := sd.env.a
+	if err := a.persistence.DeleteSystem(subject); err != nil {
+		http.Error(w, "400: "+err.Error(), http.StatusBadRequest)
+	} else {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+type groupDeleteEndpoint struct {
+	env *endpointEnv
+}
+
+func newGroupDeleteEndpoint(env *endpointEnv) *groupDeleteEndpoint {
+	return &groupDeleteEndpoint{env: env}
+}
+
+func (gd *groupDeleteEndpoint) Handle(
+	method httpMethods, subject string, w http.ResponseWriter, r *http.Request) {
+	a := gd.env.a
+	if err := a.persistence.DeleteGroup(subject); err != nil {
+		http.Error(w, "400: "+err.Error(), http.StatusBadRequest)
+	} else {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+type systemCreateEndpoint struct {
+	env *endpointEnv
+}
+
+func newSystemCreateEndpoint(env *endpointEnv) *systemCreateEndpoint {
+	return &systemCreateEndpoint{env: env}
+}
+
+func (sc *systemCreateEndpoint) Handle(
+	method httpMethods, subject string, w http.ResponseWriter, r *http.Request) {
+	a := sc.env.a
+	if err := a.persistence.CreateSystem(subject); err != nil {
+		http.Error(w, "500: "+err.Error(), http.StatusInternalServerError)
+	} else {
+		sendJSON(w, a.config.System(a.config.NumSystems()-1).ID())
+	}
+}
+
+type groupCreateEndpoint struct {
+	env *endpointEnv
+}
+
+func newGroupCreateEndpoint(env *endpointEnv) *groupCreateEndpoint {
+	return &groupCreateEndpoint{env: env}
+}
+
+func (gc *groupCreateEndpoint) Handle(
+	method httpMethods, subject string, w http.ResponseWriter, r *http.Request) {
+	a := gc.env.a
+	raw, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("[GroupCreateHandler] 500: unable to read body: %s",
+			err), http.StatusInternalServerError)
+		return
+	}
+
+	data := struct {
+		Name               string `json:"name"`
+		PluginIndex        int    `json:"pluginIndex"`
+		GroupTemplateIndex int    `json:"groupTemplateIndex"`
+	}{Name: "", PluginIndex: -1, GroupTemplateIndex: -1}
+	if err := json.Unmarshal(raw, &data); err != nil {
+		http.Error(w, "400: cannot deserialize input data: %s"+err.Error(),
+			http.StatusBadRequest)
+	} else if data.Name == "" {
+		http.Error(w, "400: `name` must not be empty", http.StatusBadRequest)
+	} else if data.PluginIndex < 0 || data.PluginIndex >= len(a.plugins) {
+		http.Error(w, "400: `pluginIndex` out of range 0.."+
+			strconv.Itoa(len(a.plugins)-1), http.StatusBadRequest)
+	} else if data.GroupTemplateIndex < 0 ||
+		data.GroupTemplateIndex > len(a.plugins[data.PluginIndex].GroupTemplates) {
+		http.Error(w, "400: `groupTemplateIndex` out of range 0.."+
+			strconv.Itoa(len(a.plugins[data.PluginIndex].GroupTemplates)-1),
+			http.StatusBadRequest)
+	} else {
+		if err := a.persistence.CreateGroup(data.Name,
+			&a.plugins[data.PluginIndex].GroupTemplates[data.GroupTemplateIndex],
+			a.plugins[data.PluginIndex].SceneTemplates); err != nil {
+			http.Error(w, "500: "+err.Error(), http.StatusInternalServerError)
+		} else {
+			sendJSON(w, a.config.Group(a.config.NumGroups()-1).ID())
+		}
+	}
+}
+
 func reg(h *handler) {
 	http.Handle(h.path, h)
 }
@@ -500,28 +636,35 @@ func startServer(owner *app, events display.Events, port uint16) *http.Server {
 	sep.add("/webfonts/fa-solid-900.woff2", "font/woff2")
 	reg(&handler{name: "StaticResourceHandler", path: "/", allowedMethods: httpGet, ep: sep})
 
-	scep := newSceneChangeEndpoint(base)
-	reg(&handler{name: "SceneChangeHandler", path: "/setscene",
-		allowedMethods: httpPost, subject: jsonSubject, ep: scep})
+	sdEp := newStaticDataEndpoint(base)
+	reg(&handler{name: "StaticDataHandler", path: "/static", allowedMethods: httpGet, ep: sdEp})
 
-	gcep := newGroupChangeEndpoint(base, scep)
-	reg(&handler{name: "GroupChangeHandler", path: "/setgroup",
-		allowedMethods: httpPost, subject: jsonSubject, ep: gcep})
-
-	http.HandleFunc("/app", func(w http.ResponseWriter, r *http.Request) {
-		activeScene := -1
-		if owner.activeGroup != -1 {
-			activeScene = owner.groupState.ActiveScene()
-		}
-
-		ret, err := owner.config.BuildGlobalJSON(
-			owner, owner.activeGroup, activeScene)
-		sendJSON(w, ret, err)
-	})
+	stEp := newStateEndpoint(base)
+	reg(&handler{name: "StateHandler", path: "/state", allowedMethods: httpGet | httpPost, ep: stEp})
 
 	cfgEp := newConfigEndpoint(base)
 	reg(&handler{name: "ConfigHandler", path: "/config/",
 		subject: noSubject, allowedMethods: httpGet | httpPost, ep: cfgEp})
+
+	dsEp := newDatasetsEndpoint(base)
+	reg(&handler{name: "DatasetsHandler", path: "/datasets",
+		subject: noSubject, allowedMethods: httpGet, ep: dsEp})
+
+	sdelEp := newSystemDeleteEndpoint(base)
+	reg(&handler{name: "SystemDeleteHandler", path: "/datasets/system/delete",
+		subject: jsonSubject, allowedMethods: httpPost, ep: sdelEp})
+
+	gdelEp := newGroupDeleteEndpoint(base)
+	reg(&handler{name: "GroupDeleteHandler", path: "/datasets/group/delete",
+		subject: jsonSubject, allowedMethods: httpPost, ep: gdelEp})
+
+	screEp := newSystemCreateEndpoint(base)
+	reg(&handler{name: "SystemCreateHandler", path: "/datasets/system/create",
+		subject: jsonSubject, allowedMethods: httpPost, ep: screEp})
+
+	gcreEp := newGroupCreateEndpoint(base)
+	reg(&handler{name: "GroupCreateHandler", path: "/datasets/group/create",
+		subject: noSubject, allowedMethods: httpPost, ep: gcreEp})
 
 	for i := range owner.modules {
 		desc := owner.modules[i].Descriptor()

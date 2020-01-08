@@ -3,46 +3,6 @@ const ItemKind = {
 }
 
 tmpl.config = {
-	menu: new Template("#tmpl-app-config-menu",
-			function(app, configPage) {
-		configPage.activeMenuEntry = null;
-		const list = this.querySelector(".pure-menu-list");
-		const baseEntry = tmpl.app.pageMenuEntry.render(
-			app, configPage.viewBase.bind(configPage), "Base", "fa-tools");
-		list.insertBefore(baseEntry, list.firstChild);
-		if (app.activeGroup == -1) {
-			configPage.activeMenuEntry = baseEntry;
-		}
-
-		let curLast = list.querySelector(".config-menu-system-heading");
-		for (const [index, system] of app.systems.entries()) {
-			const entry = tmpl.app.pageMenuEntry.render(app,
-				configPage.viewSystem.bind(configPage, system), system.name, "fa-book");
-			// Safari doesn't support firstElementChild on DocumentFragment
-			curLast = curLast.parentNode.insertBefore(entry, curLast.nextSibling);
-			if (app.activeGroup == -1 && index == 0) {
-				configPage.activeMenuEntry = entry;
-			}
-		}
-
-		curLast = this.querySelector(".config-menu-group-heading");
-		for (const [index, group] of app.groups.entries()) {
-			const entry = tmpl.app.pageMenuEntry.render(app,
-					configPage.viewGroup.bind(configPage, group), group.name, "fa-users");
-			curLast = curLast.parentNode.insertBefore(entry, curLast.nextSibling);
-			if (index == app.activeGroup) {
-				configPage.activeMenuEntry = entry;
-			}
-			for (const scene of group.scenes) {
-				const sceneEntry = tmpl.app.pageMenuEntry.render(app,
-					configPage.viewScene.bind(configPage, group, scene), scene.name, "fa-image",
-					group.name);
-				curLast = curLast.parentNode.insertBefore(
-					sceneEntry, curLast.nextSibling);
-			}
-		}
-		return this;
-	}),
 	item: new Template("#tmpl-config-item",
 			function (itemDesc, content, checked) {
 		this.querySelector(".config-item-name").textContent =
@@ -56,7 +16,6 @@ tmpl.config = {
 			itemDesc.handler.cfg.setChanged();
 		});
 		checkbox.checked = checked;
-		return this;
 	}),
 	module: new Template("#tmpl-config-module",
 			function(app, moduleDesc, data) {
@@ -69,7 +28,6 @@ tmpl.config = {
 					moduleDesc.items[i].handler.genUI(app, data[i]),
 					data[i] != null));
 		}
-		return this;
 	}),
 	view: new Template("#tmpl-config-view",
 			function(app, moduleDescs, data, saveHandler) {
@@ -85,7 +43,6 @@ tmpl.config = {
 			saveHandler();
 			e.preventDefault();
 		});
-		return this;
 	}),
 	selectableFont: new Template("#tmpl-config-selectable-font",
 			function (fonts) {
@@ -96,7 +53,6 @@ tmpl.config = {
 			option.textContent = fonts[i];
 			families.appendChild(option);
 		}
-		return this;
 	})
 }
 
@@ -256,41 +212,5 @@ class ConfigView {
 	ui(data) {
 		return tmpl.config.view.render(this.app, this.moduleDescs,
 			data, this.post.bind(this));
-	}
-}
-
-class ConfigPage {
-	constructor(app) {
-		this.app = app;
-	}
-
-	async loadView(url, title, subtitle) {
-		const cfgData = await App.fetch(url, "GET", null);
-		const view = new ConfigView(this.app, cfgData, url);
-		this.app.setPage(view.ui(cfgData));
-		this.app.setTitle(title, subtitle);
-	}
-
-	async viewBase() {
-		this.loadView("/config/base", "Base Configuration", "");
-	}
-
-	async viewSystem(system) {
-		this.loadView("/config/systems/" + system.id,
-									"System Configuration", system.name);
-	}
-
-	async viewGroup(group) {
-		this.loadView("/config/groups/" + group.id,
-									"Group Configuration", group.name);
-	}
-
-	async viewScene(group, scene) {
-		this.loadView("/config/groups/" + group.id + "/" + scene.id,
-									"Scene Configuration", group.name + " " + scene.name);
-	}
-
-	genMenu() {
-		return tmpl.config.menu.render(app, this);
 	}
 }
