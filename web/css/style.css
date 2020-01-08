@@ -97,6 +97,44 @@ hr {
 	text-align: left;
 	display: block;
 	min-height: 2em;
+	margin-bottom: .5em;
+}
+
+#popup .template-list {
+	margin-top: .5em;
+	margin-bottom: .5em;
+}
+
+#popup .template-item .pure-menu-link {
+	display: flex;
+	align-items: center;
+}
+
+#popup .template-item .pure-menu-link .template-container {
+	flex: 1 1 auto;
+}
+
+#popup .template-item .pure-menu-link > i {
+	flex: 0 0 auto;
+	margin-left: 1em;
+}
+
+#popup .pure-menu-active {
+	background-color: greenyellow;
+}
+
+#popup .template-list .pure-menu-item {
+	transition: height .2s ease-out;
+	box-sizing: border-box;
+	overflow: hidden;
+}
+
+#popup .template-list:not(.menu-expanded) .pure-menu-item:not(.pure-menu-active) {
+	height: 0 !important;
+}
+
+#popup .template-descr {
+	margin-bottom: .2em;
 }
 
 /* header */

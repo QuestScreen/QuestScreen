@@ -71,7 +71,18 @@ class Popup {
 		this.confirmButton.addEventListener("click", this.confirm.bind(this));
 		this.cancelButton.textContent = this.cancelCaption;
 		this.cancelButton.addEventListener("click", this.cancel.bind(this));
-		document.querySelector("#popup-wrapper").style.display = "flex";
+		if (typeof this.doShow === 'function') {
+			this.wrapper.style.visibility = "hidden";
+			this.wrapper.style.display = "flex";
+			this.doShow();
+			// this is required to avoid flickering. I have no idea why.
+			// it doesn't work if the timeout simply removes style.visibility.
+			this.wrapper.style.display = "none";
+			this.wrapper.style.visibility = null;
+			setTimeout(() => {this.wrapper.style.display = "flex";}, 0);
+		} else {
+			this.wrapper.style.display = "flex";
+		}
 
 		return await ret;
 	}
@@ -106,7 +117,7 @@ class TextInputPopup extends Popup {
 class TemplateSelectPopup extends Popup {
 	constructor(title, plugins, templateSet) {
 		const label = document.createElement("label");
-		label.appendChild(document.createTextNode("Name"));
+		label.appendChild(document.createTextNode("Name: "));
 		const nameInput = document.createElement("input");
 		nameInput.type = "text";
 		nameInput.required = true;
@@ -117,12 +128,10 @@ class TemplateSelectPopup extends Popup {
 		this.nameInput = nameInput;
 		this.menu = tmplList;
 		this.indexName = templateSet.slice(0, -1) + "Index";
-		// select first item
-		tmplList.querySelector(".template-item .pure-menu-link").click();
 	}
 
 	select(item, pluginIndex, templateIndex) {
-		if (item.classList.contains("pure-menu-active")) {
+		if (item.parentNode.classList.contains("pure-menu-active")) {
 			if (this.menu.classList.contains("menu-expanded")) {
 				this.menu.classList.remove("menu-expanded");
 			} else {
@@ -132,11 +141,26 @@ class TemplateSelectPopup extends Popup {
 			for (const other of this.menu.querySelectorAll(".pure-menu-item")) {
 				other.classList.remove("pure-menu-active");
 			}
-			item.classList.add("pure-menu-active");
-			pagemenu.classList.remove("menu-expanded");
+			item.parentNode.classList.add("pure-menu-active");
+			this.menu.classList.remove("menu-expanded");
 			this.value = {pluginIndex: pluginIndex};
 			this.value[this.indexName] = templateIndex;
 		}
+	}
+
+	doShow() {
+		this.menu.classList.add("menu-expanded");
+		for (const item of this.menu.querySelectorAll(".template-list .pure-menu-item")) {
+			// calculate and explicitly set the height of the item based on the height
+			// of the container which can vary due to its variable content.
+			// this is required to make our expand/collapse animation work.
+			const container = item.querySelector(".template-container");
+			// add the .5em vertical padding around the container to the height.
+			item.style.height = "calc(" + container.offsetHeight + "px + 1em)";
+		}
+		// select first item
+		this.menu.querySelector(".template-item .pure-menu-link").click();
+		this.menu.classList.remove("menu-expanded");
 	}
 
 	confirmAction() {
