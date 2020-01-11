@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/flyx/pnpscreen/api"
 	"github.com/flyx/pnpscreen/app"
@@ -224,7 +225,7 @@ func (p Persistence) loadBase(path string) ([]interface{}, error) {
 func (p Persistence) WriteBase() error {
 	data := persistingBaseConfig{Modules: p.persistingModuleConfigs(p.baseConfigs)}
 	dirPath := p.owner.DataDir("base")
-	if err := os.MkdirAll(dirPath, 0644); err != nil {
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return err
 	}
 	path := filepath.Join(dirPath, "config.yaml")
@@ -256,7 +257,7 @@ func (p Persistence) WriteSystem(s System) error {
 		Modules: p.persistingModuleConfigs(value.modules),
 	}
 	dirPath := p.owner.DataDir("systems", value.id)
-	if err := os.MkdirAll(dirPath, 0644); err != nil {
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return err
 	}
 	path := filepath.Join(dirPath, "config.yaml")
@@ -345,29 +346,38 @@ func (p Persistence) loadGroup(id string, input inputProvider) (*group, error) {
 	if err := strictUnmarshalYAML(input, &data); err != nil {
 		return nil, err
 	}
-	for i := 0; i < len(p.systems); i++ {
-		if p.systems[i].id == data.System {
-			moduleConfigs, err := p.loadModuleConfigs(data.Modules)
-			return &group{
-				name:        data.Name,
-				id:          id,
-				systemIndex: i,
-				modules:     moduleConfigs,
-			}, err
+	systemIndex := -1
+	if data.System != "" {
+		for i := 0; i < len(p.systems); i++ {
+			if p.systems[i].id == data.System {
+				systemIndex = i
+				break
+			}
+		}
+		if systemIndex == -1 {
+			return nil,
+				fmt.Errorf("Group config references unknown system \"%s\"", data.System)
 		}
 	}
-	return nil,
-		fmt.Errorf("Group config references unknown system \"%s\"", data.System)
+	moduleConfigs, err := p.loadModuleConfigs(data.Modules)
+	return &group{
+		name:        data.Name,
+		id:          id,
+		systemIndex: systemIndex,
+		modules:     moduleConfigs,
+	}, err
 }
 
 func (p Persistence) writeGroup(value *group) error {
 	data := persistingGroup{
 		Name:    value.name,
-		System:  p.systems[value.systemIndex].id,
 		Modules: p.persistingModuleConfigs(value.modules),
 	}
+	if value.systemIndex != -1 {
+		data.System = p.systems[value.systemIndex].id
+	}
 	dirPath := p.owner.DataDir("groups", value.id)
-	if err := os.MkdirAll(dirPath, 0644); err != nil {
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return err
 	}
 	path := filepath.Join(dirPath, "config.yaml")
@@ -392,9 +402,14 @@ func (p Persistence) CreateGroup(
 	if tmpl == nil {
 		return errors.New("missing group template")
 	}
-	base := normalize(name)
+	base := strings.ToLower(normalize(name))
 	id := base
 	num := 0
+	if base == "" {
+		base = "group"
+		id = "group1"
+		num++
+	}
 idCheckLoop:
 	for {
 		for i := range p.groups {
@@ -410,8 +425,15 @@ idCheckLoop:
 	if err != nil {
 		return errors.New("could not load group config template:\n  " + err.Error())
 	}
+	if err = os.MkdirAll(p.owner.DataDir("groups", id, "scenes"), 0755); err != nil {
+		return err
+	}
 	g.name = name
 	g.scenes = make([]scene, 0, 16)
+	if err = p.writeGroup(g); err != nil {
+		os.RemoveAll(p.owner.DataDir("groups", id))
+		return err
+	}
 	for i := range tmpl.Scenes {
 		if err := p.CreateScene(
 			g, tmpl.Scenes[i].Name, &sceneTmpls[tmpl.Scenes[i].TmplIndex]); err != nil {
@@ -419,7 +441,7 @@ idCheckLoop:
 			return err
 		}
 	}
-	p.groups = append(p.groups, nil)
+	p.groups = append(p.groups, g)
 	insertSorted(groupSortInterface{p.groups})
 	return nil
 }
@@ -472,7 +494,7 @@ func (p Persistence) writeScene(g *group, value *scene) error {
 			Enabled: moduleData.enabled, Config: moduleData.config}
 	}
 	dirPath := p.owner.DataDir("groups", g.id, "scenes", value.id)
-	if err := os.MkdirAll(dirPath, 0644); err != nil {
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return err
 	}
 	path := filepath.Join(dirPath, "config.yaml")
@@ -490,7 +512,7 @@ func (p Persistence) WriteScene(g Group, s Scene) error {
 
 // CreateScene creates a new scene with the given name in the given group.
 func (p Persistence) CreateScene(g *group, name string, tmpl *api.SceneTemplate) error {
-	base := normalize(name)
+	base := strings.ToLower(normalize(name))
 	id := base
 	num := 0
 idCheckLoop:
@@ -685,10 +707,13 @@ type persistingGroupState struct {
 }
 
 // LoadPersistedGroupState loads the given YAML input into a GroupState object.
+//
 func LoadPersistedGroupState(a app.App, g Group, path string) (*GroupState, error) {
 	var data persistedGroupState
 	if err := strictUnmarshalYAML(fileInput(path), &data); err != nil {
-		return nil, err
+		log.Println(path + ": unable to load, loading default. error was:")
+		log.Println("  " + err.Error())
+		data.ActiveScene = g.Scene(0).ID()
 	}
 	ret := &GroupState{
 		activeScene: -1, scenes: make([][]api.ModuleState, g.NumScenes()),

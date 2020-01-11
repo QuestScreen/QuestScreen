@@ -160,6 +160,12 @@ func (c Communication) System(systemID string) (interface{}, error) {
 	return nil, fmt.Errorf("unknown system \"%s\"", systemID)
 }
 
+// Systems returns a serializable view of all systems configs, as it would be
+// contained in Datasets.
+func (c Communication) Systems() interface{} {
+	return c.systems()
+}
+
 // LoadSystem parses the given config as JSON and updates the internal config
 func (c Communication) LoadSystem(raw []byte, systemID string) (System, error) {
 	for i := range c.Config.systems {
@@ -194,6 +200,12 @@ func (c Communication) LoadGroup(raw []byte, groupID string) (Group, error) {
 		}
 	}
 	return nil, fmt.Errorf("unknown group \"%s\"", groupID)
+}
+
+// Groups returns a serializable view of all groups configs, as it would be
+// contained in Datasets.
+func (c Communication) Groups() interface{} {
+	return c.groups()
 }
 
 // Scene returns a serializable view of the config of the given scene of the

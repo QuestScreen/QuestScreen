@@ -565,7 +565,7 @@ func (sc *systemCreateEndpoint) Handle(
 	if err := a.persistence.CreateSystem(subject); err != nil {
 		http.Error(w, "500: "+err.Error(), http.StatusInternalServerError)
 	} else {
-		sendJSON(w, a.config.System(a.config.NumSystems()-1).ID())
+		sendJSON(w, a.communication.Systems())
 	}
 }
 
@@ -611,7 +611,7 @@ func (gc *groupCreateEndpoint) Handle(
 			a.plugins[data.PluginIndex].SceneTemplates); err != nil {
 			http.Error(w, "500: "+err.Error(), http.StatusInternalServerError)
 		} else {
-			sendJSON(w, a.config.Group(a.config.NumGroups()-1).ID())
+			sendJSON(w, a.communication.Groups())
 		}
 	}
 }

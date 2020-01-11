@@ -68,7 +68,8 @@ class Popup {
 			container.appendChild(elm);
 		}
 		this.confirmButton.textContent = this.confirmCaption;
-		this.confirmButton.addEventListener("click", this.confirm.bind(this));
+		document.querySelector("#popup").addEventListener(
+				"submit", this.confirm.bind(this));
 		this.cancelButton.textContent = this.cancelCaption;
 		this.cancelButton.addEventListener("click", this.cancel.bind(this));
 		if (typeof this.doShow === 'function') {
@@ -79,7 +80,7 @@ class Popup {
 			// it doesn't work if the timeout simply removes style.visibility.
 			this.wrapper.style.display = "none";
 			this.wrapper.style.visibility = null;
-			setTimeout(() => {this.wrapper.style.display = "flex";}, 0);
+			setTimeout(() => {this.wrapper.style.display = "flex";}, 10);
 		} else {
 			this.wrapper.style.display = "flex";
 		}

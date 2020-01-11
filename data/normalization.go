@@ -5,12 +5,12 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-func checkKeep(r rune) bool {
-	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
-		(r >= '0' && r <= '9') || r == '-' || r == '_'
+func checkRemove(r rune) bool {
+	return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') &&
+		(r < '0' || r > '9') && r != '-' && r != '_'
 }
 
-var normalization = transform.Chain(norm.NFD, transform.RemoveFunc(checkKeep))
+var normalization = transform.Chain(norm.NFD, transform.RemoveFunc(checkRemove))
 
 // generate a normalized string from the input, containing only alphanumerical
 // characters, '-' and '_'

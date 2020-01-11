@@ -41,6 +41,7 @@ class BaseDataView {
 			await App.fetch("/datasets/system/delete", "POST", system.id);
 			this.app.systems.splice(index, 1);
 			this.app.setMenu(this.app.datasetPage.genMenu());
+			this.app.setPage(this.ui());
 		}
 	}
 
@@ -49,8 +50,9 @@ class BaseDataView {
 		const request = await popup.show();
 		if (request !== null) {
 			const data = await App.fetch("/datasets/system/create", "POST", request);
-			this.app.systems = data.systems;
+			this.app.systems = data;
 			this.app.setMenu(this.app.datasetPage.genMenu());
+			this.app.setPage(this.ui());
 		}
 	}
 
@@ -62,6 +64,7 @@ class BaseDataView {
 			this.app.groups.splice(index, 1);
 			this.app.regenGroupListUI();
 			this.app.setMenu(this.app.datasetPage.genMenu());
+			this.app.setPage(this.ui());
 		}
 	}
 
@@ -71,9 +74,10 @@ class BaseDataView {
 		const request = await popup.show();
 		if (request !== null) {
 			const data = await App.fetch("/datasets/group/create", "POST", request);
-			this.app.groups = data.groups;
+			this.app.groups = data;
 			this.app.regenGroupListUI();
 			this.app.setMenu(this.app.datasetPage.genMenu());
+			this.app.setPage(this.ui());
 		}
 	}
 
