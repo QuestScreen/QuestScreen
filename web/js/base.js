@@ -10,7 +10,7 @@ class Background extends ListSelector {
 	}
 
 	async listItemClick(index) {
-		await App.fetch("state/background/set", "POST", index);
+		await App.fetch("state/background", "PUT", index);
 		this.setListItemSelected(index, true);
 	}
 }
@@ -43,13 +43,14 @@ class HeroList extends ListSelector {
 
 	async listItemClick(index) {
 		const shown = await App.fetch(
-			"state/herolist/switchHero", "POST",  index);
+			"state/herolist/" + app.groups[app.activeGroup].heroes[index].id, "PUT",
+			!this.uiItems[index].classList.contains("pure-menu-selected"));
 		this.setListItemSelected(index, shown);
 	}
 
 	async swapAll(node) {
 		const shown = await App.fetch(
-			"state/herolist/switchGlobal", "POST", null);
+			"state/herolist", "PUT", !node.classList.contains("pure-button-primary"));
 		if (shown) {
 			node.classList.add("pure-button-primary");
 			node.textContent = "Hide All";
@@ -73,7 +74,9 @@ class Overlays extends ListSelector {
 	}
 
 	async listItemClick(index) {
-		const visible = await App.fetch("state/overlays/switch", "POST", index);
+		const visible = await App.fetch("state/overlays", "PUT",
+				{resourceIndex: index, visible:
+					!this.uiItems[index].classList.contains("pure-menu-selected")});
 		this.setListItemSelected(index, visible);
 	}
 }
@@ -104,7 +107,7 @@ class Title {
 		if (node.classList.contains("pure-button-primary")) {
 			value = input.value;
 		}
-		const newValue = await App.fetch("state/title/set", "POST", value);
+		const newValue = await App.fetch("state/title", "PUT", value);
 		input.value = newValue;
 	}
 }

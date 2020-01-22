@@ -67,7 +67,7 @@ var Descriptor = api.ModuleDescriptor{
 	Name:                "Hero List",
 	ID:                  "herolist",
 	ResourceCollections: nil,
-	Actions:             []string{"switchGlobal", "switchHero"},
+	EndpointPaths:       []string{"", "/"},
 	DefaultConfig: &config{Font: &api.SelectableFont{
 		FamilyIndex: 0, Size: api.ContentFont, Style: api.Standard}},
 	CreateModule: newModule, CreateState: newState,

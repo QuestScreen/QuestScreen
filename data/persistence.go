@@ -20,7 +20,7 @@ import (
 
 // Persistence implements writing data to and loading data from the file system
 type Persistence struct {
-	*Config
+	d *Data
 }
 
 type persistedBaseConfig struct {
@@ -101,7 +101,7 @@ func (p Persistence) loadModuleConfigInto(target interface{},
 		}
 		targetSetting := targetModule.Field(i).Interface().(api.ConfigItem)
 
-		if err := targetSetting.LoadFrom(&inValue, p.owner, api.Persisted); err != nil {
+		if err := targetSetting.LoadPersisted(&inValue, p.d.owner); err != nil {
 			if wasNil {
 				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 			}
@@ -135,9 +135,9 @@ func configType(mod api.Module) reflect.Type {
 
 func (p Persistence) loadModuleConfigs(
 	raw map[string]map[string]yaml.Node) ([]interface{}, error) {
-	ret := make([]interface{}, p.owner.NumModules())
+	ret := make([]interface{}, p.d.owner.NumModules())
 	for name, rawItems := range raw {
-		mod, index := findModule(p.owner, name)
+		mod, index := findModule(p.d.owner, name)
 		if mod == nil {
 			return nil, fmt.Errorf("Unknown module \"%s\"", name)
 		}
@@ -148,9 +148,9 @@ func (p Persistence) loadModuleConfigs(
 		}
 	}
 	var i api.ModuleIndex
-	for i = 0; i < p.owner.NumModules(); i++ {
+	for i = 0; i < p.d.owner.NumModules(); i++ {
 		if ret[i] == nil {
-			mod := p.owner.ModuleAt(i)
+			mod := p.d.owner.ModuleAt(i)
 			ret[i] = reflect.New(configType(mod)).Interface()
 		}
 	}
@@ -160,7 +160,7 @@ func (p Persistence) loadModuleConfigs(
 func (p Persistence) persistingModuleConfigs(moduleConfigs []interface{}) map[string]map[string]interface{} {
 	ret := make(map[string]map[string]interface{})
 	var i api.ModuleIndex
-	for i = 0; i < p.owner.NumModules(); i++ {
+	for i = 0; i < p.d.owner.NumModules(); i++ {
 		var fields map[string]interface{}
 
 		moduleConfig := moduleConfigs[i]
@@ -188,11 +188,12 @@ func (p Persistence) persistingModuleConfigs(moduleConfigs []interface{}) map[st
 				if fields == nil {
 					fields = make(map[string]interface{})
 				}
-				fields[fieldName] = fieldVal.Interface().(api.ConfigItem).SerializableView(p.owner, api.Persisted)
+				fields[fieldName] =
+					fieldVal.Interface().(api.ConfigItem).PersistingView(p.d.owner)
 			}
 		}
 		if fields != nil {
-			ret[p.owner.ModuleAt(i).Descriptor().ID] = fields
+			ret[p.d.owner.ModuleAt(i).Descriptor().ID] = fields
 		}
 	}
 	return ret
@@ -212,7 +213,7 @@ func (p Persistence) loadBase(path string) ([]interface{}, error) {
 	var data persistedBaseConfig
 	if len(path) != 0 {
 		if err := strictUnmarshalYAML(fileInput(path), &data); err != nil {
-			return make([]interface{}, p.owner.NumModules()), err
+			return make([]interface{}, p.d.owner.NumModules()), err
 		}
 	} else {
 		data.Modules = make(map[string]map[string]yaml.Node)
@@ -223,8 +224,8 @@ func (p Persistence) loadBase(path string) ([]interface{}, error) {
 
 // WriteBase writes the current base configuration to the file system.
 func (p Persistence) WriteBase() error {
-	data := persistingBaseConfig{Modules: p.persistingModuleConfigs(p.baseConfigs)}
-	dirPath := p.owner.DataDir("base")
+	data := persistingBaseConfig{Modules: p.persistingModuleConfigs(p.d.baseConfigs)}
+	dirPath := p.d.owner.DataDir("base")
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return err
 	}
@@ -256,7 +257,7 @@ func (p Persistence) WriteSystem(s System) error {
 		Name:    value.name,
 		Modules: p.persistingModuleConfigs(value.modules),
 	}
-	dirPath := p.owner.DataDir("systems", value.id)
+	dirPath := p.d.owner.DataDir("systems", value.id)
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return err
 	}
@@ -280,14 +281,14 @@ func (p Persistence) createSystem(tmpl *api.SystemTemplate) (*system, error) {
 }
 
 // CreateSystem creates a new system with the given name.
-func (p Persistence) CreateSystem(name string) error {
+func (p Persistence) CreateSystem(name string) api.SendableError {
 	base := normalize(name)
 	id := base
 	num := 0
 idCheckLoop:
 	for {
-		for i := range p.systems {
-			if p.systems[i].id == id {
+		for i := range p.d.systems {
+			if p.d.systems[i].id == id {
 				num++
 				id = base + strconv.Itoa(num)
 				continue idCheckLoop
@@ -295,50 +296,53 @@ idCheckLoop:
 		}
 		break
 	}
-	s := &system{name: name, id: id, modules: make([]interface{}, 0, 16)}
-	if err := p.WriteSystem(s); err != nil {
-		return err
+	s := &system{name: name, id: id, modules: make([]interface{}, p.d.owner.NumModules())}
+
+	for i := api.ModuleIndex(0); i < p.d.owner.NumModules(); i++ {
+		mod := p.d.owner.ModuleAt(i)
+		s.modules[i] = reflect.New(configType(mod)).Interface()
 	}
-	p.systems = append(p.systems, s)
-	insertSorted(systemSortInterface{p.systems, p.numPluginSystems})
+
+	if err := p.WriteSystem(s); err != nil {
+		return &api.InternalError{
+			Description: "failed to write system", Inner: err}
+	}
+	p.d.systems = append(p.d.systems, s)
+	insertSorted(systemSortInterface{p.d.systems, p.d.numPluginSystems})
 	return nil
 }
 
 // DeleteSystem deletes the system with the given ID.
 //
 // Groups linked to this system will have that link removed.
-func (p Persistence) DeleteSystem(id string) error {
-	for i := range p.systems {
-		system := p.systems[i]
-		if system.id == id {
-			if i < p.numPluginSystems {
-				return errors.New("cannot delete plugin-provided system " + id)
-			}
-			for j := range p.groups {
-				group := p.groups[j]
-				if group.systemIndex == i {
-					group.systemIndex = -1
-				} else if group.systemIndex > i {
-					group.systemIndex--
-				} else {
-					continue
-				}
-				if err := p.writeGroup(group); err != nil {
-					log.Printf("[del system] while updating group %s:\n  %s\n",
-						group.id, err.Error())
-				}
-			}
-			path := p.owner.DataDir("systems", id)
-			if err := os.RemoveAll(path); err != nil {
-				log.Printf("[del system] while deleting %s:\n  %s\n", path, err.Error())
-			}
-			copy(p.systems[i:], p.systems[i+1:])
-			p.systems[len(p.systems)-1] = nil
-			p.systems = p.systems[:len(p.systems)-1]
-			return nil
+func (p Persistence) DeleteSystem(index int) api.SendableError {
+	s := p.d.systems[index]
+	if index < p.d.numPluginSystems {
+		return &api.BadRequest{
+			Message: "cannot delete plugin-provided system " + s.id}
+	}
+	for j := range p.d.groups {
+		group := p.d.groups[j]
+		if group.systemIndex == index {
+			group.systemIndex = -1
+		} else if group.systemIndex > index {
+			group.systemIndex--
+		} else {
+			continue
+		}
+		if err := p.writeGroup(group); err != nil {
+			log.Printf("[del system] while updating group %s:\n  %s\n",
+				group.id, err.Error())
 		}
 	}
-	return fmt.Errorf("unknown system \"%s\"", id)
+	path := p.d.owner.DataDir("systems", s.id)
+	if err := os.RemoveAll(path); err != nil {
+		log.Printf("[del system] while deleting %s:\n  %s\n", path, err.Error())
+	}
+	copy(p.d.systems[index:], p.d.systems[index+1:])
+	p.d.systems[len(p.d.systems)-1] = nil
+	p.d.systems = p.d.systems[:len(p.d.systems)-1]
+	return nil
 }
 
 func (p Persistence) loadGroup(id string, input inputProvider) (*group, error) {
@@ -348,8 +352,8 @@ func (p Persistence) loadGroup(id string, input inputProvider) (*group, error) {
 	}
 	systemIndex := -1
 	if data.System != "" {
-		for i := 0; i < len(p.systems); i++ {
-			if p.systems[i].id == data.System {
+		for i := 0; i < len(p.d.systems); i++ {
+			if p.d.systems[i].id == data.System {
 				systemIndex = i
 				break
 			}
@@ -374,9 +378,9 @@ func (p Persistence) writeGroup(value *group) error {
 		Modules: p.persistingModuleConfigs(value.modules),
 	}
 	if value.systemIndex != -1 {
-		data.System = p.systems[value.systemIndex].id
+		data.System = p.d.systems[value.systemIndex].id
 	}
-	dirPath := p.owner.DataDir("groups", value.id)
+	dirPath := p.d.owner.DataDir("groups", value.id)
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return err
 	}
@@ -412,8 +416,8 @@ func (p Persistence) CreateGroup(
 	}
 idCheckLoop:
 	for {
-		for i := range p.groups {
-			if p.groups[i].id == id {
+		for i := range p.d.groups {
+			if p.d.groups[i].id == id {
 				num++
 				id = base + strconv.Itoa(num)
 				continue idCheckLoop
@@ -425,43 +429,37 @@ idCheckLoop:
 	if err != nil {
 		return errors.New("could not load group config template:\n  " + err.Error())
 	}
-	if err = os.MkdirAll(p.owner.DataDir("groups", id, "scenes"), 0755); err != nil {
+	if err = os.MkdirAll(p.d.owner.DataDir("groups", id, "scenes"), 0755); err != nil {
 		return err
 	}
 	g.name = name
 	g.scenes = make([]scene, 0, 16)
 	if err = p.writeGroup(g); err != nil {
-		os.RemoveAll(p.owner.DataDir("groups", id))
+		os.RemoveAll(p.d.owner.DataDir("groups", id))
 		return err
 	}
 	for i := range tmpl.Scenes {
 		if err := p.CreateScene(
 			g, tmpl.Scenes[i].Name, &sceneTmpls[tmpl.Scenes[i].TmplIndex]); err != nil {
-			os.RemoveAll(p.owner.DataDir("groups", id))
+			os.RemoveAll(p.d.owner.DataDir("groups", id))
 			return err
 		}
 	}
-	p.groups = append(p.groups, g)
-	insertSorted(groupSortInterface{p.groups})
+	p.d.groups = append(p.d.groups, g)
+	insertSorted(groupSortInterface{p.d.groups})
 	return nil
 }
 
 // DeleteGroup deletes the group with the given ID.
-func (p Persistence) DeleteGroup(id string) error {
-	for i := range p.groups {
-		group := p.groups[i]
-		if group.id == id {
-			path := p.owner.DataDir("groups", id)
-			if err := os.RemoveAll(path); err != nil {
-				log.Printf("[del group] while deleting %s\n  %s\n", path, err.Error())
-			}
-			copy(p.groups[i:], p.groups[i+1:])
-			p.groups[len(p.groups)-1] = nil
-			p.groups = p.groups[:len(p.groups)-1]
-			return nil
-		}
+func (p Persistence) DeleteGroup(index int) {
+	g := p.d.groups[index]
+	path := p.d.owner.DataDir("groups", g.id)
+	if err := os.RemoveAll(path); err != nil {
+		log.Printf("[del group] while deleting %s\n  %s\n", path, err.Error())
 	}
-	return fmt.Errorf("unknown group \"%s\"", id)
+	copy(p.d.groups[index:], p.d.groups[index+1:])
+	p.d.groups[len(p.d.groups)-1] = nil
+	p.d.groups = p.d.groups[:len(p.d.groups)-1]
 }
 
 func (p Persistence) loadScene(id string, input inputProvider) (scene, error) {
@@ -470,9 +468,9 @@ func (p Persistence) loadScene(id string, input inputProvider) (scene, error) {
 		return scene{}, err
 	}
 	ret := scene{name: data.Name, id: id,
-		modules: make([]sceneModule, p.owner.NumModules())}
+		modules: make([]sceneModule, p.d.owner.NumModules())}
 	for name, value := range data.Modules {
-		mod, index := findModule(p.owner, name)
+		mod, index := findModule(p.d.owner, name)
 		if mod == nil {
 			return scene{}, fmt.Errorf("Unknown module \"%s\"", name)
 		}
@@ -487,13 +485,13 @@ func (p Persistence) loadScene(id string, input inputProvider) (scene, error) {
 func (p Persistence) writeScene(g *group, value *scene) error {
 	data := persistingScene{
 		Name: value.name, Modules: make(map[string]persistingSceneModule)}
-	for i := api.ModuleIndex(0); i < p.owner.NumModules(); i++ {
-		moduleDesc := p.owner.ModuleAt(i).Descriptor()
+	for i := api.ModuleIndex(0); i < p.d.owner.NumModules(); i++ {
+		moduleDesc := p.d.owner.ModuleAt(i).Descriptor()
 		moduleData := &value.modules[i]
 		data.Modules[moduleDesc.ID] = persistingSceneModule{
 			Enabled: moduleData.enabled, Config: moduleData.config}
 	}
-	dirPath := p.owner.DataDir("groups", g.id, "scenes", value.id)
+	dirPath := p.d.owner.DataDir("groups", g.id, "scenes", value.id)
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return err
 	}
@@ -510,15 +508,16 @@ func (p Persistence) WriteScene(g Group, s Scene) error {
 	return p.writeScene(g.(*group), s.(*scene))
 }
 
-// CreateScene creates a new scene with the given name in the given group.
-func (p Persistence) CreateScene(g *group, name string, tmpl *api.SceneTemplate) error {
+// CreateScene creates a new scene from the given template in the given group.
+func (p Persistence) CreateScene(g Group, name string, tmpl *api.SceneTemplate) error {
 	base := strings.ToLower(normalize(name))
 	id := base
 	num := 0
+	gr := g.(*group)
 idCheckLoop:
 	for {
-		for i := range g.scenes {
-			if g.scenes[i].id == id {
+		for i := range gr.scenes {
+			if gr.scenes[i].id == id {
 				num++
 				id = base + strconv.Itoa(num)
 				continue idCheckLoop
@@ -531,28 +530,28 @@ idCheckLoop:
 		return err
 	}
 	s.name = name
-	if err = p.writeScene(g, &s); err != nil {
+	if err = p.writeScene(gr, &s); err != nil {
 		return err
 	}
-	g.scenes = append(g.scenes, s)
+	gr.scenes = append(gr.scenes, s)
 	return nil
 }
 
 // DeleteScene deletes the scene with the given id from the given group.
-func (c *Config) DeleteScene(g *group, id string) error {
-	for i := range g.scenes {
-		if g.scenes[i].id == id {
-			path := c.owner.DataDir("groups", g.id, "scenes", id)
-			if err := os.RemoveAll(path); err != nil {
-				log.Printf("[del scene] while deleting %s\n  %s\n", path, err.Error())
-			}
-			copy(g.scenes[i:], g.scenes[i+1:])
-			g.scenes[len(g.scenes)-1].modules = nil
-			g.scenes = g.scenes[:len(g.scenes)-1]
-			return nil
-		}
+func (p Persistence) DeleteScene(g Group, index int) error {
+	gr := g.(*group)
+	if index < 0 || index >= g.NumScenes() {
+		return errors.New("index out of range")
 	}
-	return fmt.Errorf("unknown scene \"%s\" in group \"%s\"", id, g.id)
+
+	path := p.d.owner.DataDir("groups", gr.id, "scenes", gr.scenes[index].id)
+	if err := os.RemoveAll(path); err != nil {
+		log.Printf("[del scene] while deleting %s\n  %s\n", path, err.Error())
+	}
+	copy(gr.scenes[index:], gr.scenes[index+1:])
+	gr.scenes[len(gr.scenes)-1].modules = nil
+	gr.scenes = gr.scenes[:len(gr.scenes)-1]
+	return nil
 }
 
 func (p Persistence) loadHero(id string, path string) (hero, error) {
@@ -560,12 +559,12 @@ func (p Persistence) loadHero(id string, path string) (hero, error) {
 	if err := strictUnmarshalYAML(fileInput(path), &data); err != nil {
 		return hero{}, err
 	}
-	return hero{name: data.Name, description: data.Description}, nil
+	return hero{name: data.Name, id: id, description: data.Description}, nil
 }
 
 func (p Persistence) loadSystems() {
 	unsorted := make([]*system, 0, 16)
-	systemsDir := p.owner.DataDir("systems")
+	systemsDir := p.d.owner.DataDir("systems")
 	files, err := ioutil.ReadDir(systemsDir)
 	if err == nil {
 		for _, file := range files {
@@ -585,14 +584,14 @@ func (p Persistence) loadSystems() {
 	// sort systems: first come all systems required by plugins, then
 	// all other systems.
 
-	p.systems = make([]*system, 0, len(unsorted)+p.owner.NumPlugins())
-	for i := 0; i < p.owner.NumPlugins(); i++ {
-		plugin := p.owner.Plugin(i)
+	p.d.systems = make([]*system, 0, len(unsorted)+p.d.owner.NumPlugins())
+	for i := 0; i < p.d.owner.NumPlugins(); i++ {
+		plugin := p.d.owner.Plugin(i)
 		for j := range plugin.SystemTemplates {
 			found := false
 			for k := range unsorted {
 				if unsorted[k].id == plugin.SystemTemplates[j].ID {
-					p.systems = append(p.systems, unsorted[k])
+					p.d.systems = append(p.d.systems, unsorted[k])
 					unsorted[k] = nil
 					found = true
 					break
@@ -606,25 +605,25 @@ func (p Persistence) loadSystems() {
 				if err != nil {
 					log.Println("  failed to create system: " + err.Error())
 				} else {
-					p.systems = append(p.systems, s)
+					p.d.systems = append(p.d.systems, s)
 				}
 			}
 		}
 	}
-	sort.Sort(systemSortInterface{p.systems, 0})
+	sort.Sort(systemSortInterface{p.d.systems, 0})
 
-	p.numPluginSystems = len(p.systems)
+	p.d.numPluginSystems = len(p.d.systems)
 	for i := range unsorted {
 		if unsorted[i] != nil {
-			p.systems = append(p.systems, unsorted[i])
+			p.d.systems = append(p.d.systems, unsorted[i])
 		}
 	}
-	sort.Sort(systemSortInterface{p.systems, p.numPluginSystems})
+	sort.Sort(systemSortInterface{p.d.systems, p.d.numPluginSystems})
 }
 
 func (p Persistence) loadGroups() {
-	p.groups = make([]*group, 0, 16)
-	groupsDir := p.owner.DataDir("groups")
+	p.d.groups = make([]*group, 0, 16)
+	groupsDir := p.d.owner.DataDir("groups")
 	files, err := ioutil.ReadDir(groupsDir)
 	if err != nil {
 		log.Println("while loading groups: " + err.Error())
@@ -644,13 +643,13 @@ func (p Persistence) loadGroups() {
 				if len(g.scenes) == 0 {
 					log.Println(path + ": no valid scenes available")
 				} else {
-					p.groups = append(p.groups, g)
+					p.d.groups = append(p.d.groups, g)
 				}
 			}
 		}
 	}
 
-	sort.Sort(groupSortInterface{p.groups})
+	sort.Sort(groupSortInterface{p.d.groups})
 }
 
 func (p Persistence) loadScenes(groupPath string) []scene {
@@ -706,26 +705,28 @@ type persistingGroupState struct {
 	Scenes      map[string]map[string]interface{}
 }
 
-// LoadPersistedGroupState loads the given YAML input into a GroupState object.
-//
-func LoadPersistedGroupState(a app.App, g Group, path string) (*GroupState, error) {
+// LoadState loads the given YAML input into a State object and stores that
+// into the linked data object.
+func (p Persistence) LoadState(a app.App, g Group, path string) (*State, error) {
 	var data persistedGroupState
 	if err := strictUnmarshalYAML(fileInput(path), &data); err != nil {
 		log.Println(path + ": unable to load, loading default. error was:")
 		log.Println("  " + err.Error())
 		data.ActiveScene = g.Scene(0).ID()
 	}
-	ret := &GroupState{
-		activeScene: -1, scenes: make([][]api.ModuleState, g.NumScenes()),
-		path: path, a: a, group: g}
+	p.d.State.activeScene = -1
+	p.d.State.scenes = make([][]api.ModuleState, g.NumScenes())
+	p.d.State.path = path
+	p.d.State.a = a
+	p.d.State.group = g
 	for i := 0; i < g.NumScenes(); i++ {
 		if g.Scene(i).ID() == data.ActiveScene {
-			ret.activeScene = i
+			p.d.activeScene = i
 			break
 		}
 	}
-	if ret.activeScene == -1 {
-		ret.activeScene = 0
+	if p.d.activeScene == -1 {
+		p.d.activeScene = 0
 		log.Printf("Unknown active scene for group %s: \"%s\"\n",
 			g.Name(), data.ActiveScene)
 	}
@@ -781,7 +782,7 @@ func LoadPersistedGroupState(a app.App, g Group, path string) (*GroupState, erro
 						sceneData[j] = state
 					}
 				}
-				ret.scenes[i] = sceneData
+				p.d.State.scenes[i] = sceneData
 				sceneLoaded[i] = true
 				break
 			}
@@ -808,27 +809,42 @@ func LoadPersistedGroupState(a app.App, g Group, path string) (*GroupState, erro
 					sceneData[j] = state
 				}
 			}
-			ret.scenes[i] = sceneData
+			p.d.State.scenes[i] = sceneData
 		}
 	}
-	return ret, nil
+	return &p.d.State, nil
 }
 
-func (gs *GroupState) buildYaml() ([]byte, error) {
+func (s *State) buildYaml() ([]byte, error) {
 	structure := persistingGroupState{
-		ActiveScene: gs.group.Scene(gs.activeScene).ID(),
+		ActiveScene: s.group.Scene(s.activeScene).ID(),
 		Scenes:      make(map[string]map[string]interface{})}
-	for i := 0; i < gs.group.NumScenes(); i++ {
-		sceneDescr := gs.group.Scene(i)
+	for i := 0; i < s.group.NumScenes(); i++ {
+		sceneDescr := s.group.Scene(i)
 		data := make(map[string]interface{})
 		var j api.ModuleIndex
-		for j = 0; j < gs.a.NumModules(); j++ {
+		for j = 0; j < s.a.NumModules(); j++ {
 			if sceneDescr.UsesModule(j) {
-				data[gs.a.ModuleAt(j).Descriptor().ID] =
-					gs.scenes[i][j].SerializableView(gs.a, api.Persisted)
+				data[s.a.ModuleAt(j).Descriptor().ID] =
+					s.scenes[i][j].PersistingView(s.a)
 			}
 		}
 		structure.Scenes[sceneDescr.ID()] = data
 	}
 	return yaml.Marshal(structure)
+}
+
+// WriteState writes the group state to its YAML file.
+// The actual writing operation is done asynchronous.
+func (p Persistence) WriteState() {
+	raw, err := p.d.State.buildYaml()
+	if err != nil {
+		log.Printf("%s[w]: %s", p.d.State.path, err)
+	} else {
+		go func(content []byte, s *State) {
+			s.writeMutex.Lock()
+			defer s.writeMutex.Unlock()
+			ioutil.WriteFile(s.path, content, 0644)
+		}(raw, &p.d.State)
+	}
 }

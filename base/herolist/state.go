@@ -1,8 +1,6 @@
 package herolist
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 
 	"github.com/flyx/pnpscreen/api"
@@ -12,6 +10,7 @@ import (
 type state struct {
 	globalVisible bool
 	heroVisible   []bool
+	heroIDToIndex map[string]int
 }
 
 type persistedState struct {
@@ -19,13 +18,23 @@ type persistedState struct {
 	HeroVisible   []string
 }
 
+type globalEndpoint struct {
+	*state
+}
+
+type heroEndpoint struct {
+	*state
+}
+
 func newState(input *yaml.Node, env api.Environment,
 	index api.ModuleIndex) (api.ModuleState, error) {
 	heroes := env.Heroes()
 	defer heroes.Close()
-	s := &state{heroVisible: make([]bool, heroes.NumHeroes())}
+	s := &state{heroVisible: make([]bool, heroes.NumHeroes()),
+		heroIDToIndex: make(map[string]int)}
 	for i := 0; i < heroes.NumHeroes(); i++ {
 		s.heroVisible[i] = true
+		s.heroIDToIndex[heroes.Hero(i).ID()] = i
 	}
 	if input == nil {
 		s.globalVisible = true
@@ -79,42 +88,53 @@ type webState struct {
 	Heroes []bool `json:"heroes"`
 }
 
-// Serializable view returns a structure containing the global flag and
-// - a list containing each visible hero as ID for Persisted
-// - a list containing boolean flags for each hero for Web
-func (s *state) SerializableView(
-	env api.Environment, layout api.DataLayout) interface{} {
-	if layout == api.Persisted {
-		return persistedState{GlobalVisible: s.globalVisible,
-			HeroVisible: s.visibleHeroesList(env)}
-	}
-	return webState{
-		Global: s.globalVisible, Heroes: s.heroVisible,
-	}
+// WebView returns a structure containing the global flag and a list containing
+// boolean flags for each hero
+func (s *state) WebView(env api.Environment) interface{} {
+	return webState{Global: s.globalVisible, Heroes: s.heroVisible}
 }
 
-func (s *state) HandleAction(index int, payload []byte) (interface{}, interface{}, error) {
-	var ret bool
-	var data interface{}
-	switch index {
-	case 0:
-		s.globalVisible = !s.globalVisible
-		ret = s.globalVisible
-		data = &globalRequest{visible: s.globalVisible}
-	case 1:
-		var value int
-		if err := json.Unmarshal(payload, &value); err != nil {
-			return nil, nil, err
-		}
-		if value < 0 || value >= len(s.heroVisible) {
-			return nil, nil, fmt.Errorf("index %d out of range 0..%d",
-				value, len(s.heroVisible)-1)
-		}
-		s.heroVisible[value] = !s.heroVisible[value]
-		ret = s.heroVisible[value]
-		data = &heroRequest{index: int32(value), visible: s.heroVisible[value]}
-	default:
-		panic("Index out of range")
+// PersistingView returns a structure containing the `global` flag and a list
+// containing each visible hero as ID
+func (s *state) PersistingView(env api.Environment) interface{} {
+	return persistedState{GlobalVisible: s.globalVisible,
+		HeroVisible: s.visibleHeroesList(env)}
+}
+
+func (s *state) PureEndpoint(index int) api.ModulePureEndpoint {
+	if index != 0 {
+		panic("Endpoint index out of range")
 	}
-	return ret, data, nil
+	return globalEndpoint{s}
+}
+
+func (s *state) IDEndpoint(index int) api.ModuleIDEndpoint {
+	if index != 1 {
+		panic("Endpoint index out of range")
+	}
+	return heroEndpoint{s}
+}
+
+func (e globalEndpoint) Put(payload []byte) (interface{}, interface{},
+	api.SendableError) {
+	var value bool
+	if err := api.ReceiveData(payload, &value); err != nil {
+		return nil, nil, err
+	}
+	e.globalVisible = value
+	return value, &globalRequest{visible: e.globalVisible}, nil
+}
+
+func (e heroEndpoint) Put(id string, payload []byte) (interface{}, interface{},
+	api.SendableError) {
+	hIndex, ok := e.heroIDToIndex[id]
+	if !ok {
+		return nil, nil, &api.NotFound{Name: id}
+	}
+	var value bool
+	if err := api.ReceiveData(payload, &value); err != nil {
+		return nil, nil, err
+	}
+	e.heroVisible[hIndex] = value
+	return value, &heroRequest{index: int32(hIndex), visible: value}, nil
 }

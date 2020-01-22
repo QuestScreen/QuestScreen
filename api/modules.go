@@ -16,30 +16,64 @@ type ResourceCollectionIndex int
 // ModuleIndex identifies the module internally.
 type ModuleIndex int
 
+// ModulePureEndpoint is an endpoint of a module for the HTTP server.
+// It takes PUT requests on the path specified by the ModuleDescriptor.
+type ModulePureEndpoint interface {
+	// Put handles a PUT request. Two return values are expected:
+	//
+	// The first return value will be serialized to JSON and sent back to the
+	// client. If it's nil, nothing will be sent and the client will get a
+	// 204 No Content.
+	//
+	// The second return value will be handed over to the module's InitTransition
+	// which will be called in the OpenGL thread after Put has returned.
+	// For thread safety, that value should be constructed from scratch and not be
+	// a pointer into the ModuleState object.
+	//
+	// If an error is returned, InitTransition will not be called and both return
+	// values will be ignored. The server will the respond according to the cause
+	// of the returned error.
+	Put(payload []byte) (interface{}, interface{}, SendableError)
+}
+
+// ModuleIDEndpoint is an endpoint of a module for the HTTP server.
+// It takes PUT requests on the path specified by the ModuleDescriptor, with an
+// additional URL path item interpreted as ID.
+type ModuleIDEndpoint interface {
+	// Put works analoguous to ModulePureEndpoint.Put, but gets the id from the
+	// request URL path as additional parameter.
+	Put(id string, payload []byte) (interface{}, interface{}, SendableError)
+}
+
 // ModuleState describes the state of a module. It is written to and loaded
 // from a group's state.yaml.
 //
 // All funcs are expected to be called in the server thread.
 type ModuleState interface {
 	SerializableItem
-	// HandleAction handles an action requested via the web interface.
-	//
-	// The first return value will be serialized to JSON and sent back via the web
-	// interface.
-	//
-	// The second return value will be handed over to the module's InitTransition
-	// which will be called in the OpenGL thread after HandleAction has returned.
-	// For thread safety, that value should be constructed from scratch and not be
-	// a pointer into the ModuleState object.
-	//
-	// If an error is returned, InitTransition will not be called and both return
-	// values will be ignored.
-	HandleAction(index int, payload []byte) (interface{}, interface{}, error)
 	// CreateModuleData generates a data object that contains all required data
 	// for the module to rebuild its state. The returned data object will be
 	// handed over to the module's RebuildState. For thread safety, it should not
 	// be a pointer into the ModuleState object.
 	CreateModuleData() interface{}
+}
+
+// PureEndpointProvider is a ModuleState extension for modules whose
+// ModuleDescriptor defines one or more pure endpoints in its EndpointPaths.
+type PureEndpointProvider interface {
+	// PureEndpoint returns the pure endpoint defined at the given index of the
+	// ModuleDecriptor's EndpointPaths slice. This should be a cheap getter as it
+	// will be called for every request on one of the module's pure endpoints.
+	PureEndpoint(index int) ModulePureEndpoint
+}
+
+// IDEndpointProvider is a ModuleState extension for modules whose
+// ModuleDescriptor defines one or more id endpoints in its EndpointPaths.
+type IDEndpointProvider interface {
+	// IDEndpoint returns the id endpoint defined at the given index of the
+	// ModuleDescriptor's EndpointPaths slice. This should be a cheap getter as it
+	// will be called for every request on one of the module's id endpoints.
+	IDEndpoint(index int) ModuleIDEndpoint
 }
 
 // ResourceSelector defines a subdirectory and a filename suffix list.
@@ -68,13 +102,42 @@ type ModuleDescriptor struct {
 	// module. The maximum ResourceCollectionIndex available to this module is
 	// len(ResourceCollections()) - 1.
 	ResourceCollections []ResourceSelector
-	// Actions() is the list of actions callable via HTTP POST that should be
-	// registered for this module.
-	Actions []string
-	// DefaultConfig returns a configuration object with default values.
-	// This must be a pointer to a struct in which each field is a pointer to an
-	// item implementing ConfigItem.
-	// All fields of the struct object must hold a non-nil value.
+	// EndpointPaths defines a list of API endpoints for the client to change this
+	// module's state and trigger animations.
+	//
+	// The endpoints will be queryable at
+	//
+	//     /state/<module-id>/<endpoint-path>[/<entity-id>]
+	//
+	// If a path ends with a `/`, it will take the additional <entity-id>
+	// parameter. At most one path may be empty, in which cause it will be
+	// queryable at
+	//
+	//     /state/<module-id>
+	//
+	// At most one path may be `"/"`, in which case it will be queryable at
+	//
+	//     /state/<module-id>/<entity-id>
+	//
+	// If the `"/"` path exists, the only other path that may exist is the empty
+	// path.
+	//
+	// If at least one path not ending with `/` exists, the module's state must
+	// implement PureEndpointProvider, and if at least one path ending with `/`
+	// exists, the module's state must implement IDEndpointProvider.
+	EndpointPaths []string
+	// DefaultConfig is a configuration object with default values.
+	//
+	// This value defines the type of this module's configuration. Its type must
+	// be a pointer to a struct in which each field is a pointer to an item
+	// implementing ConfigItem.
+	//
+	// Generally, a value of this type may have any of its fields set to nil,
+	// meaning that it should inherit the value from a previous level. This is
+	// for scene, group, system and base config (in that order). However, the
+	// default config must only have non-nil values since it defines the fallback
+	// if the whole path up from scene config to base config does not define any
+	// value for a certain item.
 	DefaultConfig interface{}
 	// CreateModule creates the module object. This will only be called once
 	// during app initialization, making the module a singleton object.
@@ -107,7 +170,7 @@ type Module interface {
 	// Descriptor shall return the ModuleDescriptor that has created this module.
 	Descriptor() *ModuleDescriptor
 	// SetConfig sets the module's calculated configuration. The given config
-	// object will be of the type specified by ModuleDescriptor.ConfigType().
+	// object will be of the type of the value ModuleDescriptor.DefaultConfig.
 	// The config object will have all fields set to non-nil values.
 	// The rendering thread will always call RebuildState after SetConfig.
 	SetConfig(config interface{})

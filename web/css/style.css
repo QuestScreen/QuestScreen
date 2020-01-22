@@ -359,3 +359,31 @@ article {
 .config-view-controls > div:last-child {
 	flex: 0 0 auto;
 }
+
+/* datasets */
+
+.data-list-container {
+	text-align: center;
+}
+
+.data-list {
+	display: inline-block;
+	background-color: gray;
+}
+
+.data-list > span {
+	font-weight: bold;
+	text-align: center;
+}
+
+.data-list-item {
+	display: flex;
+}
+
+.data-list-item > span {
+	flex: 1 1 auto;
+}
+
+.data-list-item > a {
+	flex: 0 1 auto;
+}

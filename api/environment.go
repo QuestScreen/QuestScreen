@@ -16,6 +16,8 @@ type Resource interface {
 type Hero interface {
 	// Name of the hero
 	Name() string
+	// ID of the hero
+	ID() string
 	// Short description (e.g. class/race/etc)
 	Description() string
 }
@@ -26,6 +28,8 @@ type Hero interface {
 // both server and render thread may access the heroes.
 type HeroView interface {
 	Hero(index int) Hero
+	// HeroByID returns the hero with the given ID. returns nil if not found.
+	HeroByID(id string) Hero
 	NumHeroes() int
 	Close()
 }

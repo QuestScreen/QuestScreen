@@ -39,7 +39,7 @@ var Descriptor = api.ModuleDescriptor{
 	ID:   "background",
 	ResourceCollections: []api.ResourceSelector{
 		api.ResourceSelector{Subdirectory: "", Suffixes: nil}},
-	Actions:       []string{"set"},
+	EndpointPaths: []string{""},
 	DefaultConfig: &backgroundConfig{},
 	CreateModule:  newModule,
 	CreateState:   newState,

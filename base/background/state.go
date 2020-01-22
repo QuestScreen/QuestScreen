@@ -1,9 +1,7 @@
 package background
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 
 	"github.com/flyx/pnpscreen/api"
@@ -16,6 +14,10 @@ type state struct {
 	resources   []api.Resource
 }
 
+type endpoint struct {
+	*state
+}
+
 // LoadFrom loads the stored selection, defaults to no item being selected.
 func newState(input *yaml.Node, env api.Environment, index api.ModuleIndex) (api.ModuleState, error) {
 	s := new(state)
@@ -25,14 +27,16 @@ func newState(input *yaml.Node, env api.Environment, index api.ModuleIndex) (api
 		if input.Kind != yaml.ScalarNode {
 			return nil, errors.New("unexpected YAML for Background state: not a string")
 		}
-		for i := range s.resources {
-			if s.resources[i].Name() == input.Value {
-				s.curIndex = i
-				break
+		if input.Tag != "!!null" {
+			for i := range s.resources {
+				if s.resources[i].Name() == input.Value {
+					s.curIndex = i
+					break
+				}
 			}
-		}
-		if s.curIndex == -1 {
-			log.Println("Didn't find resource \"" + input.Value + "\"")
+			if s.curIndex == -1 {
+				log.Println("Didn't find resource \"" + input.Value + "\"")
+			}
 		}
 	}
 	return s, nil
@@ -50,36 +54,37 @@ type webState struct {
 	Items    []string `json:"items"`
 }
 
-// SerializableView returns
-// - the name of the currently selected resource (nil if none) for Persisted
-// - the list of all available resources plus the current index for Web
-func (s *state) SerializableView(
-	env api.Environment, layout api.DataLayout) interface{} {
-	if layout == api.Persisted {
-		if s.curIndex == -1 {
-			return nil
-		}
-		return s.resources[s.curIndex].Name()
-	}
+// WebView returns the list of all available resources plus the current index
+func (s *state) WebView(env api.Environment) interface{} {
 	return webState{CurIndex: s.curIndex, Items: api.ResourceNames(s.resources)}
 }
 
-func (s *state) HandleAction(index int, payload []byte) (interface{}, interface{}, error) {
-	if index != 0 {
-		panic("Index out of bounds!")
+// PersistingView returns the name of the currently selected resource
+//(nil if none)
+func (s *state) PersistingView(env api.Environment) interface{} {
+	if s.curIndex == -1 {
+		return nil
 	}
-	var value int
-	if err := json.Unmarshal(payload, &value); err != nil {
+	return s.resources[s.curIndex].Name()
+}
+
+func (s *state) PureEndpoint(index int) api.ModulePureEndpoint {
+	if index != 0 {
+		panic("Endpoint index out of bounds")
+	}
+	return endpoint{s}
+}
+
+func (e endpoint) Put(payload []byte) (interface{}, interface{},
+	api.SendableError) {
+	value := api.ValidatedInt{Min: -1, Max: len(e.resources) - 1}
+	if err := api.ReceiveData(payload, &value); err != nil {
 		return nil, nil, err
 	}
-	if value < -1 || value >= len(s.resources) {
-		return nil, nil, fmt.Errorf("value %d out of bounds -1..%d",
-			value, len(s.resources)-1)
-	}
-	s.curIndex = value
+	e.curIndex = value.Value
 	req := &request{}
-	if value != -1 {
-		req.file = s.resources[s.curIndex]
+	if e.curIndex != -1 {
+		req.file = e.resources[e.curIndex]
 	}
 	return value, req, nil
 }

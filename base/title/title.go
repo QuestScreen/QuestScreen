@@ -46,7 +46,7 @@ var Descriptor = api.ModuleDescriptor{
 	ID:   "title",
 	ResourceCollections: []api.ResourceSelector{
 		api.ResourceSelector{Subdirectory: "", Suffixes: nil}},
-	Actions: []string{"set"},
+	EndpointPaths: []string{""},
 	DefaultConfig: &config{Font: &api.SelectableFont{
 		FamilyIndex: 0, Size: api.HeadingFont, Style: api.Bold}},
 	CreateModule: newModule, CreateState: newState,
@@ -81,8 +81,8 @@ func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture
 		textWidth = winWidth * 2 / 3
 	}
 	border := ctx.Env.DefaultBorderWidth()
-	ret, err := ctx.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
-		textWidth+6*border, textHeight+2*border)
+	ret, err := ctx.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888,
+		sdl.TEXTUREACCESS_TARGET, textWidth+6*border, textHeight+2*border)
 	if err != nil {
 		panic(err)
 	}
@@ -90,23 +90,28 @@ func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture
 	defer ctx.Renderer.SetRenderTarget(nil)
 	ctx.Renderer.Clear()
 	ctx.Renderer.SetDrawColor(0, 0, 0, 192)
-	ctx.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0, W: int32(textWidth + 6*border), H: int32(textHeight) + 2*border})
+	ctx.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0,
+		W: int32(textWidth + 6*border), H: int32(textHeight) + 2*border})
 	ctx.Renderer.SetDrawColor(200, 173, 127, 255)
-	ctx.Renderer.FillRect(&sdl.Rect{X: border, Y: 0, W: int32(textWidth + 4*border), H: int32(textHeight + border)})
+	ctx.Renderer.FillRect(&sdl.Rect{X: border, Y: 0,
+		W: int32(textWidth + 4*border), H: int32(textHeight + border)})
 	if t.mask != nil {
 		_, _, maskWidth, maskHeight, _ := t.mask.Query()
 		for x := int32(0); x < textWidth+6*border; x += maskWidth {
 			for y := int32(0); y < textHeight+2*border; y += maskHeight {
-				ctx.Renderer.Copy(t.mask, nil, &sdl.Rect{X: x, Y: y, W: maskWidth, H: maskHeight})
+				ctx.Renderer.Copy(t.mask, nil, &sdl.Rect{
+					X: x, Y: y, W: maskWidth, H: maskHeight})
 			}
 		}
 	}
-	ctx.Renderer.Copy(textTexture, nil, &sdl.Rect{X: 3 * border, Y: 0, W: textWidth, H: textHeight})
+	ctx.Renderer.Copy(textTexture, nil,
+		&sdl.Rect{X: 3 * border, Y: 0, W: textWidth, H: textHeight})
 	return ret
 }
 
 // InitTransition initializes a transition.
-func (t *Title) InitTransition(ctx api.RenderContext, data interface{}) time.Duration {
+func (t *Title) InitTransition(ctx api.RenderContext,
+	data interface{}) time.Duration {
 	req := data.(*changeRequest)
 	t.curTitleText = req.caption
 	if t.curTitleText != "" {
@@ -121,7 +126,8 @@ func (t *Title) TransitionStep(ctx api.RenderContext, elapsed time.Duration) {
 	if elapsed < time.Second/3 {
 		if t.curTitle != nil {
 			_, _, _, texHeight, _ := t.curTitle.Query()
-			t.curYOffset = int32(float64(elapsed) / float64(time.Second/3) * float64(texHeight))
+			t.curYOffset =
+				int32(float64(elapsed) / float64(time.Second/3) * float64(texHeight))
 		}
 	} else if elapsed < time.Second/3+time.Millisecond*100 {
 		if t.curTitle != nil {
@@ -139,7 +145,9 @@ func (t *Title) TransitionStep(ctx api.RenderContext, elapsed time.Duration) {
 		}
 		if t.curTitle != nil {
 			_, _, _, texHeight, _ := t.curTitle.Query()
-			t.curYOffset = int32(float64(time.Second*2/3-(elapsed-time.Millisecond*100)) / float64(time.Second/3) * float64(texHeight))
+			t.curYOffset =
+				int32(float64(time.Second*2/3-(elapsed-time.Millisecond*100)) /
+					float64(time.Second/3) * float64(texHeight))
 		}
 	}
 }
@@ -154,7 +162,8 @@ func (t *Title) Render(ctx api.RenderContext) {
 	winWidth, _, _ := ctx.Renderer.GetOutputSize()
 	_, _, texWidth, texHeight, _ := t.curTitle.Query()
 
-	dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -t.curYOffset, W: texWidth, H: texHeight}
+	dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -t.curYOffset,
+		W: texWidth, H: texHeight}
 	_ = ctx.Renderer.Copy(t.curTitle, nil, &dst)
 }
 

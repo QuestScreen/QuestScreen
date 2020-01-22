@@ -1,8 +1,6 @@
 package overlays
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 
 	"github.com/flyx/pnpscreen/api"
@@ -12,6 +10,10 @@ import (
 type state struct {
 	visible   []bool
 	resources []api.Resource
+}
+
+type endpoint struct {
+	*state
 }
 
 type persistentState []string
@@ -58,20 +60,8 @@ type webStateItem struct {
 
 type webState []webStateItem
 
-// SerializableView returns
-// - a list of selected resource names for Persisted
-// - a list of resources descriptors (name & visible) for Web
-func (s *state) SerializableView(
-	env api.Environment, layout api.DataLayout) interface{} {
-	if layout == api.Persisted {
-		ret := make([]string, 0, len(s.resources))
-		for i := range s.visible {
-			if s.visible[i] {
-				ret = append(ret, s.resources[i].Name())
-			}
-		}
-		return ret
-	}
+// WebView returns a list of resources descriptors (name & visible)
+func (s *state) WebView(env api.Environment) interface{} {
 	ret := make(webState, len(s.resources))
 	for i := range s.resources {
 		ret[i].Name = s.resources[i].Name()
@@ -80,22 +70,35 @@ func (s *state) SerializableView(
 	return ret
 }
 
-func (*state) Actions() []string {
-	return []string{"switch"}
+// PersistingView returns a list of selected resource names
+func (s *state) PersistingView(env api.Environment) interface{} {
+	ret := make([]string, 0, len(s.resources))
+	for i := range s.visible {
+		if s.visible[i] {
+			ret = append(ret, s.resources[i].Name())
+		}
+	}
+	return ret
 }
 
-func (s *state) HandleAction(index int, payload []byte) (interface{}, interface{}, error) {
+func (s *state) PureEndpoint(index int) api.ModulePureEndpoint {
 	if index != 0 {
-		panic("Index out of range")
+		panic("Endpoint index out of range")
 	}
-	var value int
-	if err := json.Unmarshal(payload, &value); err != nil {
+	return endpoint{s}
+}
+
+func (e endpoint) Put(payload []byte) (interface{},
+	interface{}, api.SendableError) {
+	value := struct {
+		ResourceIndex api.ValidatedInt `json:"resourceIndex"`
+		Visible       bool             `json:"visible"`
+	}{ResourceIndex: api.ValidatedInt{Min: 0, Max: len(e.resources) - 1}}
+	if err := api.ReceiveData(payload,
+		&api.ValidatedStruct{Value: &value}); err != nil {
 		return nil, nil, err
 	}
-	if value < 0 || value >= len(s.resources) {
-		return nil, nil, fmt.Errorf("Index %d not in range 0..%d",
-			value, len(s.resources)-1)
-	}
-	s.visible[value] = !s.visible[value]
-	return s.visible[value], &itemRequest{index: value, visible: s.visible[value]}, nil
+	e.visible[value.ResourceIndex.Value] = value.Visible
+	return value.Visible, &itemRequest{index: value.ResourceIndex.Value,
+		visible: value.Visible}, nil
 }

@@ -218,8 +218,6 @@ type Request struct {
 	eventCode int32
 }
 
-var errTooManyRequests = errors.New("Too many requests")
-var errInvalidEventID = errors.New("Invalid event ID")
 var errMultipleModuleConfigs = errors.New("Cannot send multiple configs to same module in one request")
 var errMultipleModuleData = errors.New("Cannot send multiple data objects to same module in one request")
 var errMultipleEnabledModules = errors.New("Cannot send multiple enabledModules lists in one request")
@@ -227,14 +225,15 @@ var errAlreadyCommitted = errors.New("Request has already been committed")
 
 // StartRequest starts a new request to the display thread.
 // Returns an error if there is already a pending request.
-func (d *Display) StartRequest(eventID uint32, eventCode int32) (Request, error) {
+func (d *Display) StartRequest(eventID uint32, eventCode int32) (Request,
+	api.SendableError) {
 	if eventID == sdl.FIRSTEVENT {
-		return Request{}, errInvalidEventID
+		panic("illegal SDL event ID")
 	}
 	if atomic.CompareAndSwapUint32(&d.request, noRequest, activeRequest) {
 		return Request{d: d, eventID: eventID, eventCode: eventCode}, nil
 	}
-	return Request{}, errTooManyRequests
+	return Request{}, &app.TooManyRequests{}
 }
 
 // SendModuleConfig queues the given config for the module at the given ID as

@@ -188,7 +188,7 @@ class ConfigView {
 		}
 	}
 
-	async post() {
+	async put() {
 		const jsonConfig = [];
 		for (const moduleDesc of this.moduleDescs) {
 			if (moduleDesc == null) {
@@ -205,12 +205,12 @@ class ConfigView {
 			}
 			jsonConfig.push(vals);
 		}
-		await App.fetch(this.url, "POST", jsonConfig);
+		await App.fetch(this.url, "PUT", jsonConfig);
 		document.querySelector(".config-changed").style.visibility = "hidden";
 	}
 
 	ui(data) {
 		return tmpl.config.view.render(this.app, this.moduleDescs,
-			data, this.post.bind(this));
+			data, this.put.bind(this));
 	}
 }

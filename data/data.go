@@ -1,12 +1,7 @@
-/*
-Package data implements loading and writing configuration and state data.
-*/
 package data
 
 import (
-	"encoding/json"
 	"log"
-	"net/http"
 	"reflect"
 	"sync"
 
@@ -39,11 +34,16 @@ func (s *system) ID() string {
 // implements api.Hero
 type hero struct {
 	name        string
+	id          string
 	description string
 }
 
 func (h *hero) Name() string {
 	return h.name
+}
+
+func (h *hero) ID() string {
+	return h.id
 }
 
 func (h *hero) Description() string {
@@ -89,6 +89,15 @@ func (h *heroList) Hero(index int) api.Hero {
 	return &h.data[index]
 }
 
+func (h *heroList) HeroByID(id string) api.Hero {
+	for i := range h.data {
+		if h.data[i].id == id {
+			return &h.data[i]
+		}
+	}
+	return nil
+}
+
 func (h *heroList) NumHeroes() int {
 	return len(h.data)
 }
@@ -104,6 +113,7 @@ type Group interface {
 	SystemIndex() int
 	NumScenes() int
 	Scene(index int) Scene
+	SceneByID(id string) (index int, s Scene)
 	ViewHeroes() api.HeroView
 }
 
@@ -137,57 +147,78 @@ func (g *group) Scene(index int) Scene {
 	return &g.scenes[index]
 }
 
+func (g *group) SceneByID(id string) (index int, s Scene) {
+	for i := range g.scenes {
+		if g.scenes[i].id == id {
+			return i, &g.scenes[i]
+		}
+	}
+	return -1, nil
+}
+
 func (g *group) ViewHeroes() api.HeroView {
 	g.heroes.mutex.Lock()
 	return &g.heroes
 }
 
-// Config holds all configuration values of all modules.
-//
-// Configuration consists of four levels: The base level, the system level,
-// the group level and the scene level. At each level, values for any
-// configuration item may (but do not need to) be set. At runtime, the
-// current configuration of each module is built by merging those four levels
-// on top of the default values.
-//
-// The order of predescensce is: Scene level, Group level, system level,
-// base level, default values.
-// Configuration is rebuilt whenever the selected scene or group changes and
-// whenever the configuration is edited (via web interface).
-type Config struct {
+// Data contains all non-transient data currently loaded by PnpScreen
+type Data struct {
 	owner            app.App
 	baseConfigs      []interface{}
 	systems          []*system
-	numPluginSystems int
 	groups           []*group
+	numPluginSystems int
+	State
 }
 
 // NumPluginSystems returns the number of systems required by plugins.
 // these systems are always in front of the systems list.
-func (c *Config) NumPluginSystems() int {
-	return c.numPluginSystems
+func (d *Data) NumPluginSystems() int {
+	return d.numPluginSystems
 }
 
 // NumSystems returns the number of available systems.
-func (c *Config) NumSystems() int {
-	return len(c.systems)
+func (d *Data) NumSystems() int {
+	return len(d.systems)
 }
 
 // System returns the system at the given index, which must be
 // between 0 (included) and NumSystems() (excluded).
-func (c *Config) System(index int) System {
-	return c.systems[index]
+func (d *Data) System(index int) System {
+	return d.systems[index]
+}
+
+// SystemByID returns the system with the given id, or nil if no such system
+// exists.
+func (d *Data) SystemByID(id string) (index int, value System) {
+	for i := range d.systems {
+		if d.systems[i].id == id {
+			return i, d.systems[i]
+		}
+	}
+	return -1, nil
 }
 
 // NumGroups returns the number of available groups.
-func (c *Config) NumGroups() int {
-	return len(c.groups)
+func (d *Data) NumGroups() int {
+	return len(d.groups)
 }
 
 // Group returns the group at the given index, which must be
 // between 0 (included) and NumGroups() (excluded).
-func (c *Config) Group(index int) Group {
-	return c.groups[index]
+func (d *Data) Group(index int) Group {
+	return d.groups[index]
+}
+
+// GroupByID returns the group with the given id, or nil if no such group
+// exists.
+func (d *Data) GroupByID(id string) (index int, value Group) {
+	for i := range d.groups {
+		if d.groups[i].id == id {
+			return i, d.groups[i]
+		}
+	}
+	return -1, nil
 }
 
 // LoadPersisted loads all config.yaml files and parses them according to the
@@ -197,18 +228,18 @@ func (c *Config) Group(index int) Group {
 //
 // All errors are logged and erratic files ignored.
 // You must call LoadPersisted before doing anything with a Config value.
-func (c *Config) LoadPersisted(owner app.App) (Persistence, Communication) {
-	p := Persistence{c}
-	c.owner = owner
-	basePath := c.owner.DataDir("base", "config.yaml")
+func (d *Data) LoadPersisted(owner app.App) (Persistence, Communication) {
+	p := Persistence{d}
+	d.owner = owner
+	basePath := d.owner.DataDir("base", "config.yaml")
 	ret, err := p.loadBase(basePath)
 	if err != nil {
 		log.Println(basePath+":", err)
 	}
-	c.baseConfigs = ret
+	d.baseConfigs = ret
 	p.loadSystems()
 	p.loadGroups()
-	return p, Communication{c}
+	return p, Communication{d}
 }
 
 func confValue(conf interface{}) *reflect.Value {
@@ -224,22 +255,21 @@ func confValue(conf interface{}) *reflect.Value {
 }
 
 // MergeConfig merges the item's default configuration with the values
-// configured in its base config and the current system and group config.
+// configured in its base config and the current system, group and scene config.
 // It returns the resulting configuration.
 //
 // systemIndex may be -1 (for groups without a defined system), groupIndex and
 // sceneIndex may not.
-func (c *Config) MergeConfig(
-	moduleIndex api.ModuleIndex, systemIndex int, groupIndex int,
-	sceneIndex int) interface{} {
+func (d *Data) MergeConfig(moduleIndex api.ModuleIndex,
+	systemIndex int, groupIndex int, sceneIndex int) interface{} {
 	var configStack [5]*reflect.Value
-	module := c.owner.ModuleAt(moduleIndex)
+	module := d.owner.ModuleAt(moduleIndex)
 
 	defaultValues := module.Descriptor().DefaultConfig
 	configType := reflect.TypeOf(defaultValues).Elem()
 
 	{
-		conf := c.groups[groupIndex].scenes[sceneIndex].modules[moduleIndex].config
+		conf := d.groups[groupIndex].scenes[sceneIndex].modules[moduleIndex].config
 		if conf == nil {
 			configStack[0] = nil
 		} else {
@@ -247,21 +277,21 @@ func (c *Config) MergeConfig(
 		}
 	}
 	{
-		conf := c.groups[groupIndex].modules[moduleIndex]
+		conf := d.groups[groupIndex].modules[moduleIndex]
 		if conf == nil {
 			panic("group config missing for " + module.Descriptor().ID)
 		}
 		configStack[1] = confValue(conf)
 	}
 	if systemIndex != -1 {
-		conf := c.systems[systemIndex].modules[moduleIndex]
+		conf := d.systems[systemIndex].modules[moduleIndex]
 		if conf == nil {
 			panic("system config missing for " + module.Descriptor().ID)
 		}
 		configStack[2] = confValue(conf)
 	}
 
-	baseConf := c.baseConfigs[moduleIndex]
+	baseConf := d.baseConfigs[moduleIndex]
 	if baseConf == nil {
 		panic("base config missing for " + module.Descriptor().ID)
 	}
@@ -284,17 +314,4 @@ func (c *Config) MergeConfig(
 		}
 	}
 	return result.Interface()
-}
-
-// SendAsJSON sends the given data as JSON file
-func SendAsJSON(w http.ResponseWriter, data interface{}) {
-	b, err := json.Marshal(data)
-	if err == nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Cache-Control", "no-store")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(b)
-	} else {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }

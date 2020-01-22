@@ -12,7 +12,8 @@ nav > div > a:active {
 }
 
 nav .pure-menu-link,
-nav .pure-menu-heading {
+nav .pure-menu-heading,
+.data-list .pure-menu-link {
   color: black;
 }
 
@@ -26,4 +27,9 @@ nav .pure-menu-heading {
 
 hr {
   background-color: #333;
+}
+
+.data-list-item > a.enabled:hover,
+.data-list-item > a.enabled:active {
+	background-color: red;
 }

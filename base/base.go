@@ -31,7 +31,7 @@ var Base = api.Plugin{
 			Description: "Contains a „Main“ scene with base modules.",
 			Config:      []byte("name: Base"),
 			Scenes: []api.SceneTmplRef{
-				{Name: "Main", TmplIndex: 0},
+				{Name: "Main", TmplIndex: 1},
 			},
 		},
 	},

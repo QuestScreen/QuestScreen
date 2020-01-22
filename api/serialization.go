@@ -1,28 +1,26 @@
 package api
 
-// DataLayout describes how input / output data is structured.
-type DataLayout int
-
-const (
-	// Persisted is the data layout used for persisting data on the file system.
-	Persisted DataLayout = iota
-	// Web is the data layout used for sending / receiving data as JSON via the
-	// web API.
-	Web
-)
-
 // SerializableItem describes an item that can be serialized.
 // Serialization happens both when the item is sent to a client via the Web API,
 // and when the item is persisted to the file system.
+//
+// A SerializableItem provides two views: One for communicating the item to the
+// web client, and one for persisting it to the file system. Both
+// implementations may trivially return a pointer to the item itself, if no
+// special handling is required.
 type SerializableItem interface {
-	// SerializableView returns a data structure that represents the item's
-	// content in the given layout. The returned data will be incorporated into
-	// a larger structure that will be serialized as YAML or JSON.
+	// WebView returns a view of the data structure as it should be sent to the
+	// web client.
 	//
-	// If you want to manually serialize the data, you may return a
-	// - yaml.Node for layout == Persisted
-	// - json.RawMessage for layout == Web
-	// However, manual serialization should typically not be necessary.
-	// The usual implementation should be to just return the item itself.
-	SerializableView(env Environment, layout DataLayout) interface{}
+	// The returned view will be serialized as JSON, possibly as part of a
+	// larger structure. If you need to manually serialize the structure, return
+	// a json.RawMessage.
+	WebView(env Environment) interface{}
+
+	// PersistingView returns a view of the data structure that can be
+	// communicated to the client.
+	//
+	// The returned view will be serialized as YAML as part of a larger structure.
+	// If you need to manually serialize the structure, return a *yaml.Node.
+	PersistingView(env Environment) interface{}
 }

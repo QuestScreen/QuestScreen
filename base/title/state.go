@@ -1,8 +1,6 @@
 package title
 
 import (
-	"encoding/json"
-
 	"github.com/flyx/pnpscreen/api"
 	"gopkg.in/yaml.v3"
 )
@@ -10,6 +8,10 @@ import (
 type state struct {
 	caption   string
 	resources []api.Resource
+}
+
+type endpoint struct {
+	*state
 }
 
 func newState(input *yaml.Node, env api.Environment,
@@ -35,21 +37,29 @@ func (s *state) CreateModuleData() interface{} {
 	return ret
 }
 
-// SerializableView returns the current caption of the title as string.
-func (s *state) SerializableView(
-	env api.Environment, layout api.DataLayout) interface{} {
+// WebView returns the current caption of the title as string.
+func (s *state) WebView(env api.Environment) interface{} {
 	return s.caption
 }
 
-func (s *state) HandleAction(index int,
-	payload []byte) (interface{}, interface{}, error) {
+// PersistingView returns the current caption of the title as string.
+func (s *state) PersistingView(env api.Environment) interface{} {
+	return s.caption
+}
+
+func (s *state) PureEndpoint(index int) api.ModulePureEndpoint {
 	if index != 0 {
-		panic("Index out of range")
+		panic("Endpoint index out of range")
 	}
+	return endpoint{s}
+}
+
+func (e endpoint) Put(payload []byte) (interface{}, interface{},
+	api.SendableError) {
 	var value string
-	if err := json.Unmarshal(payload, &value); err != nil {
+	if err := api.ReceiveData(payload, &value); err != nil {
 		return nil, nil, err
 	}
-	s.caption = value
+	e.caption = value
 	return value, &changeRequest{caption: value}, nil
 }

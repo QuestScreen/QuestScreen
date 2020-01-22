@@ -57,7 +57,7 @@ var Descriptor = api.ModuleDescriptor{
 	ID:   "overlays",
 	ResourceCollections: []api.ResourceSelector{
 		{Subdirectory: "", Suffixes: nil}},
-	Actions:       []string{"switch"},
+	EndpointPaths: []string{""},
 	DefaultConfig: &config{},
 	CreateModule:  newModule, CreateState: newState,
 }

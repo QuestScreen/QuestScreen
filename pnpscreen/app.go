@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"io/ioutil"
 	"log"
 	"os"
@@ -43,10 +42,9 @@ type app struct {
 	modules             []api.Module
 	plugins             []*api.Plugin
 	resourceCollections [][][]resourceFile
-	config              data.Config
+	data                data.Data
 	persistence         data.Persistence
 	communication       data.Communication
-	groupState          *data.GroupState
 	display             display.Display
 	activeGroupIndex    int
 	activeSystemIndex   int
@@ -109,7 +107,7 @@ func (a *app) Init(fullscreen bool, events display.Events, port uint16) {
 	a.html = appendAssets(a.html, "web/html/index-bottom.html")
 	a.js = appendAssets(a.js, "web/js/init.js")
 
-	a.persistence, a.communication = a.config.LoadPersisted(a)
+	a.persistence, a.communication = a.data.LoadPersisted(a)
 	a.loadModuleResources()
 	if err := a.display.Init(
 		a, events, fullscreen, port, window, renderer); err != nil {
@@ -171,15 +169,15 @@ func (a *app) listFiles(
 	resources := make([]resourceFile, 0, 64)
 	resources = appendDir(
 		resources, a.DataDir("base", id, selector.Subdirectory), -1, -1)
-	for i := 0; i < a.config.NumSystems(); i++ {
-		if a.config.System(i).ID() != "" {
+	for i := 0; i < a.data.NumSystems(); i++ {
+		if a.data.System(i).ID() != "" {
 			resources = appendDir(
 				resources, a.DataDir("systems",
-					a.config.System(i).ID(), id, selector.Subdirectory), -1, i)
+					a.data.System(i).ID(), id, selector.Subdirectory), -1, i)
 		}
 	}
-	for i := 0; i < a.config.NumGroups(); i++ {
-		group := a.config.Group(i)
+	for i := 0; i < a.data.NumGroups(); i++ {
+		group := a.data.Group(i)
 		if group.ID() != "" {
 			resources = appendDir(resources, a.DataDir("groups",
 				group.ID(), id, selector.Subdirectory), i, -1)
@@ -239,7 +237,7 @@ func (a *app) activeGroup() data.Group {
 	if a.activeGroupIndex == -1 {
 		return nil
 	}
-	return a.config.Group(a.activeGroupIndex)
+	return a.data.Group(a.activeGroupIndex)
 }
 
 type emptyHeroList struct{}
@@ -289,18 +287,15 @@ func (a *app) pathToState() string {
 // it loads the state of that group into all modules.
 //
 // Returns the index of the currently active scene inside the group
-func (a *app) setActiveGroup(index int) (int, error) {
-	if index < 0 || index >= a.config.NumGroups() {
-		return -1, errors.New("index out of range")
-	}
+func (a *app) setActiveGroup(index int) (int, api.SendableError) {
 	a.activeGroupIndex = index
 	group := a.activeGroup()
 	a.activeSystemIndex = group.SystemIndex()
-	groupState, err := data.LoadPersistedGroupState(a, group, a.pathToState())
+	groupState, err := a.persistence.LoadState(a, group, a.pathToState())
 	if err != nil {
-		return -1, err
+		return -1, &api.InternalError{
+			Description: "Failed to set active group", Inner: err}
 	}
-	a.groupState = groupState
 	return groupState.ActiveScene(), nil
 }
 

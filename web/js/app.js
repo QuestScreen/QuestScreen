@@ -91,39 +91,45 @@ class DataPage {
 		this.fetchOnLoad = fetchOnLoad;
 	}
 
-	async loadView(subpath, kind, subtitle) {
+	async loadView(subpath, kind, item) {
 		const url = this.rootPath + subpath;
 
 		if (this.fetchOnLoad) {
 			const cfgData = await App.fetch(url, "GET", null);
-			const view = this.viewgen(this.app, kind, cfgData, url);
+			const view = this.viewgen(this.app, kind, url, cfgData);
 			this.app.setPage(view.ui(cfgData));
 		} else {
-			const view = this.viewgen(this.app, kind, url);
+			const view = this.viewgen(this.app, kind, url, item);
 			this.app.setPage(view.ui());
 		}
-		this.app.setTitle(kind + " " + this.name, subtitle);
+		this.titleMain = kind + " " + this.name;
+		this.updateTitle(item);
 	}
 
 	async viewBase() {
-		this.loadView("/base", datakind.Base, "");
+		this.loadView("/base", datakind.Base, null);
 	}
 
 	async viewSystem(system) {
-		this.loadView("/systems/" + system.id, datakind.System, system.name);
+		this.loadView("/systems/" + system.id, datakind.System, system);
 	}
 
 	async viewGroup(group) {
-		this.loadView("/groups/" + group.id, datakind.Group, group.name);
+		this.loadView("/groups/" + group.id, datakind.Group, group);
 	}
 
 	async viewScene(group, scene) {
-		this.loadView("/groups/" + group.id + "/" + scene.id,
-									datakind.Scene, group.name + " " + scene.name);
+		this.loadView("/groups/" + group.id + "/scenes/" + scene.id,
+									datakind.Scene, group.name + " " + scene);
 	}
 
 	genMenu() {
 		return tmpl.app.dataMenu.render(this.app, this);
+	}
+
+	updateTitle(item) {
+		const subtitle = item == null ? "" : item.name;
+		this.app.setTitle(this.titleMain, subtitle);
 	}
 }
 
@@ -148,7 +154,7 @@ class App {
 			headers['Content-Type'] = 'application/json';
 		}
 		const response = await fetch(url, {
-				method: method, mode: 'no-cors', cache: 'no-cache',
+				method: method, mode: 'same-origin', cache: 'no-cache',
 				credentials: 'omit', redirect: 'follow', referrer: 'no-referrer',
 				headers: headers, body: body,
 		});
@@ -300,8 +306,9 @@ class App {
 		}
 		this.fonts = returned.fonts;
 		this.plugins = returned.plugins;
+		this.numPluginSystems = returned.numPluginSystems;
 
-		const config = await App.fetch("/datasets", "GET", null);
+		const config = await App.fetch("/data", "GET", null);
 		this.systems = config.systems;
 		this.groups = config.groups;
 		this.activeGroup = -1;
@@ -314,9 +321,9 @@ class App {
 		}
 
 		this.cfgPage = new DataPage(this, "/config",
-				(app, _, data, url) => new ConfigView(app, data, url), "Configuration",
+				(app, _, url, data) => new ConfigView(app, data, url), "Configuration",
 				true);
-		this.datasetPage = new DataPage(this, "/datasets", genDatasetView,
+		this.datasetPage = new DataPage(this, "/data", genDatasetView,
 				"Dataset", false);
 		document.querySelector("#show-config").addEventListener(
 				"click", e => {
