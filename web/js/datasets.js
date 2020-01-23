@@ -76,7 +76,7 @@ class BaseDataView {
 		if (await popup.show()) {
 			await App.fetch("data/systems/" + system.id, "DELETE", null);
 			this.app.systems.splice(index, 1);
-			this.app.setMenu(this.app.datasetPage.genMenu());
+			this.app.setMenu(this.app.datasetPage.genMenu(MenuSelect.Previous));
 			this.app.setPage(this.ui());
 		}
 	}
@@ -87,7 +87,7 @@ class BaseDataView {
 		if (request !== null) {
 			const data = await App.fetch("data/systems", "POST", request);
 			this.app.systems = data;
-			this.app.setMenu(this.app.datasetPage.genMenu());
+			this.app.setMenu(this.app.datasetPage.genMenu(MenuSelect.Previous));
 			this.app.setPage(this.ui());
 		}
 	}
@@ -99,7 +99,7 @@ class BaseDataView {
 			await App.fetch("data/groups/" + group.id, "DELETE", null);
 			this.app.groups.splice(index, 1);
 			this.app.regenGroupListUI();
-			this.app.setMenu(this.app.datasetPage.genMenu());
+			this.app.setMenu(this.app.datasetPage.genMenu(MenuSelect.Previous));
 			this.app.setPage(this.ui());
 		}
 	}
@@ -112,7 +112,7 @@ class BaseDataView {
 			const data = await App.fetch("data/groups", "POST", request);
 			this.app.groups = data;
 			this.app.regenGroupListUI();
-			this.app.setMenu(this.app.datasetPage.genMenu());
+			this.app.setMenu(this.app.datasetPage.genMenu(MenuSelect.Previous));
 			this.app.setPage(this.ui());
 		}
 	}
@@ -138,7 +138,7 @@ class SystemDataView {
 				break;
 			}
 		}
-		this.app.setMenu(this.app.datasetPage.genMenu());
+		this.app.setMenu(this.app.datasetPage.genMenu(MenuSelect.Previous));
 		this.app.setPage(this.ui());
 		this.app.datasetPage.updateTitle(this.system);
 	}
@@ -164,7 +164,7 @@ class GroupDataView {
 				break;
 			}
 		}
-		this.app.setMenu(this.app.datasetPage.genMenu());
+		this.app.setMenu(this.app.datasetPage.genMenu(MenuSelect.Previous));
 		this.app.setPage(this.ui());
 		this.app.datasetPage.updateTitle(this.group);
 	}
@@ -177,7 +177,7 @@ class GroupDataView {
 			const data = await App.fetch(this.url + "/scenes", "POST", request);
 			this.group.scenes = data;
 			this.app.regenGroupListUI();
-			this.app.setMenu(this.app.datasetPage.genMenu());
+			this.app.setMenu(this.app.datasetPage.genMenu(MenuSelect.Previous));
 			this.app.setPage(this.ui());
 		}
 	}
@@ -189,7 +189,7 @@ class GroupDataView {
 			await App.fetch(this.url + "/scenes/" + scene.id, "DELETE", null);
 			this.group.scenes.splice(index, 1);
 			this.app.regenGroupListUI();
-			this.app.setMenu(this.app.datasetPage.genMenu());
+			this.app.setMenu(this.app.datasetPage.genMenu(MenuSelect.Previous));
 			this.app.setPage(this.ui());
 		}
 	}

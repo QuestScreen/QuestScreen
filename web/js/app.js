@@ -1,3 +1,7 @@
+const MenuSelect = {
+	Base: 0, Active: 1, Previous: 2
+}
+
 tmpl.app = {
 	groupEntry: new Template("#tmpl-app-group-entry",
 			function(app, name, groupIndex) {
@@ -14,7 +18,7 @@ tmpl.app = {
 		return this.children[0];
 	}),
 	pageMenuEntry: new Template("#tmpl-app-page-menu-entry",
-			function(app, handler, name, icon, parent) {
+			function(app, controller, handler, name, icon, parent) {
 		const link = this.querySelector(".pure-menu-link");
 		link.insertBefore(document.createTextNode(" " + name), link.firstChild);
 		if (parent != null) {
@@ -30,7 +34,7 @@ tmpl.app = {
 		link.insertBefore(i, link.firstChild);
 
 		link.addEventListener("click", e => {
-			if (app.handlePageMenuClick(link.parentNode)) {
+			if (app.handlePageMenuClick(controller, link.parentNode)) {
 				handler();
 			}
 			e.preventDefault();
@@ -38,43 +42,56 @@ tmpl.app = {
 		return this.children[0];
 	}),
 	dataMenu: new Template("#tmpl-app-data-menu",
-			function(app, controller) {
-		controller.activeMenuEntry = null;
-		const list = this.querySelector(".pure-menu-list");
-		const baseEntry = tmpl.app.pageMenuEntry.render(
-			app, controller.viewBase.bind(controller), "Base", "fa-tools");
-		list.insertBefore(baseEntry, list.firstChild);
-		if (app.activeGroup == -1) {
-			controller.activeMenuEntry = baseEntry;
+			function(app, controller, select) {
+		let selectedId = "0";
+		if (select == MenuSelect.Previous) {
+			if (controller.activeMenuEntry == null) {
+				select = MenuSelect.Base;
+			} else {
+				selectedId = controller.activeMenuEntry.dataset.id;
+			}
 		}
 
+		let runningId = 0;
+
+		const list = this.querySelector(".pure-menu-list");
+		const baseEntry = tmpl.app.pageMenuEntry.render(app, controller,
+			controller.viewBase.bind(controller), "Base", "fa-tools");
+		baseEntry.dataset.id = runningId++;
+		list.insertBefore(baseEntry, list.firstChild);
+
 		let curLast = list.querySelector(".config-menu-system-heading");
-		for (const [index, system] of app.systems.entries()) {
-			const entry = tmpl.app.pageMenuEntry.render(app,
+		for (const system of app.systems) {
+			const entry = tmpl.app.pageMenuEntry.render(app, controller,
 				controller.viewSystem.bind(controller, system), system.name, "fa-book");
+			entry.dataset.id = runningId++;
 			// Safari doesn't support firstElementChild on DocumentFragment
 			curLast = curLast.parentNode.insertBefore(entry, curLast.nextSibling);
-			if (app.activeGroup == -1 && index == 0) {
-				controller.activeMenuEntry = entry;
-			}
 		}
 
 		curLast = this.querySelector(".config-menu-group-heading");
 		for (const [index, group] of app.groups.entries()) {
-			const entry = tmpl.app.pageMenuEntry.render(app,
+			const entry = tmpl.app.pageMenuEntry.render(app, controller,
 				controller.viewGroup.bind(controller, group), group.name, "fa-users");
 			curLast = curLast.parentNode.insertBefore(entry, curLast.nextSibling);
-			if (index == app.activeGroup) {
-				controller.activeMenuEntry = entry;
+			entry.dataset.id = runningId;
+			if (select == MenuSelect.Active && index == app.activeGroup) {
+				selectedId = entry.dataset.id;
 			}
+			runningId++;
 			for (const scene of group.scenes) {
-				const sceneEntry = tmpl.app.pageMenuEntry.render(app,
+				const sceneEntry = tmpl.app.pageMenuEntry.render(app, controller,
 					controller.viewScene.bind(controller, group, scene), scene.name, "fa-image",
 					group.name);
+				sceneEntry.dataset.id = runningId++;
 				curLast = curLast.parentNode.insertBefore(
 					sceneEntry, curLast.nextSibling);
 			}
 		}
+		controller.activeMenuEntry = list.querySelector("li[data-id='" + selectedId + "']");
+		if (controller.activeMenuEntry == null)
+			controller.activeMenuEntry = baseEntry;
+		controller.activeMenuEntry.classList.add("pure-menu-active");
 	}),
 };
 
@@ -123,8 +140,8 @@ class DataPage {
 									datakind.Scene, group.name + " " + scene);
 	}
 
-	genMenu() {
-		return tmpl.app.dataMenu.render(this.app, this);
+	genMenu(select) {
+		return tmpl.app.dataMenu.render(this.app, this, select);
 	}
 
 	updateTitle(item) {
@@ -186,7 +203,7 @@ class App {
 		document.querySelector("#subtitle").textContent = subtitle;
 	}
 
-	handlePageMenuClick(item) {
+	handlePageMenuClick(controller, item) {
 		const pagemenu = document.querySelector("#pagemenu");
 		if (item.classList.contains("pure-menu-active")) {
 			if (pagemenu.classList.contains("pagemenu-expanded")) {
@@ -201,6 +218,8 @@ class App {
 			}
 			item.classList.add("pure-menu-active");
 			pagemenu.classList.remove("pagemenu-expanded");
+			if (controller != null)
+				controller.activeMenuEntry = item;
 			return true;
 		}
 	}
@@ -236,7 +255,7 @@ class App {
 	}
 
 	async showConfig() {
-		this.setMenu(this.cfgPage.genMenu());
+		this.setMenu(this.cfgPage.genMenu(MenuSelect.Active));
 		if (this.cfgPage.activeMenuEntry == null) {
 			const empty = document.createElement("p");
 			empty.textContent = "Select group or system";
@@ -249,7 +268,7 @@ class App {
 	}
 
 	async showDatasets() {
-		this.setMenu(this.datasetPage.genMenu());
+		this.setMenu(this.datasetPage.genMenu(MenuSelect.Base));
 		this.datasetPage.viewBase();
 	}
 

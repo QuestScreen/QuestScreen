@@ -68,7 +68,7 @@ tmpl.state = {
 	menu: new Template("#tmpl-state-menu", function(app, statePage, activeScene) {
 		const list = this.querySelector(".pure-menu-list");
 		for (const [index, scene] of app.groups[app.activeGroup].scenes.entries()) {
-			const entry = tmpl.app.pageMenuEntry.render(app,
+			const entry = tmpl.app.pageMenuEntry.render(app, null,
 				statePage.setScene.bind(statePage, index), scene.name, "fa-image");
 			if (index == activeScene) {
 				entry.classList.add("pure-menu-active");
