@@ -3,7 +3,6 @@ package data
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -19,7 +18,7 @@ type Communication struct {
 
 type jsonModuleConfig []interface{}
 
-type jsonItem struct {
+type jsonSystem struct {
 	Name string `json:"name"`
 	ID   string `json:"id"`
 }
@@ -29,12 +28,18 @@ type jsonHero struct {
 	ID   string `json:"id"`
 }
 
+type jsonScene struct {
+	Name    string `json:"name"`
+	ID      string `json:"id"`
+	Modules []bool `json:"modules"`
+}
+
 type jsonGroup struct {
-	Name        string     `json:"name"`
-	ID          string     `json:"id"`
-	SystemIndex int        `json:"systemIndex"`
-	Heroes      []jsonHero `json:"heroes"`
-	Scenes      []jsonItem `json:"scenes"`
+	Name        string      `json:"name"`
+	ID          string      `json:"id"`
+	SystemIndex int         `json:"systemIndex"`
+	Heroes      []jsonHero  `json:"heroes"`
+	Scenes      []jsonScene `json:"scenes"`
 }
 
 type jsonModuleSetting struct {
@@ -43,9 +48,10 @@ type jsonModuleSetting struct {
 }
 
 type jsonModuleDesc struct {
-	Name   string              `json:"name"`
-	ID     string              `json:"id"`
-	Config []jsonModuleSetting `json:"config"`
+	Name        string              `json:"name"`
+	ID          string              `json:"id"`
+	Config      []jsonModuleSetting `json:"config"`
+	PluginIndex int                 `json:"pluginIndex"`
 }
 
 func jsonFonts(env api.Environment) []string {
@@ -57,20 +63,25 @@ func jsonFonts(env api.Environment) []string {
 	return ret
 }
 
-func (c Communication) systems() []jsonItem {
-	ret := make([]jsonItem, 0, len(c.d.systems))
+func (c Communication) systems() []jsonSystem {
+	ret := make([]jsonSystem, 0, len(c.d.systems))
 	for i := range c.d.systems {
-		ret = append(ret, jsonItem{Name: c.d.systems[i].name,
+		ret = append(ret, jsonSystem{Name: c.d.systems[i].name,
 			ID: c.d.systems[i].id})
 	}
 	return ret
 }
 
-func (c Communication) scenes(g *group) []jsonItem {
-	scenes := make([]jsonItem, 0, len(g.scenes))
+func (c Communication) scenes(g *group) []jsonScene {
+	scenes := make([]jsonScene, 0, len(g.scenes))
 	for i := range g.scenes {
-		scenes = append(scenes, jsonItem{
-			Name: g.scenes[i].name, ID: g.scenes[i].id})
+		s := &g.scenes[i]
+		modules := make([]bool, c.d.owner.NumModules())
+		for j := range modules {
+			modules[j] = s.modules[j].enabled
+		}
+		scenes = append(scenes, jsonScene{
+			Name: g.scenes[i].name, ID: g.scenes[i].id, Modules: modules})
 	}
 	return scenes
 }
@@ -108,9 +119,10 @@ func (c Communication) modules(app app.App) []jsonModuleDesc {
 			modValue.Kind() == reflect.Ptr; modValue = modValue.Elem() {
 		}
 		cur := jsonModuleDesc{
-			Name:   module.Name,
-			ID:     module.ID,
-			Config: make([]jsonModuleSetting, 0, modValue.NumField())}
+			Name:        module.Name,
+			ID:          module.ID,
+			Config:      make([]jsonModuleSetting, 0, modValue.NumField()),
+			PluginIndex: app.ModulePluginIndex(i)}
 		for j := 0; j < modValue.NumField(); j++ {
 			cur.Config = append(cur.Config, jsonModuleSetting{
 				Name: modValue.Type().Field(j).Name,
@@ -137,8 +149,8 @@ func (c Communication) StaticData(app app.App, plugins interface{}) interface{} 
 // the state (systems, groups, scenes, heroes).
 func (c Communication) ViewAll(app app.App) interface{} {
 	return struct {
-		Systems []jsonItem  `json:"systems"`
-		Groups  []jsonGroup `json:"groups"`
+		Systems []jsonSystem `json:"systems"`
+		Groups  []jsonGroup  `json:"groups"`
 	}{Systems: c.systems(), Groups: c.groups()}
 }
 
@@ -195,37 +207,22 @@ func (c Communication) UpdateGroupConfig(raw []byte, g Group) api.SendableError 
 	return c.loadModuleConfigs(raw, g.(*group).modules)
 }
 
-type groupUpdateReceiver struct {
-	data struct {
-		Name        string `json:"name"`
-		SystemIndex int    `json:"systemIndex"`
-	}
-	maxSystems int
-}
-
-func (gur *groupUpdateReceiver) UnmarshalJSON(data []byte) error {
-	if err := json.Unmarshal(data, &gur.data); err != nil {
-		return err
-	}
-	if gur.data.Name == "" {
-		return errors.New("name must not be empty")
-	} else if gur.data.SystemIndex < 0 || gur.data.SystemIndex > gur.maxSystems {
-		return fmt.Errorf("system index outside of required range [0..%d]",
-			gur.maxSystems)
-	}
-	return nil
-}
-
 // UpdateGroup updates a group's name and linked system from a given JSON input.
 // It returns the group's index on success.
 func (c Communication) UpdateGroup(raw []byte, g Group) api.SendableError {
-	value := groupUpdateReceiver{maxSystems: c.d.NumSystems() - 1}
-	if err := api.ReceiveData(raw, &value); err != nil {
+	value := struct {
+		Name        api.ValidatedString `json:"name"`
+		SystemIndex api.ValidatedInt    `json:"systemIndex"`
+	}{
+		Name:        api.ValidatedString{MinLen: 1, MaxLen: -1},
+		SystemIndex: api.ValidatedInt{Min: -1, Max: c.d.NumSystems() - 1},
+	}
+	if err := api.ReceiveData(raw, &api.ValidatedStruct{Value: &value}); err != nil {
 		return err
 	}
 	gr := g.(*group)
-	gr.name = value.data.Name
-	gr.systemIndex = value.data.SystemIndex
+	gr.name = value.Name.Value
+	gr.systemIndex = value.SystemIndex.Value
 	return nil
 }
 
@@ -291,6 +288,28 @@ func isNull(msg json.RawMessage) bool {
 		}
 	}
 	return true
+}
+
+// UpdateScene updates a scene's name
+func (c Communication) UpdateScene(raw []byte, g Group, s Scene) api.SendableError {
+	var modules []bool
+	data := struct {
+		Name    api.ValidatedString `json:"name"`
+		Modules api.ValidatedSlice  `json:"modules"`
+	}{Name: api.ValidatedString{MinLen: 1, MaxLen: -1},
+		Modules: api.ValidatedSlice{Data: &modules,
+			MinItems: int(c.d.owner.NumModules()),
+			MaxItems: int(c.d.owner.NumModules())}}
+	if err := api.ReceiveData(raw, &data); err != nil {
+		return err
+	}
+	sc := s.(*scene)
+	sc.name = data.Name.Value
+	for i := range modules {
+		sc.modules[i].enabled = modules[i]
+	}
+	// TODO: sort scene list anew
+	return nil
 }
 
 func (c Communication) loadModuleConfigInto(target interface{},

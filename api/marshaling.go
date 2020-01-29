@@ -148,3 +148,34 @@ func (vs *ValidatedStruct) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
+
+// ValidatedSlice takes a pointer to a slice as data and deserializes
+// a JSON value into it, checking the required bounds.
+type ValidatedSlice struct {
+	Data     interface{}
+	MinItems int
+	MaxItems int
+}
+
+// UnmarshalJSON loads JSON input into a slice, validating its length
+func (vs *ValidatedSlice) UnmarshalJSON(data []byte) error {
+	sliceType := reflect.TypeOf(vs.Data)
+	sliceValue := reflect.ValueOf(vs.Data)
+	if sliceType.Kind() != reflect.Ptr {
+		panic("gave non-pointer data to ValidatedSlice")
+	}
+	if err := json.Unmarshal(data, vs.Data); err != nil {
+		return err
+	}
+	sliceType = sliceType.Elem()
+	sliceValue = sliceValue.Elem()
+	if sliceType.Kind() != reflect.Slice {
+		panic("ValidatedSlice used on a non-ptr-to-slice value")
+	}
+
+	if sliceValue.Len() < vs.MinItems || sliceValue.Len() > vs.MaxItems {
+		return fmt.Errorf("array length outside of supported length [%d..%d]",
+			vs.MinItems, vs.MaxItems)
+	}
+	return nil
+}

@@ -425,29 +425,29 @@ func (se systemEndpoint) Handle(method httpMethods, ids []string,
 	return nil, se.a.persistence.DeleteSystem(index)
 }
 
-type groupEndpoint struct {
+type dataGroupEndpoint struct {
 	*endpointEnv
 }
 
-func (ge groupEndpoint) Handle(method httpMethods, ids []string,
+func (dge dataGroupEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
-	index, g := ge.a.data.GroupByID(ids[0])
+	index, g := dge.a.data.GroupByID(ids[0])
 	if g == nil {
 		return nil, &api.NotFound{Name: ids[0]}
 	}
 	if method == httpPut {
-		if err := ge.a.communication.UpdateGroup(raw, g); err != nil {
+		if err := dge.a.communication.UpdateGroup(raw, g); err != nil {
 			return nil, err
 		}
-		if err := ge.a.persistence.WriteGroup(g); err != nil {
+		if err := dge.a.persistence.WriteGroup(g); err != nil {
 			log.Println("failed to persist group: " + err.Error())
 		}
 		// TODO: check group index; if active group, update stuff since index could
 		// have been changed due to reordering
 	} else {
-		ge.a.persistence.DeleteGroup(index)
+		dge.a.persistence.DeleteGroup(index)
 	}
-	return ge.a.communication.ViewGroups(), nil
+	return dge.a.communication.ViewGroups(), nil
 }
 
 type dataSystemsEndpoint struct {
@@ -561,6 +561,35 @@ func (dse dataScenesEndpoint) Handle(method httpMethods, ids []string,
 	return dse.a.communication.ViewScenes(group), nil
 }
 
+type dataSceneEndpoint struct {
+	*endpointEnv
+}
+
+func (dse dataSceneEndpoint) Handle(method httpMethods, ids []string,
+	raw []byte) (interface{}, api.SendableError) {
+	_, group := dse.a.data.GroupByID(ids[0])
+	if group == nil {
+		return nil, &api.NotFound{Name: ids[0]}
+	}
+	sceneIndex, scene := group.SceneByID(ids[1])
+	if scene == nil {
+		return nil, &api.NotFound{Name: ids[0]}
+	}
+	if method == httpPut {
+		if err := dse.a.communication.UpdateScene(raw, group, scene); err != nil {
+			return nil, err
+		}
+		if err := dse.a.persistence.WriteScene(group, scene); err != nil {
+			log.Println("failed to persist scene: " + err.Error())
+		}
+		// TODO: check scene index; if active scene, update stuff since index could
+		// have been changed due to reordering
+	} else {
+		dse.a.persistence.DeleteScene(group, sceneIndex)
+	}
+	return dse.a.communication.ViewScenes(group), nil
+}
+
 func startServer(owner *app, events display.Events, port uint16) *http.Server {
 	server := &http.Server{Addr: ":" + strconv.Itoa(int(port))}
 	env := &endpointEnv{a: owner, events: events}
@@ -597,8 +626,9 @@ func startServer(owner *app, events display.Events, port uint16) *http.Server {
 	reg("DataGroupsHandler", "/data/groups",
 		endpoint{httpPost, &dataGroupsEndpoint{env}})
 	reg("DataGroupHandler", "/data/groups/", idCapture{},
-		endpoint{httpPut | httpDelete, &groupEndpoint{env}},
-		pathFragment("scenes"), endpoint{httpPost, &dataScenesEndpoint{env}})
+		endpoint{httpPut | httpDelete, &dataGroupEndpoint{env}},
+		pathFragment("scenes"), endpoint{httpPost, &dataScenesEndpoint{env}},
+		idCapture{}, endpoint{httpPut | httpDelete, &dataSceneEndpoint{env}})
 
 	for i := api.ModuleIndex(0); i < owner.NumModules(); i++ {
 		seenSlash := false

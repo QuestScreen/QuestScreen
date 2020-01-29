@@ -67,6 +67,43 @@
 	</div>
 </div>
 
+<!-- controls -->
+
+<template id="tmpl-controls-switch">
+	<label class="switch">
+		<input type="checkbox">
+		<span class="slider"></span>
+	</label>
+</template>
+
+<template id="tmpl-controls-dropdown">
+	<div class="pure-menu pure-menu-horizontal dropdown-container">
+		<ul class="pure-menu-list">
+			<li class="pure-menu-item pure-menu-has-children dropdown-selector">
+				<a href="#" class="pure-menu-link">
+					<span class="dropdown-caption"></span>
+					<i class="fas fa-caret-down"></i>
+				</a>
+				<ul class="pure-menu-children"></ul>
+			</li>
+		</ul>
+	</div>
+</template>
+
+<template id="tmpl-controls-dropdown-visible">
+	<i class="fas fa-eye dropdown-visible"></i>
+</template>
+<template id="tmpl-controls-dropdown-invisible">
+	<i class="fas fa-eye-slash dropdown-invisible"></i>
+</template>
+<template id="tmpl-controls-dropdown-item">
+  <li class="pure-menu-item">
+	  <a href="#" class="pure-menu-link">
+		  <span class="dropdown-item-name"></span>
+	  </a>
+  </li>
+</template>
+
 <!-- app templates -->
 
 <template id="tmpl-app-group-entry">
@@ -161,35 +198,6 @@
 	</div>
 </template>
 
-<!-- common templates for state -->
-
-<template id="tmpl-state-list-visible">
-	<i class="fas fa-eye state-list-visible"></i>
-</template>
-<template id="tmpl-state-list-invisible">
-	<i class="fas fa-eye-slash state-list-invisible"></i>
-</template>
-<template id="tmpl-state-list-item">
-  <li class="pure-menu-item">
-	  <a href="#" class="pure-menu-link">
-		  <span class="state-list-item-name"></span>
-	  </a>
-  </li>
-</template>
-<template id="tmpl-state-list">
-	<div class="pure-menu pure-menu-horizontal state-list-container">
-		<ul class="pure-menu-list">
-			<li class="pure-menu-item pure-menu-has-children state-list-selector">
-				<a href="#" class="pure-menu-link">
-					<span class="state-list-caption"></span>
-					<i class="fas fa-caret-down"></i>
-				</a>
-				<ul class="pure-menu-children"></ul>
-			</li>
-		</ul>
-	</div>
-</template>
-
 <!-- templates for editing datasets -->
 
 <template id="tmpl-data-base">
@@ -197,7 +205,7 @@
 		<div class="pure-u-1 pure-u-md-1-2">
 			<div class="data-list-container">
 				<div class="pure-menu data-list">
-					<span class="pure-menu-link">Systems</span>
+					<span class="data-list-text">Systems</span>
 					<ul class="pure-menu-list data-system-list">
 						<li class="pure-menu-item data-list-add">
 							<a class="pure-menu-link">
@@ -211,7 +219,7 @@
 		<div class="pure-u-1 pure-u-md-1-2">
 			<div class="data-list-container">
 				<div class="pure-menu data-list">
-					<span class="pure-menu-link">Groups</span>
+					<span class="data-list-text">Groups</span>
 					<ul class="pure-menu-list data-group-list">
 						<li class="pure-menu-item data-list-add">
 							<a class="pure-menu-link">
@@ -227,18 +235,20 @@
 
 <template id="tmpl-data-list-item">
 	<li class="pure-menu-item data-list-item">
-		<span class="pure-menu-link"></span>
+		<span class="data-list-text"></span>
 		<a class="pure-menu-link"><i class="fas"></i></a>
 	</li>
 </template>
 
-<template id="tmpl-data-system">
+<template id="tmpl-data-nameform">
 	<form class="pure-form pure-form-aligned">
 		<fieldset>
 			<div class="pure-control-group">
-					<label for="system-name">Name</label>
-					<input id="system-name" type="text" required />
+					<label>Name</label>
+					<input type="text" name="name" required />
+					<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
 			</div>
+			<!-- possible additional values -->
 
 			<div class="pure-controls">
 				<button class="pure-button revert">Revert</button>
@@ -248,26 +258,28 @@
 	</form>
 </template>
 
+<template id="tmpl-data-system">
+	<article>
+		<!-- nameform injected here -->
+	</article>
+</template>
+
+<template id="tmpl-data-group-system-selector">
+	<div class="pure-control-group">
+		<label>System</label>
+		<!-- system selector dropdown injected here -->
+		<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
+	</div>
+</template>
+
 <template id="tmpl-data-group">
 	<article>
-		<form class="pure-form pure-form-aligned">
-			<fieldset>
-				<div class="pure-control-group">
-						<label for="group-name">Name</label>
-						<input id="group-name" type="text" required />
-				</div>
-
-				<div class="pure-controls">
-					<button class="pure-button revert">Revert</button>
-					<button type="submit" class="pure-button pure-button-primary">Save</button>
-				</div>
-			</fieldset>
-		</form>
+		<!-- nameform injected here -->
 		<div class="pure-g">
 			<div class="pure-u-1 pure-u-md-1-2">
 				<div class="data-list-container">
 					<div class="pure-menu data-list">
-						<span class="pure-menu-link">Scenes</span>
+						<span class="data-list-text">Scenes</span>
 						<ul class="pure-menu-list data-scene-list">
 							<li class="pure-menu-item data-list-add">
 								<a class="pure-menu-link">
@@ -281,7 +293,7 @@
 			<div class="pure-u-1 pure-u-md-1-2">
 				<div class="data-list-container">
 					<div class="pure-menu data-list">
-						<span class="pure-menu-link">Heroes</span>
+						<span class="data-list-text">Heroes</span>
 						<ul class="pure-menu-list data-hero-list">
 							<li class="pure-menu-item data-list-add">
 								<a class="pure-menu-link">
@@ -293,6 +305,36 @@
 				</div>
 			</div>
 		</div>
+	</article>
+</template>
+
+<template id="tmpl-data-scene-module">
+	<li class="pure-menu-item data-list-item">
+		<span class="data-list-text">
+			<span class="plugin-name"></span>
+			<i class="fas fa-angle-right"></i>
+			<span class="module-name"></span>
+		</span>
+		<span class="module-toggle">
+			<!-- switch goes here -->
+		</span>
+		<span class="data-list-text edited"><i class="fas fa-edit"></i></span>
+	</li>
+</template>
+
+<template id="tmpl-data-scene-modules">
+	<div class="pure-control-group">
+		<label>Modules</label>
+		<div class="pure-menu data-module-list">
+			<ul class="pure-menu-list data-module-list">
+			</ul>
+		</div>
+	</div>
+</template>
+
+<template id="tmpl-data-scene">
+	<article>
+		<!-- nameform with included tmpl-data-scene-modules injected here -->
 	</article>
 </template>
 

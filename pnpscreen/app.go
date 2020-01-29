@@ -33,13 +33,18 @@ func (r *resourceFile) Path() string {
 	return r.path
 }
 
+type moduleData struct {
+	api.Module
+	pluginIndex int
+}
+
 // app is the main application. it implements api.Environment and app.App.
 // this is logically a singleton, multiple instances are not supported.
 type app struct {
 	dataDir             string
 	fonts               []api.FontFamily
 	defaultBorderWidth  int32
-	modules             []api.Module
+	modules             []moduleData
 	plugins             []*api.Plugin
 	resourceCollections [][][]resourceFile
 	data                data.Data
@@ -91,13 +96,13 @@ func (a *app) Init(fullscreen bool, events display.Events, port uint16) {
 	if a.fonts == nil {
 		panic("No font available. PnP Screen needs at least one font.")
 	}
-	a.modules = make([]api.Module, 0, 32)
+	a.modules = make([]moduleData, 0, 32)
 	a.resourceCollections = make([][][]resourceFile, 0, 32)
 	a.activeGroupIndex = -1
 	a.activeSystemIndex = -1
 
 	a.html = appendAssets(a.html, "web/html/index-top.html")
-	a.js = appendAssets(a.js, "web/js/ui.js", "web/js/template.js",
+	a.js = appendAssets(a.js, "web/js/template.js", "web/js/controls.js",
 		"web/js/popup.js", "web/js/datasets.js",
 		"web/js/config.js", "web/js/app.js", "web/js/state.js")
 	a.css = appendAssets(a.css, "web/css/style.css", "web/css/color.css")
@@ -120,7 +125,20 @@ func (a *app) DataDir(subdirs ...string) string {
 }
 
 func (a *app) ModuleAt(index api.ModuleIndex) api.Module {
-	return a.modules[index]
+	return a.modules[index].Module
+}
+
+func (a *app) moduleByID(id string) (index int, module api.Module) {
+	for i := range a.modules {
+		if a.modules[i].Module.Descriptor().ID == id {
+			return i, a.modules[i].Module
+		}
+	}
+	return -1, nil
+}
+
+func (a *app) ModulePluginIndex(index api.ModuleIndex) int {
+	return a.modules[index].pluginIndex
 }
 
 func (a *app) NumModules() api.ModuleIndex {
@@ -193,12 +211,12 @@ func (a *app) registerModule(descr *api.ModuleDescriptor,
 		a.resourceCollections = a.resourceCollections[:len(a.resourceCollections)-1]
 		return err
 	}
-	a.modules = append(a.modules, module)
+	a.modules = append(a.modules, moduleData{module, len(a.plugins)})
 	return nil
 }
 
 func (a *app) registerPlugin(plugin *api.Plugin, renderer *sdl.Renderer) error {
-	println("Loading plugin", plugin.Name)
+	log.Println("Loading plugin", plugin.Name)
 	if js := plugin.AdditionalJS; js != nil {
 		a.js = append(a.js, '\n')
 		a.js = append(a.js, js...)
@@ -214,7 +232,8 @@ func (a *app) registerPlugin(plugin *api.Plugin, renderer *sdl.Renderer) error {
 	modules := plugin.Modules
 	for i := range modules {
 		if err := a.registerModule(modules[i], renderer); err != nil {
-			return err
+			log.Println("While registering module " + plugin.Name + " > " + modules[i].Name + ":")
+			log.Println("  " + err.Error())
 		}
 	}
 	a.plugins = append(a.plugins, plugin)

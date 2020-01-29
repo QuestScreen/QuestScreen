@@ -9,6 +9,9 @@ const datasets = {
 			addHandler.call(ctrl);
 			e.preventDefault();
 		});
+	},
+	setEdited: function() {
+		this.parentNode.classList.add("edited");
 	}
 }
 
@@ -29,6 +32,39 @@ tmpl.data = {
 			link.querySelector("i").classList.add("fa-cubes");
 		}
 	}),
+	nameform: new Template("#tmpl-data-nameform", function(
+			itemName, ctrl, additionalUI) {
+		const id = itemName + "-name";
+		const input = this.querySelector("input");
+		input.id = id;
+		input.value = ctrl[itemName].name;
+		input.addEventListener("input", datasets.setEdited);
+		this.querySelector("label").htmlFor = id;
+		const form = this.children[0];
+		if (additionalUI) {
+			const fieldset = form.querySelector("fieldset");
+			const controls = fieldset.querySelector(".pure-controls");
+			fieldset.insertBefore(additionalUI, controls);
+		}
+		form.addEventListener("submit", function (e) {
+			ctrl.save.call(ctrl, this);
+			for (const controlGroup of form.querySelectorAll(".pure-control-group")) {
+				controlGroup.classList.remove("edited");
+			}
+			e.preventDefault();
+		});
+		form.querySelector("button.revert").addEventListener("click", e => {
+			input.value = ctrl[itemName].name;
+			if (ctrl.revert) {
+				ctrl.revert.call(ctrl, additionalUI);
+			}
+			for (const controlGroup of form.querySelectorAll(".pure-control-group")) {
+				controlGroup.classList.remove("edited");
+			}
+			e.preventDefault();
+		});
+		return form;
+	}),
 	base: new Template("#tmpl-data-base", function(app, ctrl) {
 		datasets.genList(this.querySelector(".data-system-list"), app.systems,
 				ctrl, ctrl.delSystem, ctrl.createSystem, app.numPluginSystems);
@@ -36,31 +72,52 @@ tmpl.data = {
 				ctrl, ctrl.delGroup, ctrl.createGroup, 0);
 	}),
 	system: new Template("#tmpl-data-system", function(ctrl, system) {
-		const form = this.children[0];
-		form.querySelector("#system-name").value = system.name;
-		form.addEventListener("submit", function (e) {
-			ctrl.save.call(ctrl, this);
-			e.preventDefault();
+		const article = this.children[0];
+		article.appendChild(tmpl.data.nameform.render("system", ctrl,
+				null));
+		return article;
+	}),
+	groupSystemSelector: new Template("#tmpl-data-group-system-selector",
+			function(ctrl) {
+		const controlGroup = this.children[0];
+		const systemSelect = ctrl.systemSelector.ui(ctrl.app, () => {
+			controlGroup.classList.add("edited");
 		});
-		form.querySelector("button.revert").addEventListener("click", e => {
-			form.querySelector("#system-name").value = system.name;
-			e.preventDefault();
-		});
-		return form;
+		const label = controlGroup.querySelector("label");
+		controlGroup.insertBefore(systemSelect, label.nextSibling);
+		return controlGroup;
 	}),
 	group: new Template("#tmpl-data-group", function(ctrl, group) {
-		this.querySelector("#group-name").value = group.name;
-		this.querySelector("form").addEventListener("submit", function (e) {
-			ctrl.save.call(ctrl, this);
-			e.preventDefault();
-		});
-		this.querySelector("button.revert").addEventListener("click", e => {
-			form.querySelector("#group-name").value = group.name;
-		});
+		const article = this.children[0];
+		article.insertBefore(tmpl.data.nameform.render("group", ctrl,
+				tmpl.data.groupSystemSelector.render(ctrl)), article.firstChild);
 		datasets.genList(this.querySelector(".data-scene-list"), group.scenes,
 				ctrl, ctrl.delScene, ctrl.createScene, 1);
 		datasets.genList(this.querySelector(".data-hero-list"), group.heroes,
 				ctrl, ctrl.delHero, ctrl.createHero, 0);
+	}),
+	sceneModule: new Template("#tmpl-data-scene-module",
+			function(app, ctrl, module, index) {
+		this.querySelector(".plugin-name").textContent =
+				app.plugins[module.pluginIndex].name;
+		this.querySelector(".module-name").textContent = module.name;
+		this.querySelector(".module-toggle").appendChild(tmpl.controls.switch.render(
+				module.id, ctrl.toggle.bind(ctrl, index), ctrl.scene.modules[index]));
+		return this.children[0];
+	}),
+	sceneModules: new Template("#tmpl-data-scene-modules", function(app, ctrl) {
+		const list = this.querySelector(".data-module-list");
+		for (const [index, module] of app.modules.entries()) {
+			list.appendChild(tmpl.data.sceneModule.render(
+				app, ctrl, module, index));
+		}
+		return this.children[0];
+	}),
+	scene: new Template("#tmpl-data-scene", function(app, ctrl, scene) {
+		const article = this.querySelector("article");
+		article.insertBefore(tmpl.data.nameform.render("scene", ctrl,
+				tmpl.data.sceneModules.render(app, ctrl)), article.firstChild);
+		return article;
 	})
 }
 
@@ -148,16 +205,39 @@ class SystemDataView {
 	}
 }
 
+class SystemSelector extends DropdownSelector {
+	constructor(curIndex) {
+		super(SelectorKind.atMostOne, true, null);
+		this.curIndex = curIndex;
+		this.originalIndex = curIndex;
+	}
+
+	ui(app, changeHandler) {
+		const captions = app.systems.map(s => s.name);
+		this.changeHandler = changeHandler;
+		return this.genUi(this.curIndex, captions);
+	}
+
+	async itemClick(index) {
+		this.curIndex = index;
+		this.setItemSelected(index, true);
+		this.changeHandler();
+	}
+}
+
 class GroupDataView {
 	constructor(app, url, group) {
 		this.app = app;
 		this.url = url;
 		this.group = group;
+		this.systemSelector = new SystemSelector(group.systemIndex);
 	}
 
 	async save(form) {
 		this.app.groups = await App.fetch(this.url, "PUT",
-				{name: form.querySelector("#group-name").value});
+				{name: form.querySelector("#group-name").value,
+				 systemIndex: this.systemSelector.curIndex});
+		this.systemSelector.originalIndex = this.systemSelector.curIndex;
 		for (const g of this.app.groups) {
 			if (g.id == this.group.id) {
 				this.group = g;
@@ -167,6 +247,10 @@ class GroupDataView {
 		this.app.setMenu(this.app.datasetPage.genMenu(MenuSelect.Previous));
 		this.app.setPage(this.ui());
 		this.app.datasetPage.updateTitle(this.group);
+	}
+
+	revert() {
+		this.systemSelector.itemClick(this.systemSelector.originalIndex);
 	}
 
 	async createScene() {
@@ -214,10 +298,48 @@ class GroupDataView {
 }
 
 class SceneDataView {
-	constructor(app, url, scene) {
+	constructor(app, url, group, scene) {
 		this.app = app;
 		this.url = url;
 		this.scene = scene;
+		this.group = group;
+		this.curModules = [...scene.modules];
+	}
+
+	async save(form) {
+		this.group.scenes = await App.fetch(this.url, "PUT",
+				{name: form.querySelector("#scene-name").value,
+			   modules: this.curModules});
+		for (const s of this.group.scenes) {
+			if (s.id == this.scene.id) {
+				this.scene = s;
+				break;
+			}
+		}
+		for (const item of form.querySelectorAll(".data-list-item")) {
+			item.classList.remove("edited");
+		}
+		this.curModules = [...this.scene.modules];
+		this.app.setMenu(this.app.datasetPage.genMenu(MenuSelect.Previous));
+		this.app.setPage(this.ui());
+		this.app.datasetPage.updateTitle({name: this.group.name + ' ' + this.scene.name});
+	}
+
+	revert(ui) {
+		this.curModules = [...this.scene.modules];
+		for (const [index, input] of ui.querySelectorAll("label.switch > input").entries()) {
+			input.checked = this.curModules[index];
+			input.parentNode.parentNode.parentNode.classList.remove("edited");
+		}
+	}
+
+	async toggle(index, input) {
+		this.curModules[index] = input.checked;
+		input.parentNode.parentNode.parentNode.classList.add("edited");
+	}
+
+	ui() {
+		return tmpl.data.scene.render(this.app, this, this.scene);
 	}
 }
 
@@ -226,6 +348,7 @@ function genDatasetView(app, kind, url, item) {
 		case datakind.Base: return new BaseDataView(app, url);
 		case datakind.System: return new SystemDataView(app, url, item);
 		case datakind.Group: return new GroupDataView(app, url, item);
-		case datakind.Scene: return new SceneDataView(app, url, item);
+		case datakind.Scene:
+			return new SceneDataView(app, url, item.group, item.scene);
 	}
 }

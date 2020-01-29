@@ -12,6 +12,7 @@ type App interface {
 	DataDir(subdirs ...string) string
 	NumModules() api.ModuleIndex
 	ModuleAt(index api.ModuleIndex) api.Module
+	ModulePluginIndex(index api.ModuleIndex) int
 	NumPlugins() int
 	Plugin(index int) *api.Plugin
 }

@@ -136,8 +136,9 @@ class DataPage {
 	}
 
 	async viewScene(group, scene) {
-		this.loadView("/groups/" + group.id + "/scenes/" + scene.id,
-									datakind.Scene, group.name + " " + scene);
+		this.loadView("/groups/" + group.id + "/scenes/" + scene.id, datakind.Scene,
+				{group: group, scene: scene,
+				 name: group.name + " " + scene.name});
 	}
 
 	genMenu(select) {

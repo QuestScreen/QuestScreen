@@ -61,6 +61,68 @@ hr {
 	margin-right: auto;
 }
 
+/* controls */
+
+/* switch taken from https://www.w3schools.com/howto/howto_css_switch.asp
+   and modified */
+
+ .switch {
+  position: relative;
+  display: inline-block !important;
+  width: 2.4em !important;
+	height: 1.4em; /* 34px */
+	/* revert stuff possibly imposed by .pure-control-group label */
+	margin: revert !important;
+	vertical-align: revert !important;
+	text-align: revert !important;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  -webkit-transition: .4s;
+	transition: .4s;
+	border-radius: .7em; /* 34px */
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 1em;
+  width: 1em;
+  left: .2em;
+  bottom: .2em;
+  background-color: white;
+  -webkit-transition: .2s;
+	transition: .2s;
+	border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 .2em #2196F3;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(1em);
+  -ms-transform: translateX(1em);
+  transform: translateX(1em);
+}
+
 /* popup */
 
 #popup-wrapper {
@@ -321,19 +383,19 @@ article {
 
 /* config & state */
 
-.state-list-container {
+.dropdown-container {
 	display: inline;
 }
 
-.pure-menu-selected .state-list-invisible {
+.pure-menu-selected .dropdown-invisible {
 	visibility: hidden;
 }
 
-.state-list-visible {
+.dropdown-visible {
 	visibility: hidden;
 }
 
-.pure-menu-selected .state-list-visible {
+.pure-menu-selected .dropdown-visible {
 	visibility: visible;
 }
 
@@ -380,10 +442,28 @@ article {
 	display: flex;
 }
 
-.data-list-item > span {
+.data-list-text {
+	display: block;
+	padding: .5em 1em;
+}
+
+.data-list-item > :first-child {
 	flex: 1 1 auto;
 }
 
-.data-list-item > a {
+.data-list-item > :not(:first-child) {
 	flex: 0 1 auto;
+}
+
+.pure-control-group:not(.edited) .pure-form-message-inline.edited,
+.data-list-item:not(.edited) span.edited {
+	visibility: hidden;
+}
+
+.pure-form-aligned .data-module-list {
+	display: inline-block;
+}
+
+.module-toggle {
+	padding: .5em 0;
 }

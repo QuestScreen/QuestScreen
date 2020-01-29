@@ -1,17 +1,17 @@
 
-class Background extends ListSelector {
+class Background extends DropdownSelector {
 	constructor() {
 		super(SelectorKind.atMostOne, true, null);
 		this.id = "background";
 	}
 
 	ui(app, state) {
-		return this.genListUi(state.curIndex, state.items);
+		return this.genUi(state.curIndex, state.items);
 	}
 
-	async listItemClick(index) {
+	async itemClick(index) {
 		await App.fetch("state/background", "PUT", index);
-		this.setListItemSelected(index, true);
+		this.setItemSelected(index, true);
 	}
 }
 
@@ -29,7 +29,7 @@ tmpl.herolist = {
 	})
 }
 
-class HeroList extends ListSelector {
+class HeroList extends DropdownSelector {
 	constructor() {
 		super(SelectorKind.multiple, false, "Heroes");
 		this.id = "herolist";
@@ -37,15 +37,15 @@ class HeroList extends ListSelector {
 
 	ui(app, state) {
 		const captions = app.groups[app.activeGroup].heroes.map(h => h.name);
-		const listUI = this.genListUi(state.heroes, captions);
+		const listUI = this.genUi(state.heroes, captions);
 		return tmpl.herolist.state.render(state, this, listUI);
 	}
 
-	async listItemClick(index) {
+	async itemClick(index) {
 		const shown = await App.fetch(
 			"state/herolist/" + app.groups[app.activeGroup].heroes[index].id, "PUT",
 			!this.uiItems[index].classList.contains("pure-menu-selected"));
-		this.setListItemSelected(index, shown);
+		this.setItemSelected(index, shown);
 	}
 
 	async swapAll(node) {
@@ -61,7 +61,7 @@ class HeroList extends ListSelector {
 	}
 }
 
-class Overlays extends ListSelector {
+class Overlays extends DropdownSelector {
 	constructor() {
 		super(SelectorKind.multiple, true, "Overlays");
 		this.id = "overlays";
@@ -70,14 +70,14 @@ class Overlays extends ListSelector {
 	ui(app, state) {
 		const captions = state.map(s => s.name);
 		const visible = state.map(s => s.selected);
-		return this.genListUi(visible, captions);
+		return this.genUi(visible, captions);
 	}
 
-	async listItemClick(index) {
+	async itemClick(index) {
 		const visible = await App.fetch("state/overlays", "PUT",
 				{resourceIndex: index, visible:
 					!this.uiItems[index].classList.contains("pure-menu-selected")});
-		this.setListItemSelected(index, visible);
+		this.setItemSelected(index, visible);
 	}
 }
 
