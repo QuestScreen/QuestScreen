@@ -12,8 +12,7 @@ nav > div > a:active {
 }
 
 nav .pure-menu-link,
-nav .pure-menu-heading,
-.data-list .pure-menu-link {
+nav .pure-menu-heading {
   color: black;
 }
 
@@ -29,7 +28,29 @@ hr {
   background-color: #333;
 }
 
-.data-list-item > a.enabled:hover,
-.data-list-item > a.enabled:active {
+.data-list-link.delete:hover,
+.data-list-link.delete:active {
 	background-color: red;
+}
+
+.data-list-link.create:hover {
+  background-color: green;
+}
+
+.data-sheet {
+  background-color: #eeeeaa;
+}
+
+.data-sheet > div:first-child,
+.data-sheet .data-sheet-header,
+.data-sheet > .data-sheet-delete {
+  background-color: #aaaa77;
+}
+
+.data-sheet > .data-sheet-delete:hover {
+  background-color: red;
+}
+
+.data-list-item:hover {
+  background-color: #cccc99;
 }

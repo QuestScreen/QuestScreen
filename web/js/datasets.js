@@ -1,11 +1,11 @@
 const datasets = {
 	genList: function(list, items, ctrl, delHandler, addHandler, firstRemovable) {
-		const adder = list.querySelector(".data-list-add");
+		const adder = list.querySelector(".data-list-link");
 		for (const [index, item] of items.entries()) {
 			list.insertBefore(tmpl.data.listItem.render(
 				index, item, ctrl, delHandler, firstRemovable <= index), adder);
 		}
-		adder.querySelector(".pure-menu-link").addEventListener("click", e => {
+		adder.addEventListener("click", e => {
 			addHandler.call(ctrl);
 			e.preventDefault();
 		});
@@ -21,26 +21,25 @@ tmpl.data = {
 		this.querySelector("span").textContent = item.name;
 		const link = this.querySelector("a");
 		if (removable) {
-			link.href = "#";
 			link.addEventListener("click", e => {
 				handler.call(ctrl, index);
 				e.preventDefault();
 			});
-			link.classList.add("enabled");
+			link.classList.add("delete");
 			link.querySelector("i").classList.add("fa-minus-square");
 		} else {
 			link.querySelector("i").classList.add("fa-cubes");
 		}
 	}),
-	nameform: new Template("#tmpl-data-nameform", function(
+	general: new Template("#tmpl-data-general", function(
 			itemName, ctrl, additionalUI) {
 		const id = itemName + "-name";
-		const input = this.querySelector("input");
+		const form = this.querySelector("form");
+		const input = form.querySelector("input");
 		input.id = id;
 		input.value = ctrl[itemName].name;
 		input.addEventListener("input", datasets.setEdited);
-		this.querySelector("label").htmlFor = id;
-		const form = this.children[0];
+		form.querySelector("label").htmlFor = id;
 		if (additionalUI) {
 			const fieldset = form.querySelector("fieldset");
 			const controls = fieldset.querySelector(".pure-controls");
@@ -53,7 +52,7 @@ tmpl.data = {
 			}
 			e.preventDefault();
 		});
-		form.querySelector("button.revert").addEventListener("click", e => {
+		form.addEventListener("reset", e => {
 			input.value = ctrl[itemName].name;
 			if (ctrl.revert) {
 				ctrl.revert.call(ctrl, additionalUI);
@@ -63,39 +62,92 @@ tmpl.data = {
 			}
 			e.preventDefault();
 		});
-		return form;
+		return this.children[0];
 	}),
 	base: new Template("#tmpl-data-base", function(app, ctrl) {
-		datasets.genList(this.querySelector(".data-system-list"), app.systems,
+		datasets.genList(this.querySelector(".systems"), app.systems,
 				ctrl, ctrl.delSystem, ctrl.createSystem, app.numPluginSystems);
-		datasets.genList(this.querySelector(".data-group-list"), app.groups,
+		datasets.genList(this.querySelector(".groups"), app.groups,
 				ctrl, ctrl.delGroup, ctrl.createGroup, 0);
 	}),
 	system: new Template("#tmpl-data-system", function(ctrl, system) {
 		const article = this.children[0];
-		article.appendChild(tmpl.data.nameform.render("system", ctrl,
+		article.appendChild(tmpl.data.general.render("system", ctrl,
 				null));
 		return article;
 	}),
-	groupSystemSelector: new Template("#tmpl-data-group-system-selector",
-			function(ctrl) {
-		const controlGroup = this.children[0];
-		const systemSelect = ctrl.systemSelector.ui(ctrl.app, () => {
-			controlGroup.classList.add("edited");
-		});
-		const label = controlGroup.querySelector("label");
-		controlGroup.insertBefore(systemSelect, label.nextSibling);
-		return controlGroup;
-	}),
-	group: new Template("#tmpl-data-group", function(ctrl, group) {
-		const article = this.children[0];
-		article.insertBefore(tmpl.data.nameform.render("group", ctrl,
-				tmpl.data.groupSystemSelector.render(ctrl)), article.firstChild);
-		datasets.genList(this.querySelector(".data-scene-list"), group.scenes,
-				ctrl, ctrl.delScene, ctrl.createScene, 1);
-		datasets.genList(this.querySelector(".data-hero-list"), group.heroes,
-				ctrl, ctrl.delHero, ctrl.createHero, 0);
-	}),
+	group: {
+		systemSelector: new Template("#tmpl-data-group-system-selector",
+				function(ctrl) {
+			const controlGroup = this.children[0];
+			const systemSelect = ctrl.systemSelector.ui(ctrl.app, () => {
+				controlGroup.classList.add("edited");
+			});
+			const label = controlGroup.querySelector("label");
+			controlGroup.insertBefore(systemSelect, label.nextSibling);
+			return controlGroup;
+		}),
+		hero: new Template("#tmpl-data-group-hero", function(ctrl, hero, index) {
+			const sheet = this.children[0];
+			const form = sheet.querySelector("form");
+			const submit = form.querySelector("button.pure-button-primary");
+			const cancel = form.querySelector("button.revert");
+			const nameInput = form.querySelector('input[name="name"]');
+			const descrInput = form.querySelector('input[name="description"]');
+			const deleteButton = sheet.querySelector(".data-sheet-delete");
+			if (hero) {
+				nameInput.value = hero.name;
+				descrInput.value = hero.description;
+				nameInput.addEventListener("input", datasets.setEdited);
+				descrInput.addEventListener("input", datasets.setEdited);
+				deleteButton.addEventListener(
+						"click", e => {
+					ctrl.delHero.call(ctrl, index);
+					e.preventDefault();
+				});
+				form.addEventListener("reset", e => {
+					nameInput.value = hero.name;
+					descrInput.value = hero.description;
+					nameInput.parentNode.classList.remove("edited");
+					descrInput.parentNode.classList.remove("edited");
+					e.preventDefault();
+				});
+			} else {
+				sheet.classList.add("create");
+				sheet.addEventListener("click", () => {
+					sheet.classList.add("active");
+				});
+				form.querySelector(".data-sheet-header").textContent = "Create Hero";
+				submit.textContent = "Create";
+				cancel.textContent = "Cancel";
+				form.addEventListener("reset", e => {
+					nameInput.value = "";
+					descrInput.value = "";
+					sheet.classList.remove("active");
+					e.preventDefault();
+				});
+				sheet.removeChild(deleteButton);
+			}
+			form.addEventListener("submit", e => {
+				const data = {name: nameInput.value, description: descrInput.value};
+				ctrl.submitHeroData(data, hero);
+				e.preventDefault();
+			});
+			return sheet;
+		}),
+		view: new Template("#tmpl-data-group", function(ctrl, group) {
+			const article = this.children[0];
+			article.insertBefore(tmpl.data.general.render("group", ctrl,
+					tmpl.data.group.systemSelector.render(ctrl)), article.firstChild);
+			datasets.genList(this.querySelector(".scenes"), group.scenes,
+					ctrl, ctrl.delScene, ctrl.createScene, 1);
+			for (const [index, hero] of group.heroes.entries()) {
+				article.appendChild(tmpl.data.group.hero.render(ctrl, hero, index));
+			}
+			article.appendChild(tmpl.data.group.hero.render(ctrl, null, -1));
+			return article;
+		})
+	},
 	sceneModule: new Template("#tmpl-data-scene-module",
 			function(app, ctrl, module, index) {
 		this.querySelector(".plugin-name").textContent =
@@ -106,7 +158,7 @@ tmpl.data = {
 		return this.children[0];
 	}),
 	sceneModules: new Template("#tmpl-data-scene-modules", function(app, ctrl) {
-		const list = this.querySelector(".data-module-list");
+		const list = this.querySelector(".modules");
 		for (const [index, module] of app.modules.entries()) {
 			list.appendChild(tmpl.data.sceneModule.render(
 				app, ctrl, module, index));
@@ -115,7 +167,7 @@ tmpl.data = {
 	}),
 	scene: new Template("#tmpl-data-scene", function(app, ctrl, scene) {
 		const article = this.querySelector("article");
-		article.insertBefore(tmpl.data.nameform.render("scene", ctrl,
+		article.insertBefore(tmpl.data.general.render("scene", ctrl,
 				tmpl.data.sceneModules.render(app, ctrl)), article.firstChild);
 		return article;
 	})
@@ -278,10 +330,6 @@ class GroupDataView {
 		}
 	}
 
-	async createHero() {
-		alert("TODO");
-	}
-
 	async delHero(index) {
 		const hero = this.group.heroes[index];
 		const popup = new ConfirmPopup("Really delete hero " + hero.name + "?");
@@ -292,8 +340,17 @@ class GroupDataView {
 		}
 	}
 
+	async submitHeroData(data, hero) {
+		const url = this.url + (hero == null ? "/heroes" : "/heroes/" + hero.id);
+		const ret = await App.fetch(url, hero == null ? "POST" : "PUT", data);
+		if (hero == null) {
+			this.group.heroes.push(ret);
+		}
+		this.app.setPage(this.ui());
+	}
+
 	ui() {
-		return tmpl.data.group.render(this, this.group);
+		return tmpl.data.group.view.render(this, this.group);
 	}
 }
 

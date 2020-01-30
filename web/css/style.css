@@ -195,6 +195,11 @@ input:checked + .slider:before {
 	height: 0 !important;
 }
 
+#popup .template-identifier {
+	color: black;
+	margin-top: .2em;
+}
+
 #popup .template-descr {
 	margin-bottom: .2em;
 }
@@ -387,6 +392,11 @@ article {
 	display: inline;
 }
 
+.dropdown-selector > .pure-menu-link,
+.dropdown-selector > .pure-menu-link:visited {
+	color: black;
+}
+
 .pure-menu-selected .dropdown-invisible {
 	visibility: hidden;
 }
@@ -429,13 +439,12 @@ article {
 }
 
 .data-list {
-	display: inline-block;
-	background-color: gray;
+	display: flex;
+	flex-direction: column;
 }
 
-.data-list > span {
-	font-weight: bold;
-	text-align: center;
+.data-list.modules {
+	display: inline-flex;
 }
 
 .data-list-item {
@@ -451,8 +460,22 @@ article {
 	flex: 1 1 auto;
 }
 
+.data-list.modules > .data-list-item > :first-child {
+	padding-left: 0;
+}
+
 .data-list-item > :not(:first-child) {
 	flex: 0 1 auto;
+}
+
+.data-list-link {
+	padding: .5em 1em;
+	text-align: center;
+}
+
+.data-list-link.delete,
+.data-list-item.create {
+	cursor: pointer;
 }
 
 .pure-control-group:not(.edited) .pure-form-message-inline.edited,
@@ -460,10 +483,58 @@ article {
 	visibility: hidden;
 }
 
-.pure-form-aligned .data-module-list {
-	display: inline-block;
-}
-
 .module-toggle {
 	padding: .5em 0;
+}
+
+.data-sheet {
+	display: inline-flex;
+	margin: .5em;
+	vertical-align: top;
+}
+
+.data-sheet > div:first-child,
+.data-sheet > a.data-sheet-delete {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	text-align: center;
+
+}
+
+.data-sheet > div:first-child i,
+.data-sheet > a.data-sheet-delete i {
+	flex: 0 0 auto;
+	width: 1.75em;
+}
+
+.data-sheet-header {
+	margin: 0;
+	padding: .5em 1em;
+}
+
+.data-sheet form > fieldset {
+	margin: .75em;
+	padding: 0;
+}
+
+.data-sheet.create:not(.active) h4 {
+	cursor: pointer;
+}
+
+.data-sheet.create:not(.active) form > fieldset {
+	display: none;
+}
+
+.data-sheet form.pure-form .pure-control-group {
+	white-space: nowrap;
+}
+
+.data-sheet form.pure-form .pure-control-group label {
+	width: 6em;
+}
+
+.data-sheet form.pure-form .pure-controls {
+	margin: 0;
+	text-align: right;
 }

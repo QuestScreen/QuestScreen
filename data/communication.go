@@ -24,8 +24,9 @@ type jsonSystem struct {
 }
 
 type jsonHero struct {
-	Name string `json:"name"`
-	ID   string `json:"id"`
+	Name        string `json:"name"`
+	ID          string `json:"id"`
+	Description string `json:"description"`
 }
 
 type jsonScene struct {
@@ -94,7 +95,8 @@ func (c Communication) groups() []jsonGroup {
 		heroes := make([]jsonHero, 0, len(source.data))
 		for j := range source.data {
 			heroes = append(heroes,
-				jsonHero{Name: source.data[j].Name(), ID: source.data[j].ID()})
+				jsonHero{Name: source.data[j].name, ID: source.data[j].id,
+					Description: source.data[j].description})
 		}
 		source.mutex.Unlock()
 
