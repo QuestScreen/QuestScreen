@@ -59,7 +59,7 @@ type sceneModule struct {
 type Scene interface {
 	Name() string
 	ID() string
-	UsesModule(moduleIndex api.ModuleIndex) bool
+	UsesModule(moduleIndex app.ModuleIndex) bool
 }
 
 type scene struct {
@@ -76,7 +76,7 @@ func (s *scene) ID() string {
 	return s.id
 }
 
-func (s *scene) UsesModule(moduleIndex api.ModuleIndex) bool {
+func (s *scene) UsesModule(moduleIndex app.ModuleIndex) bool {
 	return s.modules[moduleIndex].enabled
 }
 
@@ -85,25 +85,25 @@ type heroList struct {
 	data  []hero
 }
 
-func (h *heroList) Hero(index int) api.Hero {
-	return &h.data[index]
+func (hl *heroList) Hero(index int) api.Hero {
+	return &hl.data[index]
 }
 
-func (h *heroList) HeroByID(id string) api.Hero {
-	for i := range h.data {
-		if h.data[i].id == id {
-			return &h.data[i]
+func (hl *heroList) HeroByID(id string) (index int, h api.Hero) {
+	for i := range hl.data {
+		if hl.data[i].id == id {
+			return i, &hl.data[i]
 		}
 	}
-	return nil
+	return -1, nil
 }
 
-func (h *heroList) NumHeroes() int {
-	return len(h.data)
+func (hl *heroList) NumHeroes() int {
+	return len(hl.data)
 }
 
-func (h *heroList) Close() {
-	h.mutex.Unlock()
+func (hl *heroList) Close() {
+	hl.mutex.Unlock()
 }
 
 // Group describes a Pen & Paper group / party
@@ -114,7 +114,7 @@ type Group interface {
 	NumScenes() int
 	Scene(index int) Scene
 	SceneByID(id string) (index int, s Scene)
-	ViewHeroes() api.HeroView
+	ViewHeroes() app.HeroView
 }
 
 // group implements api.HeroList.
@@ -156,7 +156,7 @@ func (g *group) SceneByID(id string) (index int, s Scene) {
 	return -1, nil
 }
 
-func (g *group) ViewHeroes() api.HeroView {
+func (g *group) ViewHeroes() app.HeroView {
 	g.heroes.mutex.Lock()
 	return &g.heroes
 }
@@ -260,7 +260,7 @@ func confValue(conf interface{}) *reflect.Value {
 //
 // systemIndex may be -1 (for groups without a defined system), groupIndex and
 // sceneIndex may not.
-func (d *Data) MergeConfig(moduleIndex api.ModuleIndex,
+func (d *Data) MergeConfig(moduleIndex app.ModuleIndex,
 	systemIndex int, groupIndex int, sceneIndex int) interface{} {
 	var configStack [5]*reflect.Value
 	module := d.owner.ModuleAt(moduleIndex)

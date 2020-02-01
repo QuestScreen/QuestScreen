@@ -13,9 +13,6 @@ import (
 // ResourceCollectionIndex indexes all resource collections of a module.
 type ResourceCollectionIndex int
 
-// ModuleIndex identifies the module internally.
-type ModuleIndex int
-
 // ModulePureEndpoint is an endpoint of a module for the HTTP server.
 // It takes PUT requests on the path specified by the ModuleDescriptor.
 type ModulePureEndpoint interface {
@@ -95,9 +92,11 @@ type ModuleDescriptor struct {
 	// ID is a unique string, used for identifying the module inside
 	// HTTP URLs and in the filesystem. Therefore, the ID is restricted to ASCII
 	// letters, digits, and the symbols `.,-_`
-	// Note that internally, a module is identified by the ModuleIndex given
-	// to CreateModule.
 	ID string
+	// UsesHeroes defines whether the module needs access to the list of heroes.
+	// If this is set to true, the RebuildState method will get access to the list
+	// of heroes.
+	UsesHeroes bool
 	// ResourceCollections lists selectors for resource collections of this
 	// module. The maximum ResourceCollectionIndex available to this module is
 	// len(ResourceCollections()) - 1.
@@ -142,9 +141,9 @@ type ModuleDescriptor struct {
 	// CreateModule creates the module object. This will only be called once
 	// during app initialization, making the module a singleton object.
 	//
-	// The index argument should be retained by the module for identifying itself
-	// to the environment.
-	CreateModule func(renderer *sdl.Renderer, env StaticEnvironment) (Module, error)
+	// CreateModule should only initialize the bare minimum of the module's data;
+	// RebuildState will be issued to the module before the first Render() call.
+	CreateModule func(renderer *sdl.Renderer) (Module, error)
 	// CreateState will be called in the server thread. It shall create a
 	// ModuleState for the module created by CreateModule.
 	//
@@ -155,13 +154,7 @@ type ModuleDescriptor struct {
 	// Communication between ModuleState and Module will be done via the state's
 	// HandleAction and CreateModuleData methods which create data, and the
 	// module's InitTransition and RebuildState methods which consume that data.
-	CreateState func(input *yaml.Node, env Environment, index ModuleIndex) (ModuleState, error)
-}
-
-// RenderContext is the context given to all rendering funcs of a module
-type RenderContext struct {
-	Env      Environment
-	Renderer *sdl.Renderer
+	CreateState func(input *yaml.Node, ctx ServerContext) (ModuleState, error)
 }
 
 // Module describes a module object. This object belongs with the OpenGL thread.
@@ -201,7 +194,7 @@ type Module interface {
 	// A call to FinishTransition() will always immediately be followed by a call
 	// to Render().
 	FinishTransition(ctx RenderContext)
-	// Render renders the Module.s current state.
+	// Render renders the Module's current state.
 	Render(ctx RenderContext)
 	// RebuildState will be called after any action that requires rebuilding the
 	// Module's state, such as a scene, config or group change. For scene and
@@ -210,5 +203,5 @@ type Module interface {
 	//
 	// A call to RebuildState will always immediately be followed by a call to
 	// Render.
-	RebuildState(ctx RenderContext, data interface{})
+	RebuildState(ctx ExtendedRenderContext, data interface{})
 }

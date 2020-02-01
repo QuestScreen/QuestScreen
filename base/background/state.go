@@ -9,9 +9,8 @@ import (
 )
 
 type state struct {
-	moduleIndex api.ModuleIndex
-	curIndex    int
-	resources   []api.Resource
+	curIndex  int
+	resources []api.Resource
 }
 
 type endpoint struct {
@@ -19,9 +18,9 @@ type endpoint struct {
 }
 
 // LoadFrom loads the stored selection, defaults to no item being selected.
-func newState(input *yaml.Node, env api.Environment, index api.ModuleIndex) (api.ModuleState, error) {
+func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) {
 	s := new(state)
-	s.resources = env.GetResources(index, 0)
+	s.resources = ctx.GetResources(0)
 	s.curIndex = -1
 	if input != nil {
 		if input.Kind != yaml.ScalarNode {
@@ -55,13 +54,13 @@ type webState struct {
 }
 
 // WebView returns the list of all available resources plus the current index
-func (s *state) WebView(env api.Environment) interface{} {
+func (s *state) WebView(env api.ServerContext) interface{} {
 	return webState{CurIndex: s.curIndex, Items: api.ResourceNames(s.resources)}
 }
 
 // PersistingView returns the name of the currently selected resource
 //(nil if none)
-func (s *state) PersistingView(env api.Environment) interface{} {
+func (s *state) PersistingView(env api.ServerContext) interface{} {
 	if s.curIndex == -1 {
 		return nil
 	}

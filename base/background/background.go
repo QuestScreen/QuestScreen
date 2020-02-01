@@ -24,7 +24,7 @@ type Background struct {
 	curTextureSplit        float32
 }
 
-func newModule(renderer *sdl.Renderer, env api.StaticEnvironment) (api.Module, error) {
+func newModule(renderer *sdl.Renderer) (api.Module, error) {
 	bg := new(Background)
 	bg.curTexture = nil
 	bg.newTexture = nil
@@ -99,7 +99,7 @@ func (bg *Background) InitTransition(ctx api.RenderContext, data interface{}) ti
 	if req.file != bg.curFile {
 		bg.curFile = req.file
 		if bg.curFile != nil {
-			bg.newTexture = bg.genTexture(ctx.Renderer, bg.curFile)
+			bg.newTexture = bg.genTexture(ctx.Renderer(), bg.curFile)
 		}
 		bg.curTextureSplit = 0
 		ret = time.Second
@@ -126,15 +126,15 @@ func (bg *Background) FinishTransition(ctx api.RenderContext) {
 // Render renders the module
 func (bg *Background) Render(ctx api.RenderContext) {
 	if bg.curTexture != nil || bg.curTextureSplit != 0 {
-		winWidth, winHeight, _ := ctx.Renderer.GetOutputSize()
+		winWidth, winHeight, _ := ctx.Renderer().GetOutputSize()
 		curSplit := int32(bg.curTextureSplit * float32(winWidth))
 		if bg.curTexture != nil {
 			rect := sdl.Rect{X: curSplit, Y: 0, W: winWidth - curSplit, H: winHeight}
-			ctx.Renderer.Copy(bg.curTexture, &rect, &rect)
+			ctx.Renderer().Copy(bg.curTexture, &rect, &rect)
 		}
 		if bg.newTexture != nil {
 			rect := sdl.Rect{X: 0, Y: 0, W: curSplit, H: winHeight}
-			ctx.Renderer.Copy(bg.newTexture, &rect, &rect)
+			ctx.Renderer().Copy(bg.newTexture, &rect, &rect)
 		}
 	}
 }
@@ -151,7 +151,8 @@ func (bg *Background) SetConfig(config interface{}) {
 
 // RebuildState queries the texture index through the channel and immediately
 // sets that texture as background.
-func (bg *Background) RebuildState(ctx api.RenderContext, data interface{}) {
+func (bg *Background) RebuildState(
+	ctx api.ExtendedRenderContext, data interface{}) {
 	if data != nil {
 		req := data.(*request)
 		if req.file != bg.curFile {
@@ -160,7 +161,7 @@ func (bg *Background) RebuildState(ctx api.RenderContext, data interface{}) {
 			}
 			bg.curFile = req.file
 			if bg.curFile != nil {
-				bg.curTexture = bg.genTexture(ctx.Renderer, bg.curFile)
+				bg.curTexture = bg.genTexture(ctx.Renderer(), bg.curFile)
 			} else {
 				bg.curTexture = nil
 			}

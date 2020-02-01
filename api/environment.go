@@ -1,6 +1,9 @@
 package api
 
-import "github.com/veandco/go-sdl2/ttf"
+import (
+	"github.com/veandco/go-sdl2/sdl"
+	"github.com/veandco/go-sdl2/ttf"
+)
 
 // the interfaces declared in this file are implemented by the pnpscreen core.
 
@@ -22,49 +25,54 @@ type Hero interface {
 	Description() string
 }
 
-// HeroView describes a view on a list of heroes.
-// This view is exclusive and must be closed via Close() after requesting it!
-// The exclusiveness ensures that no data races happen between the threads since
-// both server and render thread may access the heroes.
-type HeroView interface {
+// HeroList describes the list of heroes.
+type HeroList interface {
 	Hero(index int) Hero
-	// HeroByID returns the hero with the given ID. returns nil if not found.
-	HeroByID(id string) Hero
 	NumHeroes() int
-	Close()
 }
 
-// StaticEnvironment describes the part of the environment that does not depend
-// on its modules or the selected group or system.
-type StaticEnvironment interface {
-	// FontCatalog returns the list of loaded font families. Safe for the access
-	// to the *ttf.Font objects, this list is read-only after app startup and
-	// therefore may be safely used in any thread. The *ttf.Font objects are only
-	// to be used in the OpenGL thread.
-	FontCatalog() []FontFamily
-	// Returns the default size (in pixels) of a border line.
-	// This is read-only after app startup and may be safely used in any thread.
-	DefaultBorderWidth() int32
-}
-
-// Environment describes the global environment.
-type Environment interface {
-	StaticEnvironment
+// ResourceProvider is the interface to files on the file system that have been
+// selected by a module's ResourceSelectors. Resources are read-only and
+// available on both server and display thread.
+type ResourceProvider interface {
 	// GetResources queries the list of available resources of the given
 	// resource collection index.
 	//
 	// The resources are filtered by the currently active system and group.
 	// Each Resource object is read-only and may be freely shared between threads.
-	GetResources(
-		moduleIndex ModuleIndex, index ResourceCollectionIndex) []Resource
-	// Heroes returns a view of available heroes. This viewdepends on the
-	// currently selected group and may be empty.
-	// Requesting a HeroView may be blocking and the returned view must be closed
-	// after usage to unblock other threads from accessing the heroes.
-	Heroes() HeroView
-	// Font is a shorthand to select a specific font from the catalog.
-	// This func may only be called in the OpenGL thread.
-	Font(familyIndex int, style FontStyle, size FontSize) *ttf.Font
+	GetResources(index ResourceCollectionIndex) []Resource
+}
+
+// ServerContext gives access to data available in the server thread.
+// This is a read-only view of data required for serialization and state
+// initialization.
+//
+// Details on Fonts and Heroes are available in the display thread via
+// [Extended]RenderContext.
+type ServerContext interface {
+	ResourceProvider
+	NumFontFamilies() int
+	FontFamilyName(index int) string
+	NumHeroes() int
+	HeroID(index int) string
+}
+
+// RenderContext is the context given to all rendering funcs of a module
+type RenderContext interface {
+	ResourceProvider
+	Renderer() *sdl.Renderer
+	// Font returns the font face of the selected font.
+	Font(fontFamily int, style FontStyle, size FontSize) *ttf.Font
+	// DefaultBorderWidth returns the default size (in pixels) of a border line.
+	DefaultBorderWidth() int32
+}
+
+// ExtendedRenderContext is the context used for rebuilding the whole module
+// and may contain additional data depending on the module's description.
+type ExtendedRenderContext interface {
+	RenderContext
+	// Heroes returns a non-null list iff the module's description has UseHeroes set.
+	Heroes() HeroList
 }
 
 // ResourceNames generates a list of resource names from a list of resources.

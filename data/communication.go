@@ -55,15 +55,6 @@ type jsonModuleDesc struct {
 	PluginIndex int                 `json:"pluginIndex"`
 }
 
-func jsonFonts(env api.Environment) []string {
-	fonts := env.FontCatalog()
-	ret := make([]string, 0, len(fonts))
-	for i := range fonts {
-		ret = append(ret, fonts[i].Name())
-	}
-	return ret
-}
-
 func (c Communication) systems() []jsonSystem {
 	ret := make([]jsonSystem, 0, len(c.d.systems))
 	for i := range c.d.systems {
@@ -87,34 +78,37 @@ func (c Communication) scenes(g *group) []jsonScene {
 	return scenes
 }
 
+func (c Communication) heroes(g *group) []jsonHero {
+	source := &g.heroes
+	source.mutex.Lock()
+	ret := make([]jsonHero, 0, len(source.data))
+	for j := range source.data {
+		ret = append(ret,
+			jsonHero{Name: source.data[j].name, ID: source.data[j].id,
+				Description: source.data[j].description})
+	}
+	source.mutex.Unlock()
+	return ret
+}
+
 func (c Communication) groups() []jsonGroup {
 	ret := make([]jsonGroup, 0, len(c.d.groups))
 	for i := range c.d.groups {
-		source := &c.d.groups[i].heroes
-		source.mutex.Lock()
-		heroes := make([]jsonHero, 0, len(source.data))
-		for j := range source.data {
-			heroes = append(heroes,
-				jsonHero{Name: source.data[j].name, ID: source.data[j].id,
-					Description: source.data[j].description})
-		}
-		source.mutex.Unlock()
+		g := c.d.groups[i]
 
-		scenes := c.scenes(c.d.groups[i])
-
-		ret = append(ret, jsonGroup{Name: c.d.groups[i].name,
-			ID:          c.d.groups[i].id,
-			SystemIndex: c.d.groups[i].systemIndex,
-			Heroes:      heroes,
-			Scenes:      scenes})
+		ret = append(ret, jsonGroup{Name: g.name,
+			ID:          g.id,
+			SystemIndex: g.systemIndex,
+			Heroes:      c.heroes(g),
+			Scenes:      c.scenes(g)})
 	}
 	return ret
 }
 
-func (c Communication) modules(app app.App) []jsonModuleDesc {
-	ret := make([]jsonModuleDesc, 0, app.NumModules())
-	for i := api.ModuleIndex(0); i < app.NumModules(); i++ {
-		module := app.ModuleAt(i).Descriptor()
+func (c Communication) modules(a app.App) []jsonModuleDesc {
+	ret := make([]jsonModuleDesc, 0, a.NumModules())
+	for i := app.FirstModule; i < a.NumModules(); i++ {
+		module := a.ModuleAt(i).Descriptor()
 		modConfig := c.d.baseConfigs[i]
 		modValue := reflect.ValueOf(modConfig).Elem()
 		for ; modValue.Kind() == reflect.Interface ||
@@ -124,7 +118,7 @@ func (c Communication) modules(app app.App) []jsonModuleDesc {
 			Name:        module.Name,
 			ID:          module.ID,
 			Config:      make([]jsonModuleSetting, 0, modValue.NumField()),
-			PluginIndex: app.ModulePluginIndex(i)}
+			PluginIndex: a.ModulePluginIndex(i)}
 		for j := 0; j < modValue.NumField(); j++ {
 			cur.Config = append(cur.Config, jsonModuleSetting{
 				Name: modValue.Type().Field(j).Name,
@@ -143,7 +137,7 @@ func (c Communication) StaticData(app app.App, plugins interface{}) interface{} 
 		Modules          []jsonModuleDesc `json:"modules"`
 		NumPluginSystems int              `json:"numPluginSystems"`
 		Plugins          interface{}      `json:"plugins"`
-	}{Fonts: jsonFonts(app), Modules: c.modules(app),
+	}{Fonts: app.FontNames(), Modules: c.modules(app),
 		NumPluginSystems: c.d.numPluginSystems, Plugins: plugins}
 }
 
@@ -210,7 +204,6 @@ func (c Communication) UpdateGroupConfig(raw []byte, g Group) api.SendableError 
 }
 
 // UpdateGroup updates a group's name and linked system from a given JSON input.
-// It returns the group's index on success.
 func (c Communication) UpdateGroup(raw []byte, g Group) api.SendableError {
 	value := struct {
 		Name        api.ValidatedString `json:"name"`
@@ -234,6 +227,29 @@ func (c Communication) ViewGroups() interface{} {
 	return c.groups()
 }
 
+// UpdateHero updates a hero's name and description form a given JSON input.
+func (c Communication) UpdateHero(raw []byte, h api.Hero) api.SendableError {
+	value := struct {
+		Name        api.ValidatedString `json:"name"`
+		Description string              `json:"description"`
+	}{
+		Name: api.ValidatedString{MinLen: 1, MaxLen: -1},
+	}
+	if err := api.ReceiveData(raw, &api.ValidatedStruct{Value: &value}); err != nil {
+		return err
+	}
+	he := h.(*hero)
+	he.name = value.Name.Value
+	he.description = value.Description
+	return nil
+}
+
+// ViewHeroes returns a serializable view of all heroes, as it would be
+// contained in Datasets
+func (c Communication) ViewHeroes(g Group) interface{} {
+	return c.heroes(g.(*group))
+}
+
 // ViewSceneConfig returns a serializable view of the config of the given scene.
 func (c Communication) ViewSceneConfig(s Scene) interface{} {
 	return c.sceneConfig(s.(*scene).modules)
@@ -249,7 +265,7 @@ func (c Communication) ViewScenes(g Group) interface{} {
 func (c Communication) UpdateSceneConfig(raw []byte, s Scene) api.SendableError {
 	simpleList := make([]interface{}, c.d.owner.NumModules())
 	sc := s.(*scene)
-	for i := api.ModuleIndex(0); i < c.d.owner.NumModules(); i++ {
+	for i := app.FirstModule; i < c.d.owner.NumModules(); i++ {
 		simpleList[i] = sc.modules[i].config
 	}
 	return c.loadModuleConfigs(raw, simpleList)
@@ -314,10 +330,14 @@ func (c Communication) UpdateScene(raw []byte, g Group, s Scene) api.SendableErr
 	return nil
 }
 
-func (c Communication) loadModuleConfigInto(target interface{},
+func (c Communication) loadModuleConfigInto(
+	moduleIndex app.ModuleIndex, target interface{},
 	raw []json.RawMessage) api.SendableError {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
+	heroes := c.d.owner.ViewHeroes()
+	defer heroes.Close()
+	ctx := c.d.owner.ServerContext(moduleIndex, heroes)
 	for i := 0; i < targetModuleType.NumField(); i++ {
 		input := raw[i]
 		if isNull(input) {
@@ -331,7 +351,7 @@ func (c Communication) loadModuleConfigInto(target interface{},
 		}
 		targetSetting := targetModule.Field(i).Interface()
 
-		if err := targetSetting.(api.ConfigItem).LoadWeb(input, c.d.owner); err != nil {
+		if err := targetSetting.(api.ConfigItem).LoadWeb(input, ctx); err != nil {
 			if wasNil {
 				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 			}
@@ -349,8 +369,7 @@ func (c Communication) loadModuleConfigs(jsonInput []byte,
 	if err := decoder.Decode(&raw); err != nil {
 		return &api.BadRequest{Message: "error in JSON structure", Inner: err}
 	}
-	var i api.ModuleIndex
-	for i = 0; i < api.ModuleIndex(len(targetConfigs)); i++ {
+	for i := app.FirstModule; i < app.ModuleIndex(len(targetConfigs)); i++ {
 		conf := targetConfigs[i]
 		if conf == nil {
 			if raw[i] != nil {
@@ -358,7 +377,7 @@ func (c Communication) loadModuleConfigs(jsonInput []byte,
 					Inner: fmt.Errorf("got non-nil value for nil module")}
 			}
 		} else {
-			if err := c.loadModuleConfigInto(conf, raw[i]); err != nil {
+			if err := c.loadModuleConfigInto(i, conf, raw[i]); err != nil {
 				return err
 			}
 		}
@@ -368,8 +387,7 @@ func (c Communication) loadModuleConfigs(jsonInput []byte,
 
 func (c Communication) moduleConfigs(config []interface{}) []jsonModuleConfig {
 	ret := make([]jsonModuleConfig, 0, c.d.owner.NumModules())
-	var i api.ModuleIndex
-	for i = 0; i < c.d.owner.NumModules(); i++ {
+	for i := app.FirstModule; i < c.d.owner.NumModules(); i++ {
 		moduleConfig := config[i]
 		itemValue := reflect.ValueOf(moduleConfig).Elem()
 		for ; itemValue.Kind() == reflect.Interface ||
@@ -386,8 +404,7 @@ func (c Communication) moduleConfigs(config []interface{}) []jsonModuleConfig {
 
 func (c Communication) sceneConfig(config []sceneModule) []jsonModuleConfig {
 	ret := make([]jsonModuleConfig, 0, c.d.owner.NumModules())
-	var i api.ModuleIndex
-	for i = 0; i < c.d.owner.NumModules(); i++ {
+	for i := app.FirstModule; i < c.d.owner.NumModules(); i++ {
 		moduleConfig := config[i]
 		var jsonConfig jsonModuleConfig
 		if moduleConfig.config != nil {
@@ -408,11 +425,12 @@ func (c Communication) sceneConfig(config []sceneModule) []jsonModuleConfig {
 // ViewSceneState returns a serializatable view of the current scene.
 func (c Communication) ViewSceneState(a app.App) interface{} {
 	list := make([]interface{}, a.NumModules())
-	var i api.ModuleIndex
 	scene := c.d.State.scenes[c.d.State.activeScene]
-	for i = 0; i < a.NumModules(); i++ {
+	heroes := c.d.owner.ViewHeroes()
+	defer heroes.Close()
+	for i := app.FirstModule; i < a.NumModules(); i++ {
 		if scene[i] != nil {
-			list[i] = scene[i].WebView(a)
+			list[i] = scene[i].WebView(a.ServerContext(i, heroes))
 		}
 	}
 	return list

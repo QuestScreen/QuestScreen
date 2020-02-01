@@ -34,6 +34,6 @@ func (s *State) ActiveScene() int {
 }
 
 // StateOf returns the module state for the given module in the active scene
-func (s *State) StateOf(moduleIndex api.ModuleIndex) api.ModuleState {
+func (s *State) StateOf(moduleIndex app.ModuleIndex) api.ModuleState {
 	return s.scenes[s.activeScene][moduleIndex]
 }

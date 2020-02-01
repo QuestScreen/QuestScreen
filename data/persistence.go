@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
-	"strconv"
-	"strings"
 
 	"github.com/flyx/pnpscreen/api"
 	"github.com/flyx/pnpscreen/app"
@@ -85,7 +83,8 @@ type persistingScene struct {
 	Modules map[string]persistingSceneModule
 }
 
-func (p Persistence) loadModuleConfigInto(target interface{},
+func (p Persistence) loadModuleConfigInto(heroes api.HeroList,
+	moduleIndex app.ModuleIndex, target interface{},
 	values map[string]yaml.Node, moduleName string) bool {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
@@ -101,7 +100,8 @@ func (p Persistence) loadModuleConfigInto(target interface{},
 		}
 		targetSetting := targetModule.Field(i).Interface().(api.ConfigItem)
 
-		if err := targetSetting.LoadPersisted(&inValue, p.d.owner); err != nil {
+		if err := targetSetting.LoadPersisted(&inValue,
+			p.d.owner.ServerContext(moduleIndex, heroes)); err != nil {
 			if wasNil {
 				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 			}
@@ -112,9 +112,8 @@ func (p Persistence) loadModuleConfigInto(target interface{},
 	return true
 }
 
-func findModule(owner app.App, id string) (api.Module, api.ModuleIndex) {
-	var i api.ModuleIndex
-	for i = 0; i < owner.NumModules(); i++ {
+func findModule(owner app.App, id string) (api.Module, app.ModuleIndex) {
+	for i := app.FirstModule; i < owner.NumModules(); i++ {
 		module := owner.ModuleAt(i)
 		if module.Descriptor().ID == id {
 			return module, i
@@ -133,7 +132,7 @@ func configType(mod api.Module) reflect.Type {
 	return defaultType.Elem()
 }
 
-func (p Persistence) loadModuleConfigs(
+func (p Persistence) loadModuleConfigs(heroes api.HeroList,
 	raw map[string]map[string]yaml.Node) ([]interface{}, error) {
 	ret := make([]interface{}, p.d.owner.NumModules())
 	for name, rawItems := range raw {
@@ -143,12 +142,11 @@ func (p Persistence) loadModuleConfigs(
 		}
 
 		target := reflect.New(configType(mod)).Interface()
-		if p.loadModuleConfigInto(target, rawItems, mod.Descriptor().ID) {
+		if p.loadModuleConfigInto(heroes, index, target, rawItems, mod.Descriptor().ID) {
 			ret[index] = target
 		}
 	}
-	var i api.ModuleIndex
-	for i = 0; i < p.d.owner.NumModules(); i++ {
+	for i := app.FirstModule; i < p.d.owner.NumModules(); i++ {
 		if ret[i] == nil {
 			mod := p.d.owner.ModuleAt(i)
 			ret[i] = reflect.New(configType(mod)).Interface()
@@ -157,10 +155,10 @@ func (p Persistence) loadModuleConfigs(
 	return ret, nil
 }
 
-func (p Persistence) persistingModuleConfigs(moduleConfigs []interface{}) map[string]map[string]interface{} {
+func (p Persistence) persistingModuleConfigs(heroes api.HeroList,
+	moduleConfigs []interface{}) map[string]map[string]interface{} {
 	ret := make(map[string]map[string]interface{})
-	var i api.ModuleIndex
-	for i = 0; i < p.d.owner.NumModules(); i++ {
+	for i := app.FirstModule; i < p.d.owner.NumModules(); i++ {
 		var fields map[string]interface{}
 
 		moduleConfig := moduleConfigs[i]
@@ -189,7 +187,8 @@ func (p Persistence) persistingModuleConfigs(moduleConfigs []interface{}) map[st
 					fields = make(map[string]interface{})
 				}
 				fields[fieldName] =
-					fieldVal.Interface().(api.ConfigItem).PersistingView(p.d.owner)
+					fieldVal.Interface().(api.ConfigItem).PersistingView(
+						p.d.owner.ServerContext(i, heroes))
 			}
 		}
 		if fields != nil {
@@ -219,12 +218,12 @@ func (p Persistence) loadBase(path string) ([]interface{}, error) {
 		data.Modules = make(map[string]map[string]yaml.Node)
 	}
 
-	return p.loadModuleConfigs(data.Modules)
+	return p.loadModuleConfigs(nil, data.Modules)
 }
 
 // WriteBase writes the current base configuration to the file system.
 func (p Persistence) WriteBase() error {
-	data := persistingBaseConfig{Modules: p.persistingModuleConfigs(p.d.baseConfigs)}
+	data := persistingBaseConfig{Modules: p.persistingModuleConfigs(nil, p.d.baseConfigs)}
 	dirPath := p.d.owner.DataDir("base")
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return err
@@ -243,7 +242,7 @@ func (p Persistence) loadSystem(
 	if err := strictUnmarshalYAML(input, &data); err != nil {
 		return nil, err
 	}
-	moduleConfigs, err := p.loadModuleConfigs(data.Modules)
+	moduleConfigs, err := p.loadModuleConfigs(nil, data.Modules)
 	return &system{
 		name:    data.Name,
 		id:      id,
@@ -255,7 +254,7 @@ func (p Persistence) WriteSystem(s System) error {
 	value := s.(*system)
 	data := persistingSystem{
 		Name:    value.name,
-		Modules: p.persistingModuleConfigs(value.modules),
+		Modules: p.persistingModuleConfigs(nil, value.modules),
 	}
 	dirPath := p.d.owner.DataDir("systems", value.id)
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
@@ -282,23 +281,10 @@ func (p Persistence) createSystem(tmpl *api.SystemTemplate) (*system, error) {
 
 // CreateSystem creates a new system with the given name.
 func (p Persistence) CreateSystem(name string) api.SendableError {
-	base := normalize(name)
-	id := base
-	num := 0
-idCheckLoop:
-	for {
-		for i := range p.d.systems {
-			if p.d.systems[i].id == id {
-				num++
-				id = base + strconv.Itoa(num)
-				continue idCheckLoop
-			}
-		}
-		break
-	}
+	id := genID(name, "system", systemIDs{p.d.systems})
 	s := &system{name: name, id: id, modules: make([]interface{}, p.d.owner.NumModules())}
 
-	for i := api.ModuleIndex(0); i < p.d.owner.NumModules(); i++ {
+	for i := app.FirstModule; i < p.d.owner.NumModules(); i++ {
 		mod := p.d.owner.ModuleAt(i)
 		s.modules[i] = reflect.New(configType(mod)).Interface()
 	}
@@ -345,7 +331,8 @@ func (p Persistence) DeleteSystem(index int) api.SendableError {
 	return nil
 }
 
-func (p Persistence) loadGroup(id string, input inputProvider) (*group, error) {
+func (p Persistence) loadGroup(heroes []hero, id string,
+	input inputProvider) (*group, error) {
 	var data persistedGroup
 	if err := strictUnmarshalYAML(input, &data); err != nil {
 		return nil, err
@@ -363,19 +350,25 @@ func (p Persistence) loadGroup(id string, input inputProvider) (*group, error) {
 				fmt.Errorf("Group config references unknown system \"%s\"", data.System)
 		}
 	}
-	moduleConfigs, err := p.loadModuleConfigs(data.Modules)
-	return &group{
+	ret := &group{
 		name:        data.Name,
 		id:          id,
 		systemIndex: systemIndex,
-		modules:     moduleConfigs,
-	}, err
+		heroes:      heroList{data: heroes},
+	}
+
+	moduleConfigs, err := p.loadModuleConfigs(&ret.heroes, data.Modules)
+	if err != nil {
+		return nil, err
+	}
+	ret.modules = moduleConfigs
+	return ret, nil
 }
 
 func (p Persistence) writeGroup(value *group) error {
 	data := persistingGroup{
 		Name:    value.name,
-		Modules: p.persistingModuleConfigs(value.modules),
+		Modules: p.persistingModuleConfigs(nil, value.modules),
 	}
 	if value.systemIndex != -1 {
 		data.System = p.d.systems[value.systemIndex].id
@@ -406,26 +399,8 @@ func (p Persistence) CreateGroup(
 	if tmpl == nil {
 		return errors.New("missing group template")
 	}
-	base := strings.ToLower(normalize(name))
-	id := base
-	num := 0
-	if base == "" {
-		base = "group"
-		id = "group1"
-		num++
-	}
-idCheckLoop:
-	for {
-		for i := range p.d.groups {
-			if p.d.groups[i].id == id {
-				num++
-				id = base + strconv.Itoa(num)
-				continue idCheckLoop
-			}
-		}
-		break
-	}
-	g, err := p.loadGroup(id, byteInput(tmpl.Config))
+	id := genID(name, "group", groupIDs{p.d.groups})
+	g, err := p.loadGroup(nil, id, byteInput(tmpl.Config))
 	if err != nil {
 		return errors.New("could not load group config template:\n  " + err.Error())
 	}
@@ -462,7 +437,8 @@ func (p Persistence) DeleteGroup(index int) {
 	p.d.groups = p.d.groups[:len(p.d.groups)-1]
 }
 
-func (p Persistence) loadScene(id string, input inputProvider) (scene, error) {
+func (p Persistence) loadScene(heroes api.HeroList, id string,
+	input inputProvider) (scene, error) {
 	var data persistedScene
 	if err := strictUnmarshalYAML(input, &data); err != nil {
 		return scene{}, err
@@ -475,7 +451,7 @@ func (p Persistence) loadScene(id string, input inputProvider) (scene, error) {
 			return scene{}, fmt.Errorf("Unknown module \"%s\"", name)
 		}
 		target := reflect.New(configType(mod)).Interface()
-		if p.loadModuleConfigInto(target, value.Config, mod.Descriptor().ID) {
+		if p.loadModuleConfigInto(heroes, index, target, value.Config, mod.Descriptor().ID) {
 			ret.modules[index] = sceneModule{enabled: value.Enabled, config: target}
 		}
 	}
@@ -485,7 +461,7 @@ func (p Persistence) loadScene(id string, input inputProvider) (scene, error) {
 func (p Persistence) writeScene(g *group, value *scene) error {
 	data := persistingScene{
 		Name: value.name, Modules: make(map[string]persistingSceneModule)}
-	for i := api.ModuleIndex(0); i < p.d.owner.NumModules(); i++ {
+	for i := app.FirstModule; i < p.d.owner.NumModules(); i++ {
 		moduleDesc := p.d.owner.ModuleAt(i).Descriptor()
 		moduleData := &value.modules[i]
 		data.Modules[moduleDesc.ID] = persistingSceneModule{
@@ -510,22 +486,11 @@ func (p Persistence) WriteScene(g Group, s Scene) error {
 
 // CreateScene creates a new scene from the given template in the given group.
 func (p Persistence) CreateScene(g Group, name string, tmpl *api.SceneTemplate) error {
-	base := strings.ToLower(normalize(name))
-	id := base
-	num := 0
 	gr := g.(*group)
-idCheckLoop:
-	for {
-		for i := range gr.scenes {
-			if gr.scenes[i].id == id {
-				num++
-				id = base + strconv.Itoa(num)
-				continue idCheckLoop
-			}
-		}
-		break
-	}
-	s, err := p.loadScene(id, byteInput(tmpl.Config))
+	id := genID(name, "scene", sceneIDs{gr.scenes})
+	heroes := g.ViewHeroes()
+	defer heroes.Close()
+	s, err := p.loadScene(heroes, id, byteInput(tmpl.Config))
 	if err != nil {
 		return err
 	}
@@ -554,12 +519,65 @@ func (p Persistence) DeleteScene(g Group, index int) error {
 	return nil
 }
 
+// CreateHero creates a new hero in the given group with the given name and
+// description.
+func (p Persistence) CreateHero(g Group, name string, description string) error {
+	gr := g.(*group)
+	id := genID(name, "hero", heroIDs{gr.heroes.data})
+	gr.heroes.mutex.Lock()
+	defer gr.heroes.mutex.Unlock()
+	h := hero{name: name, id: id, description: description}
+	if err := p.writeHero(gr, &h); err != nil {
+		return err
+	}
+	gr.heroes.data = append(gr.heroes.data, h)
+	return nil
+}
+
 func (p Persistence) loadHero(id string, path string) (hero, error) {
 	var data yamlHero
 	if err := strictUnmarshalYAML(fileInput(path), &data); err != nil {
 		return hero{}, err
 	}
 	return hero{name: data.Name, id: id, description: data.Description}, nil
+}
+
+func (p Persistence) writeHero(g *group, h *hero) error {
+	data := yamlHero{
+		Name: h.name, Description: h.description}
+	dirPath := p.d.owner.DataDir("groups", g.id, "heroes", h.id)
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
+		return err
+	}
+	path := filepath.Join(dirPath, "config.yaml")
+	raw, err := yaml.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, raw, 0644)
+}
+
+// WriteHero writes the given hero of the given group to the file system
+func (p Persistence) WriteHero(g Group, h api.Hero) error {
+	return p.writeHero(g.(*group), h.(*hero))
+}
+
+// DeleteHero deletes the hero with the given index from the given group.
+func (p Persistence) DeleteHero(g Group, index int) error {
+	gr := g.(*group)
+	gr.heroes.mutex.Lock()
+	defer gr.heroes.mutex.Unlock()
+	if index < 0 || index >= len(gr.heroes.data) {
+		return errors.New("index out of range")
+	}
+
+	path := p.d.owner.DataDir("groups", gr.id, "heroes", gr.heroes.data[index].id)
+	if err := os.RemoveAll(path); err != nil {
+		log.Printf("[del scene] while deleting %s\n  %s\n", path, err.Error())
+	}
+	copy(gr.heroes.data[index:], gr.heroes.data[index+1:])
+	gr.heroes.data = gr.heroes.data[:len(gr.heroes.data)-1]
+	return nil
 }
 
 func (p Persistence) loadSystems() {
@@ -634,12 +652,12 @@ func (p Persistence) loadGroups() {
 		if file.IsDir() {
 			path := filepath.Join(groupsDir, file.Name())
 			configPath := filepath.Join(path, "config.yaml")
-			g, err := p.loadGroup(file.Name(), fileInput(configPath))
+			heroes := p.loadHeroes(path)
+			g, err := p.loadGroup(heroes, file.Name(), fileInput(configPath))
 			if err != nil {
 				log.Println(configPath+":", err)
 			} else {
-				g.heroes.data = p.loadHeroes(path)
-				g.scenes = p.loadScenes(path)
+				g.scenes = p.loadScenes(&g.heroes, path)
 				if len(g.scenes) == 0 {
 					log.Println(path + ": no valid scenes available")
 				} else {
@@ -652,7 +670,7 @@ func (p Persistence) loadGroups() {
 	sort.Sort(groupSortInterface{p.d.groups})
 }
 
-func (p Persistence) loadScenes(groupPath string) []scene {
+func (p Persistence) loadScenes(heroes *heroList, groupPath string) []scene {
 	ret := make([]scene, 0, 16)
 	scenesDir := filepath.Join(groupPath, "scenes")
 	files, err := ioutil.ReadDir(scenesDir)
@@ -661,7 +679,7 @@ func (p Persistence) loadScenes(groupPath string) []scene {
 			if file.IsDir() {
 				path := filepath.Join(scenesDir, file.Name(), "config.yaml")
 				var s scene
-				s, err = p.loadScene(file.Name(), fileInput(path))
+				s, err = p.loadScene(heroes, file.Name(), fileInput(path))
 				if err == nil {
 					ret = append(ret, s)
 				} else {
@@ -707,7 +725,7 @@ type persistingGroupState struct {
 
 // LoadState loads the given YAML input into a State object and stores that
 // into the linked data object.
-func (p Persistence) LoadState(a app.App, g Group, path string) (*State, error) {
+func (p Persistence) LoadState(g Group, path string) (*State, error) {
 	var data persistedGroupState
 	if err := strictUnmarshalYAML(fileInput(path), &data); err != nil {
 		log.Println(path + ": unable to load, loading default. error was:")
@@ -717,7 +735,7 @@ func (p Persistence) LoadState(a app.App, g Group, path string) (*State, error) 
 	p.d.State.activeScene = -1
 	p.d.State.scenes = make([][]api.ModuleState, g.NumScenes())
 	p.d.State.path = path
-	p.d.State.a = a
+	p.d.State.a = p.d.owner
 	p.d.State.group = g
 	for i := 0; i < g.NumScenes(); i++ {
 		if g.Scene(i).ID() == data.ActiveScene {
@@ -730,7 +748,10 @@ func (p Persistence) LoadState(a app.App, g Group, path string) (*State, error) 
 		log.Printf("Unknown active scene for group %s: \"%s\"\n",
 			g.Name(), data.ActiveScene)
 	}
+	a := p.d.owner
 	sceneLoaded := make([]bool, g.NumScenes())
+	heroes := g.ViewHeroes()
+	defer heroes.Close()
 	for sceneName, sceneValue := range data.Scenes {
 		sceneFound := false
 		for i := 0; i < g.NumScenes(); i++ {
@@ -739,10 +760,9 @@ func (p Persistence) LoadState(a app.App, g Group, path string) (*State, error) 
 				sceneFound = true
 				sceneData := make([]api.ModuleState, a.NumModules())
 				moduleLoaded := make([]bool, a.NumModules())
-				var j api.ModuleIndex
 				for modName, modRaw := range sceneValue {
 					moduleFound := false
-					for j = 0; j < a.NumModules(); j++ {
+					for j := app.FirstModule; j < a.NumModules(); j++ {
 						module := a.ModuleAt(j)
 						if modName == module.Descriptor().ID {
 							moduleFound = true
@@ -752,7 +772,8 @@ func (p Persistence) LoadState(a app.App, g Group, path string) (*State, error) 
 								break
 							}
 
-							state, err := module.Descriptor().CreateState(&modRaw, a, j)
+							state, err := module.Descriptor().CreateState(
+								&modRaw, a.ServerContext(j, heroes))
 							if err != nil {
 								log.Printf(
 									"Scene \"%s\": Could not load state for module %s: %s\n",
@@ -768,13 +789,14 @@ func (p Persistence) LoadState(a app.App, g Group, path string) (*State, error) 
 							sceneName, modName)
 					}
 				}
-				for j = 0; j < a.NumModules(); j++ {
+				for j := app.FirstModule; j < a.NumModules(); j++ {
 					if sceneDescr.UsesModule(j) && !moduleLoaded[j] {
 						module := a.ModuleAt(j)
 						log.Printf(
 							"Scene \"%s\": Missing data for module %s, loading default\n",
 							sceneName, module.Descriptor().ID)
-						state, err := module.Descriptor().CreateState(nil, a, j)
+						state, err := module.Descriptor().CreateState(
+							nil, a.ServerContext(j, heroes))
 						if err != nil {
 							panic("Failed to create state with default values for module " +
 								module.Descriptor().ID)
@@ -797,11 +819,10 @@ func (p Persistence) LoadState(a app.App, g Group, path string) (*State, error) 
 			log.Printf("Missing data for scene \"%s\", loading default\n",
 				sceneDescr.ID())
 			sceneData := make([]api.ModuleState, a.NumModules())
-			var j api.ModuleIndex
-			for j = 0; j < a.NumModules(); j++ {
+			for j := app.FirstModule; j < a.NumModules(); j++ {
 				if sceneDescr.UsesModule(j) {
 					module := a.ModuleAt(j)
-					state, err := module.Descriptor().CreateState(nil, a, j)
+					state, err := module.Descriptor().CreateState(nil, a.ServerContext(j, heroes))
 					if err != nil {
 						panic("Failed to create state with default values for module " +
 							module.Descriptor().ID)
@@ -822,11 +843,12 @@ func (s *State) buildYaml() ([]byte, error) {
 	for i := 0; i < s.group.NumScenes(); i++ {
 		sceneDescr := s.group.Scene(i)
 		data := make(map[string]interface{})
-		var j api.ModuleIndex
-		for j = 0; j < s.a.NumModules(); j++ {
+		heroes := s.group.ViewHeroes()
+		defer heroes.Close()
+		for j := app.FirstModule; j < s.a.NumModules(); j++ {
 			if sceneDescr.UsesModule(j) {
 				data[s.a.ModuleAt(j).Descriptor().ID] =
-					s.scenes[i][j].PersistingView(s.a)
+					s.scenes[i][j].PersistingView(s.a.ServerContext(j, heroes))
 			}
 		}
 		structure.Scenes[sceneDescr.ID()] = data

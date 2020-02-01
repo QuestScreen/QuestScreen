@@ -33,15 +33,15 @@ func main() {
 	defer img.Quit()
 
 	events := display.GenEvents()
-	var a app
-	a.Init(*fullscreenFlag, events, *port)
+	var qs QuestScreen
+	qs.Init(*fullscreenFlag, events, *port)
 	if err := sdl.GLSetSwapInterval(-1); err != nil {
 		log.Println("Could not set swap interval to -1")
 	}
 
-	server := startServer(&a, events, *port)
+	server := startServer(&qs, events, *port)
 
-	a.display.RenderLoop()
+	qs.display.RenderLoop()
 	_ = server.Close()
-	a.destroy()
+	qs.destroy()
 }

@@ -35,8 +35,7 @@ type Title struct {
 	swapped      bool
 }
 
-func newModule(renderer *sdl.Renderer,
-	env api.StaticEnvironment) (api.Module, error) {
+func newModule(renderer *sdl.Renderer) (api.Module, error) {
 	return &Title{curTitle: nil}, nil
 }
 
@@ -58,7 +57,7 @@ func (*Title) Descriptor() *api.ModuleDescriptor {
 }
 
 func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture {
-	face := ctx.Env.Font(
+	face := ctx.Font(
 		t.config.Font.FamilyIndex, t.config.Font.Style, t.config.Font.Size)
 	surface, err := face.RenderUTF8Blended(
 		text, sdl.Color{R: 0, G: 0, B: 0, A: 230})
@@ -66,13 +65,14 @@ func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture
 		log.Println(err)
 		return nil
 	}
-	textTexture, err := ctx.Renderer.CreateTextureFromSurface(surface)
+	r := ctx.Renderer()
+	textTexture, err := r.CreateTextureFromSurface(surface)
 	if err != nil {
 		log.Println(err)
 		return nil
 	}
 	defer textTexture.Destroy()
-	winWidth, _, _ := ctx.Renderer.GetOutputSize()
+	winWidth, _, _ := r.GetOutputSize()
 	textWidth := surface.W
 	textHeight := surface.H
 	surface.Free()
@@ -80,31 +80,31 @@ func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture
 		textHeight = textHeight * (winWidth * 2 / 3) / textWidth
 		textWidth = winWidth * 2 / 3
 	}
-	border := ctx.Env.DefaultBorderWidth()
-	ret, err := ctx.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888,
+	border := ctx.DefaultBorderWidth()
+	ret, err := r.CreateTexture(sdl.PIXELFORMAT_RGB888,
 		sdl.TEXTUREACCESS_TARGET, textWidth+6*border, textHeight+2*border)
 	if err != nil {
 		panic(err)
 	}
-	ctx.Renderer.SetRenderTarget(ret)
-	defer ctx.Renderer.SetRenderTarget(nil)
-	ctx.Renderer.Clear()
-	ctx.Renderer.SetDrawColor(0, 0, 0, 192)
-	ctx.Renderer.FillRect(&sdl.Rect{X: 0, Y: 0,
+	r.SetRenderTarget(ret)
+	defer r.SetRenderTarget(nil)
+	r.Clear()
+	r.SetDrawColor(0, 0, 0, 192)
+	r.FillRect(&sdl.Rect{X: 0, Y: 0,
 		W: int32(textWidth + 6*border), H: int32(textHeight) + 2*border})
-	ctx.Renderer.SetDrawColor(200, 173, 127, 255)
-	ctx.Renderer.FillRect(&sdl.Rect{X: border, Y: 0,
+	r.SetDrawColor(200, 173, 127, 255)
+	r.FillRect(&sdl.Rect{X: border, Y: 0,
 		W: int32(textWidth + 4*border), H: int32(textHeight + border)})
 	if t.mask != nil {
 		_, _, maskWidth, maskHeight, _ := t.mask.Query()
 		for x := int32(0); x < textWidth+6*border; x += maskWidth {
 			for y := int32(0); y < textHeight+2*border; y += maskHeight {
-				ctx.Renderer.Copy(t.mask, nil, &sdl.Rect{
+				r.Copy(t.mask, nil, &sdl.Rect{
 					X: x, Y: y, W: maskWidth, H: maskHeight})
 			}
 		}
 	}
-	ctx.Renderer.Copy(textTexture, nil,
+	r.Copy(textTexture, nil,
 		&sdl.Rect{X: 3 * border, Y: 0, W: textWidth, H: textHeight})
 	return ret
 }
@@ -159,12 +159,16 @@ func (t *Title) FinishTransition(ctx api.RenderContext) {
 
 // Render renders the module.
 func (t *Title) Render(ctx api.RenderContext) {
-	winWidth, _, _ := ctx.Renderer.GetOutputSize()
+	r := ctx.Renderer()
+	winWidth, _, _ := r.GetOutputSize()
 	_, _, texWidth, texHeight, _ := t.curTitle.Query()
 
 	dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -t.curYOffset,
 		W: texWidth, H: texHeight}
-	_ = ctx.Renderer.Copy(t.curTitle, nil, &dst)
+	err := r.Copy(t.curTitle, nil, &dst)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 // SetConfig sets the module's configuration
@@ -174,7 +178,7 @@ func (t *Title) SetConfig(value interface{}) {
 
 // RebuildState queries the new state through the channel and immediately
 // updates everything.
-func (t *Title) RebuildState(ctx api.RenderContext, data interface{}) {
+func (t *Title) RebuildState(ctx api.ExtendedRenderContext, data interface{}) {
 	var maskFile api.Resource
 	gotRequest := false
 	if data != nil {
@@ -189,7 +193,7 @@ func (t *Title) RebuildState(ctx api.RenderContext, data interface{}) {
 		}
 		if maskFile != nil {
 			var err error
-			t.mask, err = img.LoadTexture(ctx.Renderer, maskFile.Path())
+			t.mask, err = img.LoadTexture(ctx.Renderer(), maskFile.Path())
 			if err != nil {
 				log.Println(err)
 				t.mask = nil

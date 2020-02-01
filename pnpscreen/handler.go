@@ -63,10 +63,12 @@ func (m httpMethods) String() string {
 	}
 }
 
+// pathItem describes an item used in a path handled a handler.
 type pathItem interface {
 	walk(url *string, ids *[]string) bool
 }
 
+// pathFragment describes a literal string in the handler path.
 type pathFragment string
 
 func (pf pathFragment) walk(url *string, ids *[]string) bool {
@@ -84,9 +86,11 @@ func (pf pathFragment) walk(url *string, ids *[]string) bool {
 	return true
 }
 
+// idCapture describes a path item that may contain anything. the contents of
+// this path item in the actual URL will be captured as ID.
 type idCapture struct{}
 
-func (idc idCapture) walk(url *string, ids *[]string) bool {
+func (idCapture) walk(url *string, ids *[]string) bool {
 	pos := strings.Index(*url, "/")
 	if pos == -1 {
 		*ids = append(*ids, *url)
@@ -98,11 +102,30 @@ func (idc idCapture) walk(url *string, ids *[]string) bool {
 	return true
 }
 
+// branch describes a possible path branch that must begin with the given path
+// fragment. If the fragment does not match, path items are skipped until the
+// next branch is found, and path resolution will continue there.
+//
+// branches cannot be nested.
+type branch struct {
+	fragment string
+}
+
+func (b *branch) walk(url *string, ids *[]string) bool {
+	// actual branching is done in the handler
+	return pathFragment(b.fragment).walk(url, ids)
+}
+
+// endpointHandler describes an object handling a URL request whose path ends
+// end the position of an endpoint path item.
 type endpointHandler interface {
 	Handle(method httpMethods, ids []string, payload []byte) (interface{},
 		api.SendableError)
 }
 
+// endpoint is a dummy pathItem. When resolving a path, it will be skipped if
+// the actual path continues, but if the actual path ends here, it will call
+// the linked endpointHandler.
 type endpoint struct {
 	allowedMethods httpMethods
 	handler        endpointHandler
@@ -143,7 +166,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var e endpoint
 	if h.basePath[len(h.basePath)-1] == '/' {
 		url := r.URL.Path[len(h.basePath):]
-		for i := range h.path {
+	OUTER:
+		for i := 0; i < len(h.path); i++ {
 			ok := true
 			if url == "" {
 				e, ok = h.path[i].(endpoint)
@@ -154,6 +178,15 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				ok = h.path[i].walk(&url, &ids)
 			}
 			if !ok {
+				_, ok = h.path[i].(*branch)
+				if ok {
+					for ; i < len(h.path)-1; i++ {
+						_, ok = h.path[i+1].(*branch)
+						if ok {
+							continue OUTER
+						}
+					}
+				}
 				http.Error(w, fmt.Sprintf("[404] %s: not found", h.name),
 					http.StatusNotFound)
 				return

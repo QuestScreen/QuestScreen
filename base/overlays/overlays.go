@@ -47,7 +47,7 @@ type Overlays struct {
 	curOrigWidth int32
 }
 
-func newModule(renderer *sdl.Renderer, env api.StaticEnvironment) (api.Module, error) {
+func newModule(renderer *sdl.Renderer) (api.Module, error) {
 	return &Overlays{curScale: 1, status: resting}, nil
 }
 
@@ -98,7 +98,7 @@ func (o *Overlays) loadTexture(renderer *sdl.Renderer, data *textureData) {
 func (o *Overlays) InitTransition(ctx api.RenderContext, data interface{}) time.Duration {
 	req := data.(*itemRequest)
 	if req.visible {
-		o.loadTexture(ctx.Renderer, &o.textures[req.index])
+		o.loadTexture(ctx.Renderer(), &o.textures[req.index])
 		o.status = fadeIn
 		if err := o.textures[req.index].tex.SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
 			log.Println(err)
@@ -136,7 +136,7 @@ func (o *Overlays) TransitionStep(ctx api.RenderContext, elapsed time.Duration) 
 func (o *Overlays) FinishTransition(ctx api.RenderContext) {
 	if o.status == fadeOut {
 		_, _, texWidth, _, _ := o.textures[o.curIndex].tex.Query()
-		winWidth, _, _ := ctx.Renderer.GetOutputSize()
+		winWidth, _, _ := ctx.Renderer().GetOutputSize()
 		_ = o.textures[o.curIndex].tex.Destroy()
 		o.textures[o.curIndex].tex = nil
 		o.curOrigWidth = o.curOrigWidth - int32(float32(texWidth)*o.textures[o.curIndex].scale)
@@ -157,7 +157,8 @@ func (o *Overlays) FinishTransition(ctx api.RenderContext) {
 
 // Render renders the module.
 func (o *Overlays) Render(ctx api.RenderContext) {
-	winWidth, winHeight, _ := ctx.Renderer.GetOutputSize()
+	r := ctx.Renderer()
+	winWidth, winHeight, _ := r.GetOutputSize()
 	curX := (winWidth - int32(float32(o.curOrigWidth)*o.curScale)) / 2
 	for i := range o.textures {
 		if o.textures[i].shown || (i == o.curIndex && o.status != resting) {
@@ -166,7 +167,7 @@ func (o *Overlays) Render(ctx api.RenderContext) {
 			targetWidth := int32(float32(texWidth) * o.textures[i].scale * o.curScale)
 			rect := sdl.Rect{X: curX, Y: winHeight - targetHeight, W: targetWidth, H: targetHeight}
 			curX += targetWidth
-			err := ctx.Renderer.Copy(o.textures[i].tex, nil, &rect)
+			err := r.Copy(o.textures[i].tex, nil, &rect)
 			if err != nil {
 				log.Println(err)
 			}
@@ -181,7 +182,7 @@ func (o *Overlays) SetConfig(value interface{}) {
 
 // RebuildState queries the new state through the channel and immediately
 // updates everything.
-func (o *Overlays) RebuildState(ctx api.RenderContext, data interface{}) {
+func (o *Overlays) RebuildState(ctx api.ExtendedRenderContext, data interface{}) {
 	if data == nil {
 		return
 	}
@@ -197,7 +198,7 @@ func (o *Overlays) RebuildState(ctx api.RenderContext, data interface{}) {
 	for i := range o.textures {
 		o.textures[i].file = req.resources[i]
 		if req.visible[i] {
-			o.loadTexture(ctx.Renderer, &o.textures[i])
+			o.loadTexture(ctx.Renderer(), &o.textures[i])
 			o.textures[i].shown = true
 		} else {
 			o.textures[i].scale = 1

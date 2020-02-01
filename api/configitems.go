@@ -24,14 +24,14 @@ type ConfigItem interface {
 	// (typically a *BadRequest) and should not alter the item's state.
 	// Implementation should typically use the ReceiveData func, possibly together
 	// with the strict ValidatedX types provided by the api package.
-	LoadWeb(input json.RawMessage, env Environment) SendableError
+	LoadWeb(input json.RawMessage, ctx ServerContext) SendableError
 	// LoadPersisted loads the config item's state from YAML data that has been
 	// read from the file system.
 	//
 	// LoadPersisted should be robust when loading from Persisted layout, handling
 	// errors by logging them and setting appropriate default values. An error
 	// returned from loading Persisted data will lead to the app to exit.
-	LoadPersisted(input *yaml.Node, env Environment) error
+	LoadPersisted(input *yaml.Node, ctx ServerContext) error
 }
 
 // SelectableFont is used to allow the user to select a font family.
@@ -56,10 +56,9 @@ type webSelectableFont struct {
 // LoadWeb loads a selectable font from a json input
 // `{"familyIndex": <number>, "size": <number>, "style": <number>}`
 func (sf *SelectableFont) LoadWeb(
-	input json.RawMessage, env Environment) SendableError {
-	fonts := env.FontCatalog()
+	input json.RawMessage, ctx ServerContext) SendableError {
 	tmp := webSelectableFont{
-		FamilyIndex: ValidatedInt{Min: 0, Max: len(fonts) - 1},
+		FamilyIndex: ValidatedInt{Min: 0, Max: ctx.NumFontFamilies() - 1},
 		Size:        ValidatedInt{Min: 0, Max: int(HugeFont)},
 		Style:       ValidatedInt{Min: 0, Max: int(BoldItalic)},
 	}
@@ -74,16 +73,16 @@ func (sf *SelectableFont) LoadWeb(
 
 // LoadPersisted loads a selectable font from a YAML input
 // `{family: <string>, size: <number>, style: <number>}`
-func (sf *SelectableFont) LoadPersisted(input *yaml.Node, env Environment) error {
-	fonts := env.FontCatalog()
+func (sf *SelectableFont) LoadPersisted(
+	input *yaml.Node, ctx ServerContext) error {
 	var tmp persistedSelectableFont
 	if err := input.Decode(&tmp); err != nil {
 		return err
 	}
 	sf.Size = tmp.Size
 	sf.Style = tmp.Style
-	for i := range fonts {
-		if tmp.Family == fonts[i].Name() {
+	for i := 0; i < ctx.NumFontFamilies(); i++ {
+		if tmp.Family == ctx.FontFamilyName(i) {
 			sf.FamilyIndex = i
 			return nil
 		}
@@ -94,14 +93,14 @@ func (sf *SelectableFont) LoadPersisted(input *yaml.Node, env Environment) error
 }
 
 // WebView returns the object itself.
-func (sf *SelectableFont) WebView(env Environment) interface{} {
+func (sf *SelectableFont) WebView(ctx ServerContext) interface{} {
 	return sf
 }
 
 // PersistingView returns a view that gives the family name as string.
-func (sf *SelectableFont) PersistingView(env Environment) interface{} {
+func (sf *SelectableFont) PersistingView(ctx ServerContext) interface{} {
 	return &persistedSelectableFont{
-		Family: env.FontCatalog()[sf.FamilyIndex].Name(),
+		Family: ctx.FontFamilyName(sf.FamilyIndex),
 		Size:   sf.Size,
 		Style:  sf.Style,
 	}

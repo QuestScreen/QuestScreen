@@ -14,9 +14,8 @@ type endpoint struct {
 	*state
 }
 
-func newState(input *yaml.Node, env api.Environment,
-	index api.ModuleIndex) (api.ModuleState, error) {
-	s := &state{resources: env.GetResources(index, 0)}
+func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) {
+	s := &state{resources: ctx.GetResources(0)}
 
 	if input == nil {
 		s.caption = ""
@@ -38,12 +37,12 @@ func (s *state) CreateModuleData() interface{} {
 }
 
 // WebView returns the current caption of the title as string.
-func (s *state) WebView(env api.Environment) interface{} {
+func (s *state) WebView(ctx api.ServerContext) interface{} {
 	return s.caption
 }
 
 // PersistingView returns the current caption of the title as string.
-func (s *state) PersistingView(env api.Environment) interface{} {
+func (s *state) PersistingView(ctx api.ServerContext) interface{} {
 	return s.caption
 }
 

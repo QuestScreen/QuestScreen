@@ -10,6 +10,7 @@ import (
 	"github.com/flyx/pnpscreen/api"
 	"github.com/flyx/pnpscreen/app"
 	"github.com/veandco/go-sdl2/sdl"
+	"github.com/veandco/go-sdl2/ttf"
 )
 
 type moduleState struct {
@@ -29,6 +30,7 @@ type Display struct {
 	owner                app.App
 	Renderer             *sdl.Renderer
 	Window               *sdl.Window
+	defaultBorderWidth   int32
 	textureBuffer        uint32
 	moduleStates         []moduleState
 	numTransitions       int32
@@ -38,6 +40,34 @@ type Display struct {
 	enabledModules       []bool
 	queuedEnabledModules []bool
 	request              uint32
+}
+
+// renderContext implements api.ExtendedRenderContext
+type renderContext struct {
+	*Display
+	moduleIndex app.ModuleIndex
+	heroes      app.HeroView
+}
+
+func (rc renderContext) GetResources(index api.ResourceCollectionIndex) []api.Resource {
+	return rc.owner.GetResources(rc.moduleIndex, index)
+}
+
+func (rc renderContext) Renderer() *sdl.Renderer {
+	return rc.Display.Renderer
+}
+
+func (rc renderContext) Font(
+	fontFamily int, style api.FontStyle, size api.FontSize) *ttf.Font {
+	return rc.owner.Font(fontFamily, style, size)
+}
+
+func (rc renderContext) DefaultBorderWidth() int32 {
+	return rc.defaultBorderWidth
+}
+
+func (rc renderContext) Heroes() api.HeroList {
+	return rc.heroes
 }
 
 // Init initializes the display. The renderer and window need to be generated
@@ -55,6 +85,7 @@ func (d *Display) Init(
 	if err != nil {
 		return err
 	}
+	d.defaultBorderWidth = height / 133
 	d.numTransitions = 0
 
 	d.genPopup(width, height)
@@ -67,15 +98,16 @@ func (d *Display) Init(
 }
 
 func (d *Display) render(cur time.Time, popup bool) {
-	ctx := api.RenderContext{Renderer: d.Renderer, Env: d.owner}
+	ctx := renderContext{Display: d}
 	d.Renderer.Clear()
 	if d.initial {
 		_ = d.Renderer.Copy(d.welcomeTexture, nil, nil)
 	} else {
 		d.Renderer.SetDrawColor(255, 255, 255, 255)
 		d.Renderer.FillRect(nil)
-		for i := api.ModuleIndex(0); i < d.owner.NumModules(); i++ {
+		for i := app.FirstModule; i < d.owner.NumModules(); i++ {
 			if d.enabledModules[i] {
+				ctx.moduleIndex = i
 				state := &d.moduleStates[i]
 				module := d.owner.ModuleAt(i)
 				if state.transitioning {
@@ -97,8 +129,8 @@ func (d *Display) render(cur time.Time, popup bool) {
 	d.Renderer.Present()
 }
 
-func (d *Display) startTransition(moduleIndex api.ModuleIndex) {
-	ctx := api.RenderContext{Renderer: d.Renderer, Env: d.owner}
+func (d *Display) startTransition(moduleIndex app.ModuleIndex) {
+	ctx := renderContext{Display: d, moduleIndex: moduleIndex}
 	module := d.owner.ModuleAt(moduleIndex)
 	state := &d.moduleStates[moduleIndex]
 	if state.queuedData == nil {
@@ -172,7 +204,7 @@ func (d *Display) RenderLoop() {
 			case *sdl.UserEvent:
 				switch e.Type {
 				case d.Events.ModuleUpdateID:
-					d.startTransition(api.ModuleIndex(e.Code))
+					d.startTransition(app.ModuleIndex(e.Code))
 					render = true
 					atomic.StoreUint32(&d.request, noRequest)
 				case d.Events.SceneChangeID:
@@ -180,9 +212,10 @@ func (d *Display) RenderLoop() {
 					d.queuedEnabledModules = nil
 					fallthrough
 				case d.Events.ModuleConfigID:
-					ctx := api.RenderContext{Renderer: d.Renderer, Env: d.owner}
-					for i := range d.moduleStates {
-						module := d.owner.ModuleAt(api.ModuleIndex(i))
+					ctx := renderContext{Display: d, heroes: d.owner.ViewHeroes()}
+					for i := app.FirstModule; i < d.owner.NumModules(); i++ {
+						ctx.moduleIndex = i
+						module := d.owner.ModuleAt(i)
 						state := &d.moduleStates[i]
 						forceRebuild := false
 						if state.queuedConfig != nil {
@@ -195,6 +228,7 @@ func (d *Display) RenderLoop() {
 							state.queuedData = nil
 						}
 					}
+					ctx.heroes.Close()
 					render = true
 					atomic.StoreUint32(&d.request, noRequest)
 					d.initial = false
@@ -238,8 +272,8 @@ func (d *Display) StartRequest(eventID uint32, eventCode int32) (Request,
 
 // SendModuleConfig queues the given config for the module at the given ID as
 // part of the request.
-func (r *Request) SendModuleConfig(index api.ModuleIndex, config interface{}) error {
-	if index < 0 || index >= api.ModuleIndex(len(r.d.moduleStates)) {
+func (r *Request) SendModuleConfig(index app.ModuleIndex, config interface{}) error {
+	if index < 0 || index >= r.d.owner.NumModules() {
 		return fmt.Errorf("Module index %d outside of range 0..%d", index, len(r.d.moduleStates))
 	}
 	state := &r.d.moduleStates[index]
@@ -253,8 +287,8 @@ func (r *Request) SendModuleConfig(index api.ModuleIndex, config interface{}) er
 // SendModuleData queues the given data for the module at the given ID as part
 // of the request. Whether the data is used for RebuiltState or InitTransition
 // depends on the event ID of the request.
-func (r *Request) SendModuleData(index api.ModuleIndex, data interface{}) error {
-	if index < 0 || index >= api.ModuleIndex(len(r.d.moduleStates)) {
+func (r *Request) SendModuleData(index app.ModuleIndex, data interface{}) error {
+	if index < 0 || index >= r.d.owner.NumModules() {
 		return fmt.Errorf("Module index %d outside of range 0..%d", index, len(r.d.moduleStates))
 	}
 	state := &r.d.moduleStates[index]

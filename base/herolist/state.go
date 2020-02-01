@@ -26,15 +26,12 @@ type heroEndpoint struct {
 	*state
 }
 
-func newState(input *yaml.Node, env api.Environment,
-	index api.ModuleIndex) (api.ModuleState, error) {
-	heroes := env.Heroes()
-	defer heroes.Close()
-	s := &state{heroVisible: make([]bool, heroes.NumHeroes()),
+func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) {
+	s := &state{heroVisible: make([]bool, ctx.NumHeroes()),
 		heroIDToIndex: make(map[string]int)}
-	for i := 0; i < heroes.NumHeroes(); i++ {
+	for i := 0; i < ctx.NumHeroes(); i++ {
 		s.heroVisible[i] = true
-		s.heroIDToIndex[heroes.Hero(i).ID()] = i
+		s.heroIDToIndex[ctx.HeroID(i)] = i
 	}
 	if input == nil {
 		s.globalVisible = true
@@ -49,8 +46,8 @@ func newState(input *yaml.Node, env api.Environment,
 		}
 		for i := range tmp.HeroVisible {
 			found := false
-			for j := 0; j < heroes.NumHeroes(); j++ {
-				if tmp.HeroVisible[i] == heroes.Hero(j).Name() {
+			for j := 0; j < ctx.NumHeroes(); j++ {
+				if tmp.HeroVisible[i] == ctx.HeroID(j) {
 					found = true
 					s.heroVisible[j] = true
 					break
@@ -71,13 +68,11 @@ func (s *state) CreateModuleData() interface{} {
 	return &fullRequest{heroes: states, global: s.globalVisible}
 }
 
-func (s *state) visibleHeroesList(env api.Environment) []string {
+func (s *state) visibleHeroesList(ctx api.ServerContext) []string {
 	ret := make([]string, 0, len(s.heroVisible))
-	heroes := env.Heroes()
-	defer heroes.Close()
 	for i := range s.heroVisible {
 		if s.heroVisible[i] {
-			ret = append(ret, heroes.Hero(i).Name())
+			ret = append(ret, ctx.HeroID(i))
 		}
 	}
 	return ret
@@ -90,15 +85,15 @@ type webState struct {
 
 // WebView returns a structure containing the global flag and a list containing
 // boolean flags for each hero
-func (s *state) WebView(env api.Environment) interface{} {
+func (s *state) WebView(ctx api.ServerContext) interface{} {
 	return webState{Global: s.globalVisible, Heroes: s.heroVisible}
 }
 
 // PersistingView returns a structure containing the `global` flag and a list
 // containing each visible hero as ID
-func (s *state) PersistingView(env api.Environment) interface{} {
+func (s *state) PersistingView(ctx api.ServerContext) interface{} {
 	return persistedState{GlobalVisible: s.globalVisible,
-		HeroVisible: s.visibleHeroesList(env)}
+		HeroVisible: s.visibleHeroesList(ctx)}
 }
 
 func (s *state) PureEndpoint(index int) api.ModulePureEndpoint {

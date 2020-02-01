@@ -11,10 +11,10 @@ type keyOption struct {
 }
 
 func (d *Display) shrinkByBorder(rect *sdl.Rect) {
-	rect.X += d.owner.DefaultBorderWidth()
-	rect.Y += d.owner.DefaultBorderWidth()
-	rect.W -= 2 * d.owner.DefaultBorderWidth()
-	rect.H -= 2 * d.owner.DefaultBorderWidth()
+	rect.X += d.defaultBorderWidth
+	rect.Y += d.defaultBorderWidth
+	rect.W -= 2 * d.defaultBorderWidth
+	rect.H -= 2 * d.defaultBorderWidth
 }
 
 func shrinkTo(rect *sdl.Rect, w int32, h int32) {
@@ -58,7 +58,7 @@ func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error 
 	}()
 	padding := (frame.H - maxHeight*int32(len(options)+1)) / (2 * int32(len(options)+1))
 	curY := frame.Y + padding
-	borderWidth := d.owner.DefaultBorderWidth()
+	borderWidth := d.defaultBorderWidth
 	for i := range options {
 		curRect := sdl.Rect{X: frame.X + padding - 2*borderWidth,
 			Y: curY - 2*borderWidth, W: maxHeight + 4*borderWidth,

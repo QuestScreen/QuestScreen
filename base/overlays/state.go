@@ -18,9 +18,8 @@ type endpoint struct {
 
 type persistentState []string
 
-func newState(input *yaml.Node, env api.Environment,
-	index api.ModuleIndex) (api.ModuleState, error) {
-	s := &state{resources: env.GetResources(index, 0)}
+func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) {
+	s := &state{resources: ctx.GetResources(0)}
 	s.visible = make([]bool, len(s.resources))
 	if input != nil {
 		var tmp persistentState
@@ -61,7 +60,7 @@ type webStateItem struct {
 type webState []webStateItem
 
 // WebView returns a list of resources descriptors (name & visible)
-func (s *state) WebView(env api.Environment) interface{} {
+func (s *state) WebView(ctx api.ServerContext) interface{} {
 	ret := make(webState, len(s.resources))
 	for i := range s.resources {
 		ret[i].Name = s.resources[i].Name()
@@ -71,7 +70,7 @@ func (s *state) WebView(env api.Environment) interface{} {
 }
 
 // PersistingView returns a list of selected resource names
-func (s *state) PersistingView(env api.Environment) interface{} {
+func (s *state) PersistingView(ctx api.ServerContext) interface{} {
 	ret := make([]string, 0, len(s.resources))
 	for i := range s.visible {
 		if s.visible[i] {

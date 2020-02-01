@@ -15,12 +15,12 @@ type SerializableItem interface {
 	// The returned view will be serialized as JSON, possibly as part of a
 	// larger structure. If you need to manually serialize the structure, return
 	// a json.RawMessage.
-	WebView(env Environment) interface{}
+	WebView(ctx ServerContext) interface{}
 
 	// PersistingView returns a view of the data structure that can be
 	// communicated to the client.
 	//
 	// The returned view will be serialized as YAML as part of a larger structure.
 	// If you need to manually serialize the structure, return a *yaml.Node.
-	PersistingView(env Environment) interface{}
+	PersistingView(ctx ServerContext) interface{}
 }

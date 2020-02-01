@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/flyx/pnpscreen/api"
+	"github.com/flyx/pnpscreen/app"
 	"github.com/flyx/pnpscreen/web"
 
 	"github.com/flyx/pnpscreen/display"
@@ -49,7 +50,7 @@ import (
 //   GET: Returns the current group, scene, and for each active module its
 //        state.
 //   POST: Changes active group or scene, returns same data as GET.
-// /state/<module-id>/<entity-id>
+// /state/<module-id>[/<endpoint-path>][/<entity-id>]
 //   PUT: Trigger an animation by changing the state of the given module.
 // /config/base
 //   GET: Returns the base configuration.
@@ -93,18 +94,18 @@ func (srh *staticResourceHandler) ServeHTTP(
 	}
 }
 
-func newStaticResourceHandler(a *app) *staticResourceHandler {
+func newStaticResourceHandler(qs *QuestScreen) *staticResourceHandler {
 	ep := &staticResourceHandler{
 		resources: make(map[string]staticResource)}
 
 	indexRes := staticResource{
-		contentType: "text/html; charset=utf-8", content: a.html}
+		contentType: "text/html; charset=utf-8", content: qs.html}
 	ep.resources["/"] = indexRes
 	ep.resources["/index.html"] = indexRes
 	ep.resources["/all.js"] = staticResource{
-		contentType: "application/javascript", content: a.js}
+		contentType: "application/javascript", content: qs.js}
 	ep.resources["/style.css"] = staticResource{
-		contentType: "text/css", content: a.css}
+		contentType: "text/css", content: qs.css}
 	return ep
 }
 
@@ -114,43 +115,43 @@ func (srh *staticResourceHandler) add(path string, contentType string) {
 }
 
 type endpointEnv struct {
-	a      *app
+	qs     *QuestScreen
 	events display.Events
 }
 
 func (env *endpointEnv) sendConfigsToDisplay() api.SendableError {
-	if env.a.activeGroupIndex != -1 {
-		req, err := env.a.display.StartRequest(env.events.ModuleConfigID, 0)
+	if env.qs.activeGroupIndex != -1 {
+		req, err := env.qs.display.StartRequest(env.events.ModuleConfigID, 0)
 		if err != nil {
 			return err
 		}
 		defer req.Close()
-		mergeAndSendConfigs(env.a, &req)
+		mergeAndSendConfigs(env.qs, &req)
 		req.Commit()
 	}
 	return nil
 }
 
-func sendScene(a *app, req *display.Request) {
-	data := make([]bool, len(a.modules))
-	scene := a.activeGroup().Scene(a.data.ActiveScene())
-	for i := api.ModuleIndex(0); i < api.ModuleIndex(len(a.modules)); i++ {
+func sendScene(qs *QuestScreen, req *display.Request) {
+	data := make([]bool, len(qs.modules))
+	scene := qs.activeGroup().Scene(qs.data.ActiveScene())
+	for i := app.FirstModule; i < qs.NumModules(); i++ {
 		data[i] = scene.UsesModule(i)
 		if data[i] {
-			req.SendModuleData(i, a.data.StateOf(i).CreateModuleData())
+			req.SendModuleData(i, qs.data.StateOf(i).CreateModuleData())
 		}
 	}
 	req.SendEnabledModulesList(data)
 }
 
-func mergeAndSendConfigs(a *app, req *display.Request) {
-	g := a.activeGroup()
+func mergeAndSendConfigs(qs *QuestScreen, req *display.Request) {
+	g := qs.activeGroup()
 	if g != nil {
-		scene := g.Scene(a.data.ActiveScene())
-		for i := api.ModuleIndex(0); i < api.ModuleIndex(len(a.modules)); i++ {
+		scene := g.Scene(qs.data.ActiveScene())
+		for i := app.FirstModule; i < qs.NumModules(); i++ {
 			if scene.UsesModule(i) {
-				req.SendModuleConfig(i, a.data.MergeConfig(i,
-					a.activeSystemIndex, a.activeGroupIndex, a.data.ActiveScene()))
+				req.SendModuleConfig(i, qs.data.MergeConfig(i,
+					qs.activeSystemIndex, qs.activeGroupIndex, qs.data.ActiveScene()))
 			}
 		}
 	}
@@ -162,7 +163,7 @@ type staticDataEndpoint struct {
 
 func (sd staticDataEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
-	return sd.a.communication.StaticData(sd.a, sd.a.plugins), nil
+	return sd.qs.communication.StaticData(sd.qs, sd.qs.plugins), nil
 }
 
 type stateEndpoint struct {
@@ -213,18 +214,18 @@ func (se stateEndpoint) Handle(method httpMethods, ids []string,
 	activeScene := -1
 	var modules interface{} = nil
 	if method == httpPost {
-		g := se.a.activeGroup()
+		g := se.qs.activeGroup()
 		maxScenes := -1
 		if g != nil {
 			maxScenes = g.NumScenes() - 1
 		}
-		value := validatedStateAction{MaxGroups: se.a.data.NumGroups() - 1,
+		value := validatedStateAction{MaxGroups: se.qs.data.NumGroups() - 1,
 			MaxScenes: maxScenes}
 		if err := api.ReceiveData(raw, &value); err != nil {
 			return nil, err
 		}
 
-		req, err := se.a.display.StartRequest(se.events.SceneChangeID, 0)
+		req, err := se.qs.display.StartRequest(se.events.SceneChangeID, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -232,11 +233,11 @@ func (se stateEndpoint) Handle(method httpMethods, ids []string,
 
 		switch value.Action {
 		case setgroup:
-			activeScene, err = se.a.setActiveGroup(value.Value.Index)
+			activeScene, err = se.qs.setActiveGroup(value.Value.Index)
 			if err != nil {
 				return nil, err
 			}
-			if err = se.a.data.SetScene(activeScene); err != nil {
+			if err = se.qs.data.SetScene(activeScene); err != nil {
 				return nil, err
 			}
 		case setscene:
@@ -244,20 +245,20 @@ func (se stateEndpoint) Handle(method httpMethods, ids []string,
 				return nil, &api.BadRequest{Message: "No active group"}
 			}
 
-			if err := se.a.data.SetScene(value.Value.Index); err != nil {
+			if err := se.qs.data.SetScene(value.Value.Index); err != nil {
 				return nil, err
 			}
-			se.a.persistence.WriteState()
+			se.qs.persistence.WriteState()
 		}
 
-		sendScene(se.a, &req)
-		mergeAndSendConfigs(se.a, &req)
+		sendScene(se.qs, &req)
+		mergeAndSendConfigs(se.qs, &req)
 		req.Commit()
-		modules = se.a.communication.ViewSceneState(se.a)
+		modules = se.qs.communication.ViewSceneState(se.qs)
 	} else {
-		if se.a.activeGroupIndex != -1 {
-			activeScene = se.a.data.ActiveScene()
-			modules = se.a.communication.ViewSceneState(se.a)
+		if se.qs.activeGroupIndex != -1 {
+			activeScene = se.qs.data.ActiveScene()
+			modules = se.qs.communication.ViewSceneState(se.qs)
 		}
 	}
 
@@ -266,7 +267,7 @@ func (se stateEndpoint) Handle(method httpMethods, ids []string,
 		ActiveScene int         `json:"activeScene"`
 		Modules     interface{} `json:"modules"`
 	}{
-		ActiveGroup: se.a.activeGroupIndex,
+		ActiveGroup: se.qs.activeGroupIndex,
 		ActiveScene: activeScene,
 		Modules:     modules,
 	}, nil
@@ -279,13 +280,13 @@ type baseConfigEndpoint struct {
 func (bce baseConfigEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
 	if method == httpPut {
-		if err := bce.a.communication.UpdateBaseConfig(raw); err != nil {
+		if err := bce.qs.communication.UpdateBaseConfig(raw); err != nil {
 			return nil, err
 		}
-		bce.a.persistence.WriteBase()
+		bce.qs.persistence.WriteBase()
 		return nil, bce.sendConfigsToDisplay()
 	}
-	return bce.a.communication.ViewBaseConfig(), nil
+	return bce.qs.communication.ViewBaseConfig(), nil
 }
 
 type systemConfigEndpoint struct {
@@ -294,18 +295,18 @@ type systemConfigEndpoint struct {
 
 func (sce systemConfigEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
-	_, s := sce.a.data.SystemByID(ids[0])
+	_, s := sce.qs.data.SystemByID(ids[0])
 	if s == nil {
 		return nil, &api.NotFound{Name: ids[0]}
 	}
 	if method == httpPut {
-		if err := sce.a.communication.UpdateSystemConfig(raw, s); err != nil {
+		if err := sce.qs.communication.UpdateSystemConfig(raw, s); err != nil {
 			return nil, err
 		}
-		sce.a.persistence.WriteSystem(s)
+		sce.qs.persistence.WriteSystem(s)
 		return nil, sce.sendConfigsToDisplay()
 	}
-	return sce.a.communication.ViewSystemConfig(s)
+	return sce.qs.communication.ViewSystemConfig(s)
 }
 
 type groupConfigEndpoint struct {
@@ -314,19 +315,19 @@ type groupConfigEndpoint struct {
 
 func (gce groupConfigEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
-	_, g := gce.a.data.GroupByID(ids[0])
+	_, g := gce.qs.data.GroupByID(ids[0])
 	if g == nil {
 		return nil, &api.NotFound{Name: ids[0]}
 	}
 	if method == httpPut {
 
-		if err := gce.a.communication.UpdateGroupConfig(raw, g); err != nil {
+		if err := gce.qs.communication.UpdateGroupConfig(raw, g); err != nil {
 			return nil, err
 		}
-		gce.a.persistence.WriteGroup(g)
+		gce.qs.persistence.WriteGroup(g)
 		return nil, gce.sendConfigsToDisplay()
 	}
-	return gce.a.communication.ViewGroupConfig(g), nil
+	return gce.qs.communication.ViewGroupConfig(g), nil
 }
 
 type sceneConfigEndpoint struct {
@@ -335,7 +336,7 @@ type sceneConfigEndpoint struct {
 
 func (sce sceneConfigEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
-	_, g := sce.a.data.GroupByID(ids[0])
+	_, g := sce.qs.data.GroupByID(ids[0])
 	if g == nil {
 		return nil, &api.NotFound{Name: ids[0]}
 	}
@@ -344,32 +345,32 @@ func (sce sceneConfigEndpoint) Handle(method httpMethods, ids []string,
 		return nil, &api.NotFound{Name: ids[1]}
 	}
 	if method == httpPut {
-		if err := sce.a.communication.UpdateSceneConfig(raw, s); err != nil {
+		if err := sce.qs.communication.UpdateSceneConfig(raw, s); err != nil {
 			return nil, err
 		}
-		sce.a.persistence.WriteScene(g, s)
+		sce.qs.persistence.WriteScene(g, s)
 		return nil, sce.sendConfigsToDisplay()
 	}
-	return sce.a.communication.ViewSceneConfig(s), nil
+	return sce.qs.communication.ViewSceneConfig(s), nil
 }
 
 type moduleEndpoint struct {
 	*endpointEnv
-	moduleIndex   api.ModuleIndex
+	moduleIndex   app.ModuleIndex
 	endpointIndex int
 	pure          bool
 }
 
 func (me *moduleEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
-	state := me.a.data.State.StateOf(me.moduleIndex)
+	state := me.qs.data.State.StateOf(me.moduleIndex)
 	if state == nil {
 		return nil, &api.BadRequest{
 			Message: fmt.Sprintf("module \"%s\" not enabled for current scene",
-				me.a.modules[me.moduleIndex].Descriptor().ID)}
+				me.qs.modules[me.moduleIndex].Descriptor().ID)}
 	}
 
-	req, err := me.a.display.StartRequest(
+	req, err := me.qs.display.StartRequest(
 		me.events.ModuleUpdateID, int32(me.moduleIndex))
 	if err != nil {
 		return nil, err
@@ -390,7 +391,7 @@ func (me *moduleEndpoint) Handle(method httpMethods, ids []string,
 
 	req.SendModuleData(me.moduleIndex, data)
 	req.Commit()
-	me.a.persistence.WriteState()
+	me.qs.persistence.WriteState()
 	return responseObj, nil
 }
 
@@ -400,7 +401,7 @@ type dataEndpoint struct {
 
 func (de dataEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
-	return de.a.communication.ViewAll(de.a), nil
+	return de.qs.communication.ViewAll(de.qs), nil
 }
 
 type systemEndpoint struct {
@@ -409,20 +410,20 @@ type systemEndpoint struct {
 
 func (se systemEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
-	index, s := se.a.data.SystemByID(ids[0])
+	index, s := se.qs.data.SystemByID(ids[0])
 	if s == nil {
 		return nil, &api.NotFound{Name: ids[0]}
 	}
 	if method == httpPut {
-		if err := se.a.communication.UpdateSystem(raw, s); err != nil {
+		if err := se.qs.communication.UpdateSystem(raw, s); err != nil {
 			return nil, err
 		}
-		if err := se.a.persistence.WriteSystem(s); err != nil {
+		if err := se.qs.persistence.WriteSystem(s); err != nil {
 			log.Println("failed to persist system: " + err.Error())
 		}
-		return se.a.communication.ViewSystems(), nil
+		return se.qs.communication.ViewSystems(), nil
 	}
-	return nil, se.a.persistence.DeleteSystem(index)
+	return nil, se.qs.persistence.DeleteSystem(index)
 }
 
 type dataGroupEndpoint struct {
@@ -431,23 +432,23 @@ type dataGroupEndpoint struct {
 
 func (dge dataGroupEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
-	index, g := dge.a.data.GroupByID(ids[0])
+	index, g := dge.qs.data.GroupByID(ids[0])
 	if g == nil {
 		return nil, &api.NotFound{Name: ids[0]}
 	}
 	if method == httpPut {
-		if err := dge.a.communication.UpdateGroup(raw, g); err != nil {
+		if err := dge.qs.communication.UpdateGroup(raw, g); err != nil {
 			return nil, err
 		}
-		if err := dge.a.persistence.WriteGroup(g); err != nil {
+		if err := dge.qs.persistence.WriteGroup(g); err != nil {
 			log.Println("failed to persist group: " + err.Error())
 		}
 		// TODO: check group index; if active group, update stuff since index could
 		// have been changed due to reordering
 	} else {
-		dge.a.persistence.DeleteGroup(index)
+		dge.qs.persistence.DeleteGroup(index)
 	}
-	return dge.a.communication.ViewGroups(), nil
+	return dge.qs.communication.ViewGroups(), nil
 }
 
 type dataSystemsEndpoint struct {
@@ -460,10 +461,10 @@ func (sc dataSystemsEndpoint) Handle(method httpMethods, ids []string,
 	if err := api.ReceiveData(raw, &name); err != nil {
 		return nil, err
 	}
-	if err := sc.a.persistence.CreateSystem(name.Value); err != nil {
+	if err := sc.qs.persistence.CreateSystem(name.Value); err != nil {
 		return nil, err
 	}
-	return sc.a.communication.ViewSystems(), nil
+	return sc.qs.communication.ViewSystems(), nil
 }
 
 type dataGroupsEndpoint struct {
@@ -499,17 +500,17 @@ func (gcr *groupCreationReceiver) UnmarshalJSON(data []byte) error {
 
 func (dge dataGroupsEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
-	value := groupCreationReceiver{plugins: dge.a.plugins}
+	value := groupCreationReceiver{plugins: dge.qs.plugins}
 	if err := api.ReceiveData(raw, &value); err != nil {
 		return nil, err
 	}
-	if err := dge.a.persistence.CreateGroup(value.data.Name,
-		&dge.a.plugins[value.data.PluginIndex].GroupTemplates[value.data.GroupTemplateIndex],
-		dge.a.plugins[value.data.PluginIndex].SceneTemplates); err != nil {
+	if err := dge.qs.persistence.CreateGroup(value.data.Name,
+		&dge.qs.plugins[value.data.PluginIndex].GroupTemplates[value.data.GroupTemplateIndex],
+		dge.qs.plugins[value.data.PluginIndex].SceneTemplates); err != nil {
 		return nil, &api.InternalError{
 			Description: "while creating group", Inner: err}
 	}
-	return dge.a.communication.ViewGroups(), nil
+	return dge.qs.communication.ViewGroups(), nil
 }
 
 type dataScenesEndpoint struct {
@@ -545,20 +546,20 @@ func (scr *sceneCreationReceiver) UnmarshalJSON(data []byte) error {
 
 func (dse dataScenesEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
-	_, group := dse.a.data.GroupByID(ids[0])
+	_, group := dse.qs.data.GroupByID(ids[0])
 	if group == nil {
 		return nil, &api.NotFound{Name: ids[0]}
 	}
-	value := sceneCreationReceiver{plugins: dse.a.plugins}
+	value := sceneCreationReceiver{plugins: dse.qs.plugins}
 	if err := api.ReceiveData(raw, &value); err != nil {
 		return nil, err
 	}
 
-	if err := dse.a.persistence.CreateScene(group, value.data.Name,
-		&dse.a.plugins[value.data.PluginIndex].SceneTemplates[value.data.SceneTemplateIndex]); err != nil {
+	if err := dse.qs.persistence.CreateScene(group, value.data.Name,
+		&dse.qs.plugins[value.data.PluginIndex].SceneTemplates[value.data.SceneTemplateIndex]); err != nil {
 		return nil, &api.InternalError{Description: "while creating group", Inner: err}
 	}
-	return dse.a.communication.ViewScenes(group), nil
+	return dse.qs.communication.ViewScenes(group), nil
 }
 
 type dataSceneEndpoint struct {
@@ -567,32 +568,88 @@ type dataSceneEndpoint struct {
 
 func (dse dataSceneEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, api.SendableError) {
-	_, group := dse.a.data.GroupByID(ids[0])
+	_, group := dse.qs.data.GroupByID(ids[0])
 	if group == nil {
 		return nil, &api.NotFound{Name: ids[0]}
 	}
 	sceneIndex, scene := group.SceneByID(ids[1])
 	if scene == nil {
-		return nil, &api.NotFound{Name: ids[0]}
+		return nil, &api.NotFound{Name: ids[1]}
 	}
 	if method == httpPut {
-		if err := dse.a.communication.UpdateScene(raw, group, scene); err != nil {
+		if err := dse.qs.communication.UpdateScene(raw, group, scene); err != nil {
 			return nil, err
 		}
-		if err := dse.a.persistence.WriteScene(group, scene); err != nil {
+		if err := dse.qs.persistence.WriteScene(group, scene); err != nil {
 			log.Println("failed to persist scene: " + err.Error())
 		}
 		// TODO: check scene index; if active scene, update stuff since index could
 		// have been changed due to reordering
 	} else {
-		dse.a.persistence.DeleteScene(group, sceneIndex)
+		dse.qs.persistence.DeleteScene(group, sceneIndex)
 	}
-	return dse.a.communication.ViewScenes(group), nil
+	return dse.qs.communication.ViewScenes(group), nil
 }
 
-func startServer(owner *app, events display.Events, port uint16) *http.Server {
+type dataHeroesEndpoint struct {
+	*endpointEnv
+}
+
+func (dhe dataHeroesEndpoint) Handle(method httpMethods, ids []string,
+	raw []byte) (interface{}, api.SendableError) {
+	_, group := dhe.qs.data.GroupByID(ids[0])
+	if group == nil {
+		return nil, &api.NotFound{Name: ids[0]}
+	}
+	value := struct {
+		Name        api.ValidatedString `json:"name"`
+		Description string              `json:"description"`
+	}{
+		Name: api.ValidatedString{MinLen: 1, MaxLen: -1},
+	}
+	if err := api.ReceiveData(raw, &value); err != nil {
+		return nil, err
+	}
+	if err := dhe.qs.persistence.CreateHero(
+		group, value.Name.Value, value.Description); err != nil {
+		return nil, &api.InternalError{Description: "while creating hero", Inner: err}
+	}
+	return dhe.qs.communication.ViewHeroes(group), nil
+}
+
+type dataHeroEndpoint struct {
+	*endpointEnv
+}
+
+func (dhe dataHeroEndpoint) Handle(method httpMethods, ids []string,
+	raw []byte) (interface{}, api.SendableError) {
+	_, group := dhe.qs.data.GroupByID(ids[0])
+	if group == nil {
+		return nil, &api.NotFound{Name: ids[0]}
+	}
+	heroes := group.ViewHeroes()
+	defer heroes.Close()
+	heroIndex, hero := heroes.HeroByID(ids[1])
+	if hero == nil {
+		return nil, &api.NotFound{Name: ids[1]}
+	}
+	if method == httpPut {
+		if err := dhe.qs.communication.UpdateHero(raw, hero); err != nil {
+			return nil, err
+		}
+		if err := dhe.qs.persistence.WriteHero(group, hero); err != nil {
+			log.Println("failed to persist hero: " + err.Error())
+		}
+	} else {
+		dhe.qs.persistence.DeleteHero(group, heroIndex)
+	}
+	return dhe.qs.communication.ViewHeroes(group), nil
+}
+
+func startServer(owner *QuestScreen, events display.Events,
+	port uint16) *http.Server {
 	server := &http.Server{Addr: ":" + strconv.Itoa(int(port))}
-	env := &endpointEnv{a: owner, events: events}
+	env := &endpointEnv{qs: owner, events: events}
 
 	sep := newStaticResourceHandler(owner)
 	sep.add("/css/pure-min.css", "text/css")
@@ -627,10 +684,12 @@ func startServer(owner *app, events display.Events, port uint16) *http.Server {
 		endpoint{httpPost, &dataGroupsEndpoint{env}})
 	reg("DataGroupHandler", "/data/groups/", idCapture{},
 		endpoint{httpPut | httpDelete, &dataGroupEndpoint{env}},
-		pathFragment("scenes"), endpoint{httpPost, &dataScenesEndpoint{env}},
-		idCapture{}, endpoint{httpPut | httpDelete, &dataSceneEndpoint{env}})
+		&branch{"scenes"}, endpoint{httpPost, &dataScenesEndpoint{env}},
+		idCapture{}, endpoint{httpPut | httpDelete, &dataSceneEndpoint{env}},
+		&branch{"heroes"}, endpoint{httpPost, &dataHeroesEndpoint{env}},
+		idCapture{}, endpoint{httpPut | httpDelete, &dataHeroEndpoint{env}})
 
-	for i := api.ModuleIndex(0); i < owner.NumModules(); i++ {
+	for i := app.FirstModule; i < owner.NumModules(); i++ {
 		seenSlash := false
 		seenOthers := false
 
