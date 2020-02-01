@@ -342,10 +342,7 @@ class GroupDataView {
 
 	async submitHeroData(data, hero) {
 		const url = this.url + (hero == null ? "/heroes" : "/heroes/" + hero.id);
-		const ret = await App.fetch(url, hero == null ? "POST" : "PUT", data);
-		if (hero == null) {
-			this.group.heroes.push(ret);
-		}
+		this.group.heroes = await App.fetch(url, hero == null ? "POST" : "PUT", data);
 		this.app.setPage(this.ui());
 	}
 

@@ -78,16 +78,13 @@ func (c Communication) scenes(g *group) []jsonScene {
 	return scenes
 }
 
-func (c Communication) heroes(g *group) []jsonHero {
-	source := &g.heroes
-	source.mutex.Lock()
-	ret := make([]jsonHero, 0, len(source.data))
-	for j := range source.data {
+func (c Communication) heroes(hl *heroList) []jsonHero {
+	ret := make([]jsonHero, 0, len(hl.data))
+	for i := range hl.data {
+		h := &hl.data[i]
 		ret = append(ret,
-			jsonHero{Name: source.data[j].name, ID: source.data[j].id,
-				Description: source.data[j].description})
+			jsonHero{Name: h.name, ID: h.id, Description: h.description})
 	}
-	source.mutex.Unlock()
 	return ret
 }
 
@@ -96,11 +93,13 @@ func (c Communication) groups() []jsonGroup {
 	for i := range c.d.groups {
 		g := c.d.groups[i]
 
+		g.heroes.mutex.Lock()
 		ret = append(ret, jsonGroup{Name: g.name,
 			ID:          g.id,
 			SystemIndex: g.systemIndex,
-			Heroes:      c.heroes(g),
+			Heroes:      c.heroes(&g.heroes),
 			Scenes:      c.scenes(g)})
+		g.heroes.mutex.Unlock()
 	}
 	return ret
 }
@@ -246,8 +245,8 @@ func (c Communication) UpdateHero(raw []byte, h api.Hero) api.SendableError {
 
 // ViewHeroes returns a serializable view of all heroes, as it would be
 // contained in Datasets
-func (c Communication) ViewHeroes(g Group) interface{} {
-	return c.heroes(g.(*group))
+func (c Communication) ViewHeroes(hl api.HeroList) interface{} {
+	return c.heroes(hl.(*heroList))
 }
 
 // ViewSceneConfig returns a serializable view of the config of the given scene.

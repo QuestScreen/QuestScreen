@@ -520,17 +520,18 @@ func (p Persistence) DeleteScene(g Group, index int) error {
 }
 
 // CreateHero creates a new hero in the given group with the given name and
-// description.
-func (p Persistence) CreateHero(g Group, name string, description string) error {
+// description. It takes the heroes as separate parameter even though they are
+// contained in the group, to ensure the caller locked the hero list.
+func (p Persistence) CreateHero(g Group, heroes api.HeroList,
+	name string, description string) error {
 	gr := g.(*group)
-	id := genID(name, "hero", heroIDs{gr.heroes.data})
-	gr.heroes.mutex.Lock()
-	defer gr.heroes.mutex.Unlock()
+	hl := heroes.(*heroList)
+	id := genID(name, "hero", heroIDs{hl.data})
 	h := hero{name: name, id: id, description: description}
 	if err := p.writeHero(gr, &h); err != nil {
 		return err
 	}
-	gr.heroes.data = append(gr.heroes.data, h)
+	hl.data = append(hl.data, h)
 	return nil
 }
 
@@ -563,20 +564,19 @@ func (p Persistence) WriteHero(g Group, h api.Hero) error {
 }
 
 // DeleteHero deletes the hero with the given index from the given group.
-func (p Persistence) DeleteHero(g Group, index int) error {
+func (p Persistence) DeleteHero(g Group, heroes api.HeroList, index int) error {
 	gr := g.(*group)
-	gr.heroes.mutex.Lock()
-	defer gr.heroes.mutex.Unlock()
-	if index < 0 || index >= len(gr.heroes.data) {
+	hl := heroes.(*heroList)
+	if index < 0 || index >= len(hl.data) {
 		return errors.New("index out of range")
 	}
 
-	path := p.d.owner.DataDir("groups", gr.id, "heroes", gr.heroes.data[index].id)
+	path := p.d.owner.DataDir("groups", gr.id, "heroes", hl.data[index].id)
 	if err := os.RemoveAll(path); err != nil {
 		log.Printf("[del scene] while deleting %s\n  %s\n", path, err.Error())
 	}
-	copy(gr.heroes.data[index:], gr.heroes.data[index+1:])
-	gr.heroes.data = gr.heroes.data[:len(gr.heroes.data)-1]
+	copy(hl.data[index:], hl.data[index+1:])
+	hl.data = hl.data[:len(hl.data)-1]
 	return nil
 }
 

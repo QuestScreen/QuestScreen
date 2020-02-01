@@ -144,6 +144,29 @@ func sendScene(qs *QuestScreen, req *display.Request) {
 	req.SendEnabledModulesList(data)
 }
 
+func propagateHeroesChange(heroes api.HeroList, action api.HeroChangeAction,
+	heroIndex int, qs *QuestScreen, req *display.Request) {
+	g := qs.activeGroup()
+	if g == nil {
+		return
+	}
+	for i := 0; i < g.NumScenes(); i++ {
+		scene := g.Scene(i)
+		for j := app.FirstModule; j < qs.NumModules(); j++ {
+			if scene.UsesModule(j) {
+				state := qs.data.State.StateOfScene(i, j)
+				hams, ok := state.(api.HeroAwareModuleState)
+				if ok {
+					hams.HeroListChanged(heroes, action, heroIndex)
+					if i == qs.data.State.ActiveScene() {
+						req.SendModuleData(j, state.CreateModuleData())
+					}
+				}
+			}
+		}
+	}
+}
+
 func mergeAndSendConfigs(qs *QuestScreen, req *display.Request) {
 	g := qs.activeGroup()
 	if g != nil {
@@ -610,11 +633,21 @@ func (dhe dataHeroesEndpoint) Handle(method httpMethods, ids []string,
 	if err := api.ReceiveData(raw, &value); err != nil {
 		return nil, err
 	}
+	req, err := dhe.qs.display.StartRequest(dhe.events.HeroesChangedID, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer req.Close()
+	heroes := group.ViewHeroes()
+	defer heroes.Close()
 	if err := dhe.qs.persistence.CreateHero(
-		group, value.Name.Value, value.Description); err != nil {
+		group, heroes, value.Name.Value, value.Description); err != nil {
 		return nil, &api.InternalError{Description: "while creating hero", Inner: err}
 	}
-	return dhe.qs.communication.ViewHeroes(group), nil
+	propagateHeroesChange(heroes, api.HeroAdded, heroes.NumHeroes()-1, dhe.qs,
+		&req)
+	req.Commit()
+	return dhe.qs.communication.ViewHeroes(heroes), nil
 }
 
 type dataHeroEndpoint struct {
@@ -633,6 +666,12 @@ func (dhe dataHeroEndpoint) Handle(method httpMethods, ids []string,
 	if hero == nil {
 		return nil, &api.NotFound{Name: ids[1]}
 	}
+	req, err := dhe.qs.display.StartRequest(dhe.events.HeroesChangedID, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer req.Close()
+	var action api.HeroChangeAction
 	if method == httpPut {
 		if err := dhe.qs.communication.UpdateHero(raw, hero); err != nil {
 			return nil, err
@@ -640,10 +679,15 @@ func (dhe dataHeroEndpoint) Handle(method httpMethods, ids []string,
 		if err := dhe.qs.persistence.WriteHero(group, hero); err != nil {
 			log.Println("failed to persist hero: " + err.Error())
 		}
+		action = api.HeroModified
 	} else {
-		dhe.qs.persistence.DeleteHero(group, heroIndex)
+		dhe.qs.persistence.DeleteHero(group, heroes, heroIndex)
+		action = api.HeroDeleted
 	}
-	return dhe.qs.communication.ViewHeroes(group), nil
+	propagateHeroesChange(heroes, action, heroIndex, dhe.qs, &req)
+	req.Commit()
+
+	return dhe.qs.communication.ViewHeroes(heroes), nil
 }
 
 func startServer(owner *QuestScreen, events display.Events,

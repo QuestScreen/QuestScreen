@@ -37,3 +37,10 @@ func (s *State) ActiveScene() int {
 func (s *State) StateOf(moduleIndex app.ModuleIndex) api.ModuleState {
 	return s.scenes[s.activeScene][moduleIndex]
 }
+
+// StateOfScene returns the module state for the given module in the given
+// scene
+func (s *State) StateOfScene(
+	sceneIndex int, moduleIndex app.ModuleIndex) api.ModuleState {
+	return s.scenes[sceneIndex][moduleIndex]
+}

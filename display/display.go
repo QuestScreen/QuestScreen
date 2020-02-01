@@ -214,7 +214,6 @@ func (d *Display) RenderLoop() {
 				case d.Events.ModuleConfigID:
 					ctx := renderContext{Display: d, heroes: d.owner.ViewHeroes()}
 					for i := app.FirstModule; i < d.owner.NumModules(); i++ {
-						ctx.moduleIndex = i
 						module := d.owner.ModuleAt(i)
 						state := &d.moduleStates[i]
 						forceRebuild := false
@@ -224,6 +223,22 @@ func (d *Display) RenderLoop() {
 							forceRebuild = true
 						}
 						if forceRebuild || state.queuedData != nil {
+							ctx.moduleIndex = i
+							module.RebuildState(ctx, state.queuedData)
+							state.queuedData = nil
+						}
+					}
+					ctx.heroes.Close()
+					render = true
+					atomic.StoreUint32(&d.request, noRequest)
+					d.initial = false
+				case d.Events.HeroesChangedID:
+					ctx := renderContext{Display: d, heroes: d.owner.ViewHeroes()}
+					for i := app.FirstModule; i < d.owner.NumModules(); i++ {
+						state := &d.moduleStates[i]
+						if state.queuedData != nil {
+							ctx.moduleIndex = i
+							module := d.owner.ModuleAt(i)
 							module.RebuildState(ctx, state.queuedData)
 							state.queuedData = nil
 						}

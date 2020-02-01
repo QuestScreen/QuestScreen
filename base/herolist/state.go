@@ -68,6 +68,18 @@ func (s *state) CreateModuleData() interface{} {
 	return &fullRequest{heroes: states, global: s.globalVisible}
 }
 
+func (s *state) HeroListChanged(heroes api.HeroList, action api.HeroChangeAction, heroIndex int) {
+	switch action {
+	case api.HeroAdded:
+		s.heroVisible = append(s.heroVisible, true)
+	case api.HeroModified:
+		break
+	case api.HeroDeleted:
+		copy(s.heroVisible[heroIndex:], s.heroVisible[heroIndex+1:])
+		s.heroVisible = s.heroVisible[:len(s.heroVisible)-1]
+	}
+}
+
 func (s *state) visibleHeroesList(ctx api.ServerContext) []string {
 	ret := make([]string, 0, len(s.heroVisible))
 	for i := range s.heroVisible {

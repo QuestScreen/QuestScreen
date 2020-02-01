@@ -55,6 +55,25 @@ type ModuleState interface {
 	CreateModuleData() interface{}
 }
 
+// HeroChangeAction is an enum describing a change in the list of heroes
+type HeroChangeAction int
+
+const (
+	// HeroAdded describes the action of adding a hero to the list of heroes
+	HeroAdded HeroChangeAction = iota
+	// HeroModified describes the action of modifying a hero's data
+	HeroModified
+	// HeroDeleted describes the action of deleting a hero from the list of heroes
+	HeroDeleted
+)
+
+// HeroAwareModuleState is an interface that must be implemented by module
+// states if they work with heroes. It lets the application send messages to the
+// state when the list of heroes changes.
+type HeroAwareModuleState interface {
+	HeroListChanged(heroes HeroList, action HeroChangeAction, heroIndex int)
+}
+
 // PureEndpointProvider is a ModuleState extension for modules whose
 // ModuleDescriptor defines one or more pure endpoints in its EndpointPaths.
 type PureEndpointProvider interface {
@@ -93,10 +112,6 @@ type ModuleDescriptor struct {
 	// HTTP URLs and in the filesystem. Therefore, the ID is restricted to ASCII
 	// letters, digits, and the symbols `.,-_`
 	ID string
-	// UsesHeroes defines whether the module needs access to the list of heroes.
-	// If this is set to true, the RebuildState method will get access to the list
-	// of heroes.
-	UsesHeroes bool
 	// ResourceCollections lists selectors for resource collections of this
 	// module. The maximum ResourceCollectionIndex available to this module is
 	// len(ResourceCollections()) - 1.
@@ -154,6 +169,9 @@ type ModuleDescriptor struct {
 	// Communication between ModuleState and Module will be done via the state's
 	// HandleAction and CreateModuleData methods which create data, and the
 	// module's InitTransition and RebuildState methods which consume that data.
+	//
+	// If the module accesses a group's heroes, its state must additionally
+	// implement HeroAwareModuleState.
 	CreateState func(input *yaml.Node, ctx ServerContext) (ModuleState, error)
 }
 
