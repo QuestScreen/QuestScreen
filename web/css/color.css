@@ -1,9 +1,22 @@
+:root {
+  --dark: #305f88;
+  --medium: #4ba3ed;
+  --light: #8fccff;
+  --light-highlight: #afeeff;
+}
+
 header {
-  background-color: lightcoral;
+  background-color: var(--medium);
 }
 
 nav {
-  background-color: darkgoldenrod;
+  background-color: var(--light);
+}
+
+nav .pure-menu-link:hover,
+nav .pure-menu-link:active,
+nav .pure-menu-active > .pure-menu-link {
+  background-color: var(--light-highlight);
 }
 
 nav > div > a:hover,
@@ -17,11 +30,11 @@ nav .pure-menu-heading {
 }
 
 #menu-groups {
-  background-color: indianred;
+  background-color: var(--medium);
 }
 
 #title-wrapper, #pagemenu-wrapper {
-  background-color: darkolivegreen;
+  background-color: var(--dark);
 }
 
 hr {
@@ -37,14 +50,28 @@ hr {
   background-color: green;
 }
 
+.dropdown-selector > a:hover,
+.dropdown-selector > a:active,
+.dropdown-selector.pure-menu-active > a {
+  background-color: var(--medium);
+}
+
+.dropdown-selector .pure-menu-link {
+  color: #346;
+}
+
+.dropdown-selector .pure-menu-children {
+  background-color: var(--medium);
+}
+
 .data-sheet {
-  background-color: #eeeeaa;
+  background-color: var(--light);
 }
 
 .data-sheet > div:first-child,
 .data-sheet .data-sheet-header,
 .data-sheet > .data-sheet-delete {
-  background-color: #aaaa77;
+  background-color: var(--dark);
 }
 
 .data-sheet > .data-sheet-delete:hover {
@@ -52,5 +79,5 @@ hr {
 }
 
 .data-list-item:hover {
-  background-color: #cccc99;
+  background-color: var(--light-highlight);
 }

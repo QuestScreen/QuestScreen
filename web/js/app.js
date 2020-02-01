@@ -264,6 +264,7 @@ class App {
 			article.appendChild(empty);
 			this.setPage(article);
 		} else {
+			this.cfgPage.activeMenuEntry.classList.remove("pure-menu-active");
 			this.cfgPage.activeMenuEntry.querySelector("a").click();
 		}
 	}
@@ -358,6 +359,7 @@ class App {
 				});
 		document.querySelector("#show-datasets").addEventListener(
 			"click", e => {
+				e.target.blur();
 				this.showDatasets();
 				e.preventDefault();
 			});
