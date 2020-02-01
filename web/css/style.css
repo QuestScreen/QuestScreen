@@ -90,7 +90,7 @@ hr {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #ccc;
+  background-color: #e6e6e6;
   -webkit-transition: .4s;
 	transition: .4s;
 	border-radius: .7em; /* 34px */
@@ -310,6 +310,7 @@ nav#pagemenu .submenu-parent-name {
 	right: 0;
 	top: 0;
 	padding: .5em;
+	cursor: pointer;
 }
 
 /* page */
@@ -409,9 +410,19 @@ article {
 	visibility: visible;
 }
 
-.state-module-name, .config-module-name {
+.state-module-header h3, .config-module-header h3 {
 	margin: 0;
-	padding: .35em 0 .75em;
+}
+
+.state-module-header, .config-module-header,
+.state-module-content, .config-module-content {
+	margin: 0;
+	padding: .5em;
+	box-sizing: border-box;
+}
+
+.config-module, .state-module {
+	margin-bottom: 1em;
 }
 
 .config-view-controls {
@@ -488,24 +499,10 @@ article {
 }
 
 .data-sheet {
-	display: inline-flex;
-	margin: .5em;
+	display: inline-block;
 	vertical-align: top;
-}
-
-.data-sheet > div:first-child,
-.data-sheet > a.data-sheet-delete {
-	flex: 0 0 auto;
-	display: flex;
-	align-items: center;
-	text-align: center;
-
-}
-
-.data-sheet > div:first-child i,
-.data-sheet > a.data-sheet-delete i {
-	flex: 0 0 auto;
-	width: 1.75em;
+	margin: .5em;
+	min-width: 12.5em;
 }
 
 .data-sheet-header {
@@ -514,27 +511,42 @@ article {
 }
 
 .data-sheet form > fieldset {
-	margin: .75em;
-	padding: 0;
+	margin: 0;
+	padding: .75em 0;
 }
 
 .data-sheet.create:not(.active) h4 {
 	cursor: pointer;
 }
 
-.data-sheet.create:not(.active) form > fieldset {
-	display: none;
+.data-sheet.create:not(.active) form {
+	overflow: hidden;
+	height: 0;
 }
 
 .data-sheet form.pure-form .pure-control-group {
 	white-space: nowrap;
+	padding: 0 .75em;
 }
 
 .data-sheet form.pure-form .pure-control-group label {
-	width: 6em;
+	width: 6.5em;
 }
 
 .data-sheet form.pure-form .pure-controls {
-	margin: 0;
-	text-align: right;
+	margin: 1em 0 0 0;
+	display: flex;
+	padding: 0 .5em;
+}
+
+.data-sheet form.pure-form .pure-controls button {
+	margin: 0 .25em;
+}
+
+.data-sheet form.pure-form .pure-controls .hfill {
+	flex: 1 1 auto;
+}
+
+.data-sheet form.pure-form .pure-controls :not(.hfill) {
+	flex: 0 0 auto;
 }

@@ -21,7 +21,7 @@ tmpl.config = {
 			function(app, moduleDesc, data) {
 		const name = this.querySelector(".config-module-name");
 		name.textContent = moduleDesc.name;
-		const content = this.querySelector(".module-config-content");
+		const content = this.querySelector(".config-module-content");
 		for (let i = 0; i < moduleDesc.items.length; i++) {
 			content.appendChild(tmpl.config.item.render(
 					moduleDesc.items[i],

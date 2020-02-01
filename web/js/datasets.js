@@ -94,7 +94,7 @@ tmpl.data = {
 			const cancel = form.querySelector("button.revert");
 			const nameInput = form.querySelector('input[name="name"]');
 			const descrInput = form.querySelector('input[name="description"]');
-			const deleteButton = sheet.querySelector(".data-sheet-delete");
+			const deleteButton = sheet.querySelector("button.delete");
 			if (hero) {
 				nameInput.value = hero.name;
 				descrInput.value = hero.description;
@@ -117,7 +117,7 @@ tmpl.data = {
 				sheet.addEventListener("click", () => {
 					sheet.classList.add("active");
 				});
-				form.querySelector(".data-sheet-header").textContent = "Create Hero";
+				sheet.querySelector(".data-sheet-header").textContent = "Create Hero";
 				submit.textContent = "Create";
 				cancel.textContent = "Cancel";
 				form.addEventListener("reset", e => {
@@ -126,7 +126,7 @@ tmpl.data = {
 					sheet.classList.remove("active");
 					e.preventDefault();
 				});
-				sheet.removeChild(deleteButton);
+				deleteButton.parentNode.removeChild(deleteButton);
 			}
 			form.addEventListener("submit", e => {
 				const data = {name: nameInput.value, description: descrInput.value};

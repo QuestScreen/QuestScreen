@@ -138,21 +138,22 @@
 </template>
 
 <template id="tmpl-state-scene">
-	<article class="pure-g" id="module-state-wrapper">
+	<article id="module-state-wrapper">
 		<!-- list of module state -->
 	</article>
 </template>
 <template id="tmpl-state-module">
-	<div class="pure-u-1 pure-u-md-1-5"><h3 class="state-module-name"></h3></div>
-	<div class="pure-u-1 pure-u-md-4-5 state-module-content"></div>
-	<div class="pure-u-1"><hr/></div>
+	<div class="pure-g state-module">
+		<div class="pure-u-1 pure-u-md-1-5 state-module-header"><h3 class="state-module-name"></h3></div>
+		<div class="pure-u-1 pure-u-md-4-5 state-module-content"></div>
+	</div>
 </template>
 
 <!-- templates for editing config -->
 
 <template id="tmpl-config-view">
-	<article class="pure-g">
-		<div class="pure-u-1 pure-form">
+	<article>
+		<div class="pure-form">
 			<fieldset class="config-view-controls">
 				<div class="config-changed" style="visibility: hidden;">
 					<label><i class="fas fa-edit"></i> Changes pending</label>
@@ -166,10 +167,10 @@
 	</article>
 </template>
 <template id="tmpl-config-module">
-	<div class="pure-u-1 pure-u-md-1-5"><h3 class="config-module-name"></h3></div>
-	<div class="pure-u-1 pure-u-md-4-5 pure-form module-config-content">
+	<div class="pure-g config-module">
+		<div class="pure-u-1 pure-u-md-1-5 config-module-header"><h3 class="config-module-name"></h3></div>
+		<div class="pure-u-1 pure-u-md-4-5 pure-form config-module-content"></div>
 	</div>
-	<div class="pure-u-1"><hr/></div>
 </template>
 
 <template id="tmpl-config-item">
@@ -203,22 +204,16 @@
 <template id="tmpl-data-base">
 	<article>
 		<section class="data-sheet">
-			<div>
-				<i class="fas fa-book"></i>
-			</div>
+			<h4 class="data-sheet-header"><i class="fas fa-book"></i> Systems</h4>
 			<div class="data-list systems">
-				<h4 class="data-sheet-header">Systems</h4>
 				<a class="data-list-link create">
 					<i class="fas fa-plus-square"></i>
 				</a>
 			</div>
 		</section>
 		<section class="data-sheet">
-			<div>
-				<i class="fas fa-users"></i>
-			</div>
+			<h4 class="data-sheet-header"><i class="fas fa-users"></i> Groups</h4>
 			<div class="data-list groups">
-				<h4 class="data-sheet-header">Groups</h4>
 				<a class="data-list-link create">
 					<i class="fas fa-plus-square"></i>
 				</a>
@@ -236,11 +231,8 @@
 
 <template id="tmpl-data-general">
 	<section class="data-sheet">
-		<div>
-			<i class="fas fa-file-alt"></i>
-		</div>
+		<h4 class="data-sheet-header"><i class="fas fa-file-alt"></i> General</h4>
 		<form class="pure-form pure-form-aligned">
-			<h4 class="data-sheet-header">General</h4>
 			<fieldset>
 				<div class="pure-control-group">
 						<label>Name</label>
@@ -250,6 +242,7 @@
 				<!-- possible additional values -->
 
 				<div class="pure-controls">
+					<span class="hfill"></span>
 					<button type="reset" class="pure-button revert">Revert</button>
 					<button type="submit" class="pure-button pure-button-primary">Save</button>
 				</div>
@@ -276,11 +269,8 @@
 	<article>
 		<!-- nameform injected here -->
 		<section class="data-sheet">
-			<div>
-				<i class="fas fa-image"></i>
-			</div>
+			<h4 class="data-sheet-header"><i class="fas fa-image"></i> Scenes</h4>
 			<div class="data-list scenes">
-				<h4 class="data-sheet-header">Scenes</h4>
 				<a class="data-list-link create">
 					<i class="fas fa-plus-square"></i>
 				</a>
@@ -293,11 +283,8 @@
 
 <template id="tmpl-data-group-hero">
 	<section class="data-sheet">
-		<div>
-			<i class="fas fa-mask"></i>
-		</div>
+		<h4 class="data-sheet-header"><i class="fas fa-mask"></i> Hero</h4>
 		<form class="pure-form pure-form-aligned">
-			<h4 class="data-sheet-header">Hero</h4>
 			<fieldset>
 				<div class="pure-control-group">
 					<label>Name</label>
@@ -310,14 +297,13 @@
 					<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
 				</div>
 				<div class="pure-controls">
+					<button class="pure-button delete"><i class="fas fa-trash-alt"></i> Delete</button>
+					<span class="hfill"></span>
 					<button type="reset" class="pure-button revert">Revert</button>
 					<button type="submit" class="pure-button pure-button-primary">Save</button>
 				</div>
 			</fieldset>
 		</form>
-		<a class="data-sheet-delete">
-			<i class="fas fa-trash-alt"></i>
-		</a>
 	</section>
 </template>
 

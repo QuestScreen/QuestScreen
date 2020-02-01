@@ -840,11 +840,11 @@ func (s *State) buildYaml() ([]byte, error) {
 	structure := persistingGroupState{
 		ActiveScene: s.group.Scene(s.activeScene).ID(),
 		Scenes:      make(map[string]map[string]interface{})}
+	heroes := s.group.ViewHeroes()
+	defer heroes.Close()
 	for i := 0; i < s.group.NumScenes(); i++ {
 		sceneDescr := s.group.Scene(i)
 		data := make(map[string]interface{})
-		heroes := s.group.ViewHeroes()
-		defer heroes.Close()
 		for j := app.FirstModule; j < s.a.NumModules(); j++ {
 			if sceneDescr.UsesModule(j) {
 				data[s.a.ModuleAt(j).Descriptor().ID] =

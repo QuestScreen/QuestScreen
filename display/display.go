@@ -205,8 +205,6 @@ func (d *Display) RenderLoop() {
 				switch e.Type {
 				case d.Events.ModuleUpdateID:
 					d.startTransition(app.ModuleIndex(e.Code))
-					render = true
-					atomic.StoreUint32(&d.request, noRequest)
 				case d.Events.SceneChangeID:
 					d.enabledModules = d.queuedEnabledModules
 					d.queuedEnabledModules = nil
@@ -229,8 +227,6 @@ func (d *Display) RenderLoop() {
 						}
 					}
 					ctx.heroes.Close()
-					render = true
-					atomic.StoreUint32(&d.request, noRequest)
 					d.initial = false
 				case d.Events.HeroesChangedID:
 					ctx := renderContext{Display: d, heroes: d.owner.ViewHeroes()}
@@ -244,10 +240,10 @@ func (d *Display) RenderLoop() {
 						}
 					}
 					ctx.heroes.Close()
-					render = true
-					atomic.StoreUint32(&d.request, noRequest)
 					d.initial = false
 				}
+				render = true
+				atomic.StoreUint32(&d.request, noRequest)
 			}
 		}
 		if render && !inRender {
