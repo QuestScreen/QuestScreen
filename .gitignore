@@ -2,5 +2,5 @@
 .vscode
 go.sum
 web/data.go
-pnpscreen/pnpscreen
+questscreen/questscreen
 __debug_bin

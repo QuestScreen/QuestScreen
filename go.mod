@@ -1,4 +1,4 @@
-module github.com/flyx/pnpscreen
+module github.com/QuestScreen/QuestScreen
 
 go 1.12
 

@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/flyx/pnpscreen/api"
-	"github.com/flyx/pnpscreen/app"
+	"github.com/QuestScreen/QuestScreen/api"
+	"github.com/QuestScreen/QuestScreen/app"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )

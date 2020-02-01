@@ -25,16 +25,16 @@ WEBFILES = \
 	web/webfonts/fa-solid-900.woff\
 	web/webfonts/fa-solid-900.woff2
 
-all: pnpscreen/pnpscreen
+all: questscreen/questscreen
 
 web/data.go: ${WEBFILES}
 	#go get github.com/go-bindata/go-bindata/...
 	${GOPATH}/bin/go-bindata -o web/data.go -pkg web web/html web/css web/js web/webfonts
 
-pnpscreen/pnpscreen: web/data.go
-	cd pnpscreen && go build
+questscreen/questscreen: web/data.go
+	cd questscreen && go build
 
-.PHONY: pnpscreen/pnpscreen
+.PHONY: questscreen/questscreen
 
-install: pnpscreen/pnpscreen
-	cp pnpscreen/pnpscreen ${PREFIX}/bin
+install: questscreen/questscreen
+	cp questscreen/questscreen ${PREFIX}/bin

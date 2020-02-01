@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/flyx/pnpscreen/api"
-	"github.com/flyx/pnpscreen/app"
+	"github.com/QuestScreen/QuestScreen/api"
+	"github.com/QuestScreen/QuestScreen/app"
 )
 
 // System describes a Pen & Paper system.

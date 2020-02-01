@@ -3,7 +3,7 @@ package app
 import (
 	"net/http"
 
-	"github.com/flyx/pnpscreen/api"
+	"github.com/QuestScreen/QuestScreen/api"
 	"github.com/veandco/go-sdl2/ttf"
 )
 

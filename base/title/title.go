@@ -6,7 +6,7 @@ import (
 
 	"github.com/veandco/go-sdl2/img"
 
-	"github.com/flyx/pnpscreen/api"
+	"github.com/QuestScreen/QuestScreen/api"
 
 	"github.com/veandco/go-sdl2/sdl"
 )

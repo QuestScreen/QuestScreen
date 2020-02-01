@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/flyx/pnpscreen/api"
-	"github.com/flyx/pnpscreen/app"
+	"github.com/QuestScreen/QuestScreen/api"
+	"github.com/QuestScreen/QuestScreen/app"
 )
 
 // Communication implements (de)serialization of data for communication to the

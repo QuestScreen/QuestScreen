@@ -3,7 +3,7 @@ package display
 import (
 	"strconv"
 
-	"github.com/flyx/pnpscreen/api"
+	"github.com/QuestScreen/QuestScreen/api"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -32,7 +32,7 @@ func (d *Display) genWelcome(width int32, height int32, port uint16) error {
 	fontFace := d.owner.Font(0, api.Standard, api.HugeFont)
 	var title *sdl.Surface
 	if title, err = fontFace.RenderUTF8Blended(
-		"PnP Screen", sdl.Color{R: 0, G: 0, B: 0, A: 200}); err != nil {
+		"Quest Screen", sdl.Color{R: 0, G: 0, B: 0, A: 200}); err != nil {
 		return err
 	}
 	defer title.Free()

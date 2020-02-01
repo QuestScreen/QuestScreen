@@ -11,8 +11,8 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/flyx/pnpscreen/api"
-	"github.com/flyx/pnpscreen/app"
+	"github.com/QuestScreen/QuestScreen/api"
+	"github.com/QuestScreen/QuestScreen/app"
 	"gopkg.in/yaml.v3"
 )
 

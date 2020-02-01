@@ -7,8 +7,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// the interface declared in this file are to be implemented by
-// a pnpscreen module.
+// the interfaces declared in this file are to be implemented by
+// a QuestScreen module, which is provided by a plugin.
 
 // ResourceCollectionIndex indexes all resource collections of a module.
 type ResourceCollectionIndex int

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 
-	"github.com/flyx/pnpscreen/api"
+	"github.com/QuestScreen/QuestScreen/api"
 	"gopkg.in/yaml.v3"
 )
 

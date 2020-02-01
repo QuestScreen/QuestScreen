@@ -1,12 +1,12 @@
 package modules
 
 import (
-	"github.com/flyx/pnpscreen/api"
-	"github.com/flyx/pnpscreen/base/background"
-	"github.com/flyx/pnpscreen/base/herolist"
-	"github.com/flyx/pnpscreen/base/overlays"
-	"github.com/flyx/pnpscreen/base/title"
-	"github.com/flyx/pnpscreen/web"
+	"github.com/QuestScreen/QuestScreen/api"
+	"github.com/QuestScreen/QuestScreen/base/background"
+	"github.com/QuestScreen/QuestScreen/base/herolist"
+	"github.com/QuestScreen/QuestScreen/base/overlays"
+	"github.com/QuestScreen/QuestScreen/base/title"
+	"github.com/QuestScreen/QuestScreen/web"
 )
 
 // Base is a plugin providing the most common system-independent modules.

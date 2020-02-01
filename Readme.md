@@ -1,6 +1,6 @@
-# pnpscreen
+# QuestScreen
 
-**pnpscreen** is a utility for displaying information during pen & paper
+**QuestScreen** is a utility for displaying information during pen & paper
 roleplaying sessions. It renders information via SDL, you control it via web
 interface. It is designed to be run on boards like the Raspberry Pi.
 
@@ -11,7 +11,7 @@ Dependencies:
  * Go 1.10
    - TODO: modules
  * SDL
-   - if you want to run pnpscreen without a window manager, make sure that you
+   - if you want to run QuestScreen without a window manager, make sure that you
      enable SDL's kmsdrm support (`--enable-video-kmsdrm`). If you want to use
      input with kmsdrm, make sure to link against libudev.
 
@@ -19,7 +19,7 @@ Compile with `make`, install with `make install`.
 
 ## Configuration
 
-pnpscreen is configured in `~/.local/share/pnpscreen`, it looks like this:
+QuestScreen is configured in `~/.local/share/questscreen`, it looks like this:
 
     fonts
         <font files>

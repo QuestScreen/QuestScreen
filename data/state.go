@@ -3,8 +3,8 @@ package data
 import (
 	"sync"
 
-	"github.com/flyx/pnpscreen/api"
-	"github.com/flyx/pnpscreen/app"
+	"github.com/QuestScreen/QuestScreen/api"
+	"github.com/QuestScreen/QuestScreen/app"
 )
 
 // State holds the complete state for the currently active group.

@@ -5,7 +5,7 @@ import (
 	"github.com/veandco/go-sdl2/ttf"
 )
 
-// the interfaces declared in this file are implemented by the pnpscreen core.
+// the interfaces declared in this file are implemented by the QuestScreen core.
 
 // Resource describes a selectable resource (typically a file).
 type Resource interface {
