@@ -45,11 +45,13 @@ func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) 
 }
 
 func (s *state) CreateModuleData() interface{} {
-	visible := make([]bool, len(s.visible))
-	copy(visible, s.visible)
-	resources := make([]api.Resource, len(s.resources))
-	copy(resources, s.resources)
-	return &fullRequest{visible: visible, resources: resources}
+	resources := make([]showRequest, 0, len(s.resources))
+	for i := range s.resources {
+		if s.visible[i] {
+			resources = append(resources, showRequest{s.resources[i], i})
+		}
+	}
+	return &fullRequest{resources: resources}
 }
 
 type webStateItem struct {
@@ -98,6 +100,10 @@ func (e endpoint) Put(payload []byte) (interface{},
 		return nil, nil, err
 	}
 	e.visible[value.ResourceIndex.Value] = value.Visible
-	return value.Visible, &itemRequest{index: value.ResourceIndex.Value,
-		visible: value.Visible}, nil
+	if value.Visible {
+		return value.Visible, &showRequest{
+			resource:      e.resources[value.ResourceIndex.Value],
+			resourceIndex: value.ResourceIndex.Value}, nil
+	}
+	return value.Visible, &hideRequest{resourceIndex: value.ResourceIndex.Value}, nil
 }

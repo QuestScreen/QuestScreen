@@ -53,6 +53,8 @@ type HeroList struct {
 	status                      heroStatus
 }
 
+const duration = time.Second / 2
+
 // CreateModule creates the HeroList module.
 func newModule(renderer *sdl.Renderer) (api.Module, error) {
 	winWidth, winHeight, _ := renderer.GetOutputSize()
@@ -171,7 +173,7 @@ func (l *HeroList) InitTransition(
 			} else {
 				l.status = hidingAll
 			}
-			return time.Second
+			return duration
 		}
 	case *heroRequest:
 		if l.heroes[req.index].shown != req.visible {
@@ -182,7 +184,7 @@ func (l *HeroList) InitTransition(
 			}
 			l.heroes[req.index].tex.SetBlendMode(sdl.BLENDMODE_BLEND)
 			l.curHero = req.index
-			return time.Second
+			return duration
 		}
 	default:
 		panic("HeroList.InitTransition called with unexpected data type")
@@ -192,26 +194,21 @@ func (l *HeroList) InitTransition(
 
 // TransitionStep advances the transition
 func (l *HeroList) TransitionStep(ctx api.RenderContext, elapsed time.Duration) {
+	pos := api.TransitionCurve{Duration: duration}.Cubic(elapsed)
 	borderWidth := ctx.DefaultBorderWidth()
 	switch l.status {
 	case showingAll:
-		l.curXOffset = int32(((time.Second - elapsed) *
-			time.Duration(l.boxWidth(borderWidth))) / time.Second)
+		l.curXOffset = int32((1.0 - pos) * float32(l.boxWidth(borderWidth)))
 	case hidingAll:
-		l.curXOffset = int32((elapsed *
-			time.Duration(l.boxWidth(borderWidth))) / time.Second)
+		l.curXOffset = int32(pos * float32(l.boxWidth(borderWidth)))
 	case showingHero:
-		l.curXOffset = int32(((time.Second - elapsed) *
-			time.Duration(l.boxWidth(borderWidth))) / time.Second)
-		l.curYOffset = int32((elapsed *
-			time.Duration(l.boxHeight(borderWidth)+l.contentHeight/4)) / time.Second)
-		l.heroes[l.curHero].tex.SetAlphaMod(uint8((elapsed * 255) / time.Second))
+		l.curXOffset = int32((1.0 - pos) * float32((l.boxWidth(borderWidth))))
+		l.curYOffset = int32(pos * float32(l.boxHeight(borderWidth)+l.contentHeight/4))
+		l.heroes[l.curHero].tex.SetAlphaMod(uint8(pos * 255))
 	case hidingHero:
-		l.curXOffset = int32((elapsed *
-			time.Duration(l.boxWidth(borderWidth))) / time.Second)
-		l.curYOffset = int32(((time.Second - elapsed) *
-			time.Duration(l.boxHeight(borderWidth)+l.contentHeight/4)) / time.Second)
-		l.heroes[l.curHero].tex.SetAlphaMod(uint8(((time.Second - elapsed) * 255) / time.Second))
+		l.curXOffset = int32(pos * float32(l.boxWidth(borderWidth)))
+		l.curYOffset = int32((1.0 - pos) * float32(l.boxHeight(borderWidth)+l.contentHeight/4))
+		l.heroes[l.curHero].tex.SetAlphaMod(uint8((1.0 - pos) * 255))
 	}
 }
 

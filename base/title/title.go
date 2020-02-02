@@ -35,6 +35,11 @@ type Title struct {
 	swapped      bool
 }
 
+const (
+	singleDuration = time.Second / 3
+	waitTime       = time.Millisecond * 100
+)
+
 func newModule(renderer *sdl.Renderer) (api.Module, error) {
 	return &Title{curTitle: nil}, nil
 }
@@ -118,16 +123,16 @@ func (t *Title) InitTransition(ctx api.RenderContext,
 		t.newTitle = t.genTitleTexture(ctx, t.curTitleText)
 	}
 	t.swapped = false
-	return time.Second*2/3 + time.Millisecond*100
+	return singleDuration*2 + waitTime
 }
 
 // TransitionStep advances the transition.
 func (t *Title) TransitionStep(ctx api.RenderContext, elapsed time.Duration) {
 	if elapsed < time.Second/3 {
 		if t.curTitle != nil {
+			pos := api.TransitionCurve{Duration: singleDuration}.Cubic(elapsed)
 			_, _, _, texHeight, _ := t.curTitle.Query()
-			t.curYOffset =
-				int32(float64(elapsed) / float64(time.Second/3) * float64(texHeight))
+			t.curYOffset = int32(pos * float32(texHeight))
 		}
 	} else if elapsed < time.Second/3+time.Millisecond*100 {
 		if t.curTitle != nil {
@@ -145,9 +150,10 @@ func (t *Title) TransitionStep(ctx api.RenderContext, elapsed time.Duration) {
 		}
 		if t.curTitle != nil {
 			_, _, _, texHeight, _ := t.curTitle.Query()
+			pos := api.TransitionCurve{Duration: singleDuration}.Cubic(
+				elapsed - singleDuration - waitTime)
 			t.curYOffset =
-				int32(float64(time.Second*2/3-(elapsed-time.Millisecond*100)) /
-					float64(time.Second/3) * float64(texHeight))
+				int32((1.0 - pos) * float32(texHeight))
 		}
 	}
 }
@@ -159,15 +165,17 @@ func (t *Title) FinishTransition(ctx api.RenderContext) {
 
 // Render renders the module.
 func (t *Title) Render(ctx api.RenderContext) {
-	r := ctx.Renderer()
-	winWidth, _, _ := r.GetOutputSize()
-	_, _, texWidth, texHeight, _ := t.curTitle.Query()
+	if t.curTitle != nil {
+		r := ctx.Renderer()
+		winWidth, _, _ := r.GetOutputSize()
+		_, _, texWidth, texHeight, _ := t.curTitle.Query()
 
-	dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -t.curYOffset,
-		W: texWidth, H: texHeight}
-	err := r.Copy(t.curTitle, nil, &dst)
-	if err != nil {
-		log.Println(err)
+		dst := sdl.Rect{X: (winWidth - texWidth) / 2, Y: -t.curYOffset,
+			W: texWidth, H: texHeight}
+		err := r.Copy(t.curTitle, nil, &dst)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 }
 

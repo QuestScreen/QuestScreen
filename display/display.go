@@ -136,6 +136,12 @@ func (d *Display) startTransition(moduleIndex app.ModuleIndex) {
 	if state.queuedData == nil {
 		panic("Trying to call InitTransition without data")
 	}
+	if state.transitioning {
+		module.FinishTransition(ctx)
+		d.numTransitions--
+		state.transitioning = false
+	}
+
 	transDur := module.InitTransition(ctx, state.queuedData)
 	state.queuedData = nil
 	if transDur == 0 {
