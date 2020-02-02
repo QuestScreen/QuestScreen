@@ -21,14 +21,12 @@ type Background struct {
 	config                 *backgroundConfig
 	curTexture, newTexture *sdl.Texture
 	curFile                api.Resource
-	curTextureSplit        float32
 }
 
 func newModule(renderer *sdl.Renderer) (api.Module, error) {
 	bg := new(Background)
 	bg.curTexture = nil
 	bg.newTexture = nil
-	bg.curTextureSplit = 0
 	bg.curFile = nil
 	return bg, nil
 }
@@ -100,8 +98,10 @@ func (bg *Background) InitTransition(ctx api.RenderContext, data interface{}) ti
 		bg.curFile = req.file
 		if bg.curFile != nil {
 			bg.newTexture = bg.genTexture(ctx.Renderer(), bg.curFile)
+			if err := bg.newTexture.SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
+				log.Println(err)
+			}
 		}
-		bg.curTextureSplit = 0
 		ret = time.Second
 	}
 	return ret
@@ -110,7 +110,11 @@ func (bg *Background) InitTransition(ctx api.RenderContext, data interface{}) ti
 // TransitionStep advances the transition.
 func (bg *Background) TransitionStep(
 	ctx api.RenderContext, elapsed time.Duration) {
-	bg.curTextureSplit = float32(elapsed) / float32(time.Second)
+	if bg.newTexture != nil {
+		if err := bg.newTexture.SetAlphaMod(uint8((elapsed * 255) / time.Second)); err != nil {
+			log.Println(err)
+		}
+	}
 }
 
 // FinishTransition finalizes the transition.
@@ -119,23 +123,24 @@ func (bg *Background) FinishTransition(ctx api.RenderContext) {
 		bg.curTexture.Destroy()
 	}
 	bg.curTexture = bg.newTexture
-	bg.curTextureSplit = 0.0
 	bg.newTexture = nil
+	if bg.curTexture != nil {
+		if err := bg.curTexture.SetBlendMode(sdl.BLENDMODE_NONE); err != nil {
+			log.Println(err)
+		}
+		if err := bg.curTexture.SetAlphaMod(255); err != nil {
+			log.Println(err)
+		}
+	}
 }
 
 // Render renders the module
 func (bg *Background) Render(ctx api.RenderContext) {
-	if bg.curTexture != nil || bg.curTextureSplit != 0 {
-		winWidth, winHeight, _ := ctx.Renderer().GetOutputSize()
-		curSplit := int32(bg.curTextureSplit * float32(winWidth))
-		if bg.curTexture != nil {
-			rect := sdl.Rect{X: curSplit, Y: 0, W: winWidth - curSplit, H: winHeight}
-			ctx.Renderer().Copy(bg.curTexture, &rect, &rect)
-		}
-		if bg.newTexture != nil {
-			rect := sdl.Rect{X: 0, Y: 0, W: curSplit, H: winHeight}
-			ctx.Renderer().Copy(bg.newTexture, &rect, &rect)
-		}
+	if bg.curTexture != nil {
+		ctx.Renderer().Copy(bg.curTexture, nil, nil)
+	}
+	if bg.newTexture != nil {
+		ctx.Renderer().Copy(bg.newTexture, nil, nil)
 	}
 }
 
@@ -166,6 +171,9 @@ func (bg *Background) RebuildState(
 				bg.curTexture = nil
 			}
 		}
-		bg.curTextureSplit = 0
+		if bg.newTexture != nil {
+			bg.newTexture.Destroy()
+			bg.newTexture = nil
+		}
 	}
 }
