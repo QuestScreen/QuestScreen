@@ -550,3 +550,8 @@ article {
 .data-sheet form.pure-form .pure-controls :not(.hfill) {
 	flex: 0 0 auto;
 }
+
+table.module-list td,
+table.module-list th {
+	padding: .5em 1em;
+}

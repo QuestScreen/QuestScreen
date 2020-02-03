@@ -155,6 +155,7 @@ class App {
 	constructor() {
 		this.controllers = {};
 		this.modules = [];
+		this.plugins = [];
 		this.systems = [];
 		this.groups = [];
 		this.fonts = [];

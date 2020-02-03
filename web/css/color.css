@@ -87,6 +87,7 @@ nav .pure-menu-heading {
   color: var(--text);
 }
 
-.data-list-item:hover {
+.data-list-item:hover,
+table.module-list > tbody > tr:hover {
   background-color: var(--light-highlight);
 }
