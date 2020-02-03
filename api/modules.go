@@ -92,15 +92,23 @@ type IDEndpointProvider interface {
 	IDEndpoint(index int) ModuleIDEndpoint
 }
 
-// ResourceSelector defines a subdirectory and a filename suffix list.
-// Those will be used to collect resource files for this module in the
-// data directories.
+// ResourceSelector defines where a module finds resource files.
+// A selector can either be used to find one specific file (in which case
+// Name must be non-empty) or a list of files (in which case Name must be empty
+// and Suffixes may be set).
+//
+// The file(s) are searched in the Subdirectory inside the module's directory in
+// the current scene, group, system and base directory (in that order).
 type ResourceSelector struct {
 	// may be empty, in which case resource files are searched directly
 	// in the module directories.
 	Subdirectory string
+	// Name of the file including suffix. If not empty, only the first file
+	// matching the name is returned.
+	Name string
 	// filters files by suffix. If empty or nil, no filter will be applied
 	// (note however that files starting with a dot will always be filtered out).
+	// ignored if Name is not empty.
 	Suffixes []string
 }
 

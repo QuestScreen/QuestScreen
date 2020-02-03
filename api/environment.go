@@ -38,7 +38,7 @@ type ResourceProvider interface {
 	// GetResources queries the list of available resources of the given
 	// resource collection index.
 	//
-	// The resources are filtered by the currently active system and group.
+	// The resources are filtered by the currently active system, group and scene.
 	// Each Resource object is read-only and may be freely shared between threads.
 	GetResources(index ResourceCollectionIndex) []Resource
 }

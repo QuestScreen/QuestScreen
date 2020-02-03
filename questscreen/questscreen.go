@@ -215,21 +215,53 @@ func (qs *QuestScreen) Plugin(index int) *api.Plugin {
 	return qs.plugins[index]
 }
 
-func appendDir(resources []resourceFile, path string, group int, system int) []resourceFile {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return resources
-	}
-	files, err := ioutil.ReadDir(path)
-	if err == nil {
-		for _, file := range files {
-			if !file.IsDir() && file.Name()[0] != '.' {
-				resources = append(resources, resourceFile{
-					name: file.Name(), path: filepath.Join(path, file.Name()),
-					group: group, system: system})
+func appendBySelector(resources []resourceFile, basePath string,
+	selector api.ResourceSelector, group int, system int) []resourceFile {
+	if selector.Name == "" {
+		if _, err := os.Stat(basePath); os.IsNotExist(err) {
+			return resources
+		}
+		files, err := ioutil.ReadDir(basePath)
+		if err == nil {
+			for _, file := range files {
+				if !file.IsDir() && file.Name()[0] != '.' {
+					path := filepath.Join(basePath, file.Name())
+					if _, err := os.Stat(path); err != nil {
+						log.Printf("could not read file %s: %s\n", path, err.Error())
+						continue
+					}
+					if len(selector.Suffixes) > 0 {
+						suffix := filepath.Ext(path)
+						found := false
+						for i := range selector.Suffixes {
+							if suffix == selector.Suffixes[i] {
+								found = true
+								break
+							}
+						}
+						if !found {
+							continue
+						}
+					}
+
+					resources = append(resources, resourceFile{
+						name: file.Name(), path: path,
+						group: group, system: system})
+				}
 			}
+		} else {
+			log.Println(err)
 		}
 	} else {
-		log.Println(err)
+		path := filepath.Join(basePath, selector.Name)
+		_, err := os.Stat(path)
+		if err == nil {
+			resources = append(resources, resourceFile{
+				name: selector.Name, path: path, group: group, system: system,
+			})
+		} else if !os.IsNotExist(err) {
+			log.Printf("could not read file %s: %s\n", path, err.Error())
+		}
 	}
 	return resources
 }
@@ -239,22 +271,18 @@ func appendDir(resources []resourceFile, path string, group int, system int) []r
 func (qs *QuestScreen) listFiles(
 	id string, selector api.ResourceSelector) []resourceFile {
 	resources := make([]resourceFile, 0, 64)
-	resources = appendDir(
-		resources, qs.DataDir("base", id, selector.Subdirectory), -1, -1)
-	for i := 0; i < qs.data.NumSystems(); i++ {
-		if qs.data.System(i).ID() != "" {
-			resources = appendDir(
-				resources, qs.DataDir("systems",
-					qs.data.System(i).ID(), id, selector.Subdirectory), -1, i)
-		}
-	}
 	for i := 0; i < qs.data.NumGroups(); i++ {
 		group := qs.data.Group(i)
-		if group.ID() != "" {
-			resources = appendDir(resources, qs.DataDir("groups",
-				group.ID(), id, selector.Subdirectory), i, -1)
-		}
+		basePath := qs.DataDir("groups", group.ID(), id, selector.Subdirectory)
+		resources = appendBySelector(resources, basePath, selector, i, -1)
 	}
+	for i := 0; i < qs.data.NumSystems(); i++ {
+		resources = appendBySelector(resources,
+			qs.DataDir("systems", qs.data.System(i).ID(), id, selector.Subdirectory),
+			selector, -1, i)
+	}
+	resources = appendBySelector(
+		resources, qs.DataDir("base", id, selector.Subdirectory), selector, -1, -1)
 	return resources
 }
 
@@ -262,7 +290,6 @@ func (qs *QuestScreen) registerModule(descr *api.ModuleDescriptor,
 	renderer *sdl.Renderer) error {
 	module, err := descr.CreateModule(renderer)
 	if err != nil {
-		qs.resourceCollections = qs.resourceCollections[:len(qs.resourceCollections)-1]
 		return err
 	}
 	qs.modules = append(qs.modules, moduleData{module, len(qs.plugins)})
@@ -337,6 +364,10 @@ func (qs *QuestScreen) GetResources(
 		if (complete[i].group == -1 || complete[i].group == qs.activeGroupIndex) &&
 			(complete[i].system == -1 || complete[i].system == qs.activeSystemIndex) {
 			ret = append(ret, &complete[i])
+			if qs.modules[moduleIndex].Descriptor().ResourceCollections[index].Name != "" {
+				// single file
+				return ret
+			}
 		}
 	}
 	return ret
