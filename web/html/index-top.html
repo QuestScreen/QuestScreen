@@ -155,9 +155,6 @@
 	<article>
 		<div class="pure-form">
 			<fieldset class="config-view-controls">
-				<div class="config-changed" style="visibility: hidden;">
-					<label><i class="fas fa-edit"></i> Changes pending</label>
-				</div>
 				<div>
 					<button class="pure-button config-cancel">Cancel</button>
 					<button class="pure-button pure-button-primary config-save">Save</button>
@@ -179,7 +176,8 @@
 			<input type="checkbox" class="config-item-checkbox"/>
 			<span class="config-item-name"></span>:
 		</label>
-		<!-- setting contents goes here -->
+		<div class="config-item-container"><!-- setting contents goes here --></div>
+		<i class="fas fa-edit config-edit-indicator"></i>
 	</fieldset>
 </template>
 
@@ -197,6 +195,12 @@
 		<button class="pure-button font-style-selector bold"><i class="fas fa-bold"></i></button>
 		<button class="pure-button font-style-selector italic"><i class="fas fa-italic"></i></button>
 	</div>
+</template>
+
+<template id="tmpl-config-selectable-background">
+	<label for="primary">Primary: </label><input type="color" name="primary" required />
+	<label for="texture">Texture: </label><!-- texture dropdown injected here -->
+	<label for="secondary">Secondary: </label><input type="color" name="secondary" required />
 </template>
 
 <!-- templates for editing datasets -->

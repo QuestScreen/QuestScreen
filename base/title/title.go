@@ -4,24 +4,18 @@ import (
 	"log"
 	"time"
 
-	"github.com/veandco/go-sdl2/img"
-
 	"github.com/QuestScreen/QuestScreen/api"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
 
 type config struct {
-	Font *api.SelectableFont `config:"Font" yaml:"Font"`
+	Font       *api.SelectableFont               `yaml:"font"`
+	Background *api.SelectableTexturedBackground `yaml:"background"`
 }
 
 type changeRequest struct {
 	caption string
-}
-
-type fullRequest struct {
-	caption string
-	mask    api.Resource
 }
 
 // The Title module draws a title box at the top of the screen.
@@ -46,19 +40,25 @@ func newModule(renderer *sdl.Renderer) (api.Module, error) {
 
 // Descriptor describes the Title module
 var Descriptor = api.ModuleDescriptor{
-	Name: "Scene Title",
-	ID:   "title",
-	ResourceCollections: []api.ResourceSelector{
-		api.ResourceSelector{Subdirectory: "", Suffixes: nil}},
+	Name:          "Scene Title",
+	ID:            "title",
 	EndpointPaths: []string{""},
 	DefaultConfig: &config{Font: &api.SelectableFont{
-		FamilyIndex: 0, Size: api.HeadingFont, Style: api.Bold}},
+		FamilyIndex: 0, Size: api.HeadingFont, Style: api.Bold},
+		Background: &api.SelectableTexturedBackground{
+			Primary:      api.RGBColor{Red: 255, Green: 255, Blue: 255},
+			TextureIndex: -1,
+		}},
 	CreateModule: newModule, CreateState: newState,
 }
 
 // Descriptor returns the descriptor of the Title module
 func (*Title) Descriptor() *api.ModuleDescriptor {
 	return &Descriptor
+}
+
+func setRGBDrawColor(renderer *sdl.Renderer, color api.RGBColor) error {
+	return renderer.SetDrawColor(color.Red, color.Green, color.Blue, 255)
 }
 
 func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture {
@@ -97,10 +97,11 @@ func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture
 	r.SetDrawColor(0, 0, 0, 192)
 	r.FillRect(&sdl.Rect{X: 0, Y: 0,
 		W: int32(textWidth + 6*border), H: int32(textHeight) + 2*border})
-	r.SetDrawColor(200, 173, 127, 255)
+	setRGBDrawColor(r, t.config.Background.Primary)
 	r.FillRect(&sdl.Rect{X: border, Y: 0,
 		W: int32(textWidth + 4*border), H: int32(textHeight + border)})
 	if t.mask != nil {
+		// TODO: properly color the mask
 		_, _, maskWidth, maskHeight, _ := t.mask.Query()
 		for x := int32(0); x < textWidth+6*border; x += maskWidth {
 			for y := int32(0); y < textHeight+2*border; y += maskHeight {
@@ -187,28 +188,23 @@ func (t *Title) SetConfig(value interface{}) {
 // RebuildState queries the new state through the channel and immediately
 // updates everything.
 func (t *Title) RebuildState(ctx api.ExtendedRenderContext, data interface{}) {
-	var maskFile api.Resource
-	gotRequest := false
 	if data != nil {
-		req := data.(*fullRequest)
+		req := data.(*changeRequest)
 		t.curTitleText = req.caption
-		gotRequest = true
-		maskFile = req.mask
 	}
-	if gotRequest {
-		if t.mask != nil {
-			t.mask.Destroy()
+	if t.mask != nil {
+		t.mask.Destroy()
+		t.mask = nil
+	}
+	if t.config.Background.TextureIndex != -1 {
+		var err error
+		t.mask, err = ctx.LoadTexture(t.config.Background.TextureIndex,
+			t.config.Background.Secondary)
+		if err != nil {
+			log.Println(err)
 		}
-		if maskFile != nil {
-			var err error
-			t.mask, err = img.LoadTexture(ctx.Renderer(), maskFile.Path())
-			if err != nil {
-				log.Println(err)
-				t.mask = nil
-			}
-		} else {
-			t.mask = nil
-		}
+	} else {
+		t.mask = nil
 	}
 
 	t.curYOffset = 0

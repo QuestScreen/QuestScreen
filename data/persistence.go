@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/QuestScreen/QuestScreen/api"
 	"github.com/QuestScreen/QuestScreen/app"
@@ -89,7 +91,14 @@ func (p Persistence) loadModuleConfigInto(heroes api.HeroList,
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
 	for i := 0; i < targetModuleType.NumField(); i++ {
-		inValue, ok := values[targetModuleType.Field(i).Name]
+		name := targetModuleType.Field(i).Tag.Get("yaml")
+		if name == "" {
+			nameTmp := targetModuleType.Field(i).Name
+			r, n := utf8.DecodeRuneInString(nameTmp)
+			name = string(unicode.ToLower(r)) + nameTmp[n:]
+		}
+
+		inValue, ok := values[name]
 		if !ok || inValue.Kind == yaml.ScalarNode && inValue.Tag == "!!null" {
 			continue
 		}

@@ -4,6 +4,12 @@ const ACTIVE_CLASS_NAME = "pure-menu-active",
 
 const smartphoneMode = window.matchMedia("screen and (max-width: 35.5em)");
 
+const SelectorKind = Object.freeze({
+	atMostOne: Symbol("atMostOne"),
+	exactlyOne: Symbol("exactlyOne"),
+	multiple: Symbol("multiple")
+});
+
 // this class implements UI behavior and is used by the dropdown template.
 // to create a new UI element, subclass DropdownSelector.
 class DropdownHandler {
@@ -13,7 +19,9 @@ class DropdownHandler {
 		this.menu = parent.querySelector(".pure-menu-children");
 		this.link = parent.querySelector(".pure-menu-link");
 		this.link.addEventListener("click", e => {
-			this.toggle();
+			if (!this.link.classList.contains("pure-menu-disabled")) {
+				this.toggle();
+			}
 			e.preventDefault();
 		});
 		document.addEventListener(DISMISS_EVENT, e => {
@@ -142,6 +150,14 @@ class DropdownSelector {
 					item.classList.remove("pure-menu-selected");
 				}
 			}
+		}
+	}
+
+	setEnabled(value) {
+		if (value) {
+			this.menuCaption.parentNode.classList.remove("pure-menu-disabled");
+		} else {
+			this.menuCaption.parentNode.classList.add("pure-menu-disabled");
 		}
 	}
 

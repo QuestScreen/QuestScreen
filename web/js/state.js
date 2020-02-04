@@ -1,9 +1,3 @@
-const SelectorKind = Object.freeze({
-	atMostOne: Symbol("atMostOne"),
-	exactlyOne: Symbol("exactlyOne"),
-	multiple: Symbol("multiple")
-});
-
 tmpl.state = {
 	module: new Template("#tmpl-state-module",
 			function(app, moduleIndex, state) {

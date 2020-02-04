@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -20,10 +21,8 @@ import (
 
 // implements api.Resource
 type resourceFile struct {
-	name   string
-	path   string
-	group  int
-	system int
+	name string
+	path string
 }
 
 func (r *resourceFile) Name() string {
@@ -32,6 +31,12 @@ func (r *resourceFile) Name() string {
 
 func (r *resourceFile) Path() string {
 	return r.path
+}
+
+type ownedResourceFile struct {
+	resourceFile
+	group  int
+	system int
 }
 
 type moduleData struct {
@@ -46,7 +51,8 @@ type QuestScreen struct {
 	fonts               []api.FontFamily
 	modules             []moduleData
 	plugins             []*api.Plugin
-	resourceCollections [][][]resourceFile
+	resourceCollections [][][]ownedResourceFile
+	textures            []api.Resource
 	data                data.Data
 	persistence         data.Persistence
 	communication       data.Communication
@@ -96,14 +102,14 @@ func (qs *QuestScreen) Init(fullscreen bool, events display.Events, port uint16)
 		panic("No font available. PnP Screen needs at least one font.")
 	}
 	qs.modules = make([]moduleData, 0, 32)
-	qs.resourceCollections = make([][][]resourceFile, 0, 32)
+	qs.resourceCollections = make([][][]ownedResourceFile, 0, 32)
 	qs.activeGroupIndex = -1
 	qs.activeSystemIndex = -1
 
 	qs.html = appendAssets(qs.html, "web/html/index-top.html")
 	qs.js = appendAssets(qs.js, "web/js/template.js", "web/js/controls.js",
 		"web/js/popup.js", "web/js/datasets.js",
-		"web/js/config.js", "web/js/app.js", "web/js/state.js")
+		"web/js/config.js", "web/js/app.js", "web/js/state.js", "web/js/configitems.js")
 	qs.css = appendAssets(qs.css, "web/css/style.css", "web/css/color.css")
 	if err = qs.registerPlugin(&base.Base, renderer); err != nil {
 		panic(err)
@@ -111,8 +117,24 @@ func (qs *QuestScreen) Init(fullscreen bool, events display.Events, port uint16)
 	qs.html = appendAssets(qs.html, "web/html/index-bottom.html")
 	qs.js = appendAssets(qs.js, "web/js/init.js")
 
+	texturePath := qs.DataDir("textures")
+	textureFiles, err := ioutil.ReadDir(texturePath)
+	if err == nil {
+		for _, file := range textureFiles {
+			if !file.IsDir() && file.Name()[0] != '.' {
+				path := filepath.Join(texturePath, file.Name())
+				if _, err := os.Stat(path); err != nil {
+					log.Printf("could not read file %s: %s\n", path, err.Error())
+					continue
+				}
+				qs.textures = append(qs.textures, &resourceFile{
+					name: file.Name(), path: path})
+			}
+		}
+	}
 	qs.persistence, qs.communication = qs.data.LoadPersisted(qs)
 	qs.loadModuleResources()
+
 	if err := qs.display.Init(
 		qs, events, fullscreen, port, window, renderer); err != nil {
 		panic(err)
@@ -215,8 +237,8 @@ func (qs *QuestScreen) Plugin(index int) *api.Plugin {
 	return qs.plugins[index]
 }
 
-func appendBySelector(resources []resourceFile, basePath string,
-	selector api.ResourceSelector, group int, system int) []resourceFile {
+func appendBySelector(resources []ownedResourceFile, basePath string,
+	selector api.ResourceSelector, group int, system int) []ownedResourceFile {
 	if selector.Name == "" {
 		if _, err := os.Stat(basePath); os.IsNotExist(err) {
 			return resources
@@ -244,9 +266,9 @@ func appendBySelector(resources []resourceFile, basePath string,
 						}
 					}
 
-					resources = append(resources, resourceFile{
-						name: file.Name(), path: path,
-						group: group, system: system})
+					resources = append(resources, ownedResourceFile{
+						resourceFile: resourceFile{name: file.Name(), path: path},
+						group:        group, system: system})
 				}
 			}
 		} else {
@@ -256,8 +278,9 @@ func appendBySelector(resources []resourceFile, basePath string,
 		path := filepath.Join(basePath, selector.Name)
 		_, err := os.Stat(path)
 		if err == nil {
-			resources = append(resources, resourceFile{
-				name: selector.Name, path: path, group: group, system: system,
+			resources = append(resources, ownedResourceFile{
+				resourceFile: resourceFile{name: selector.Name, path: path},
+				group:        group, system: system,
 			})
 		} else if !os.IsNotExist(err) {
 			log.Printf("could not read file %s: %s\n", path, err.Error())
@@ -269,8 +292,8 @@ func appendBySelector(resources []resourceFile, basePath string,
 // listFiles queries the list of all files matching the given selector.
 // Never returns directories.
 func (qs *QuestScreen) listFiles(
-	id string, selector api.ResourceSelector) []resourceFile {
-	resources := make([]resourceFile, 0, 64)
+	id string, selector api.ResourceSelector) []ownedResourceFile {
+	resources := make([]ownedResourceFile, 0, 64)
 	for i := 0; i < qs.data.NumGroups(); i++ {
 		group := qs.data.Group(i)
 		basePath := qs.DataDir("groups", group.ID(), id, selector.Subdirectory)
@@ -286,8 +309,15 @@ func (qs *QuestScreen) listFiles(
 	return resources
 }
 
+var forbiddenNames = [5]string{"scenes", "heroes", "textures", "config.yaml", "state.yaml"}
+
 func (qs *QuestScreen) registerModule(descr *api.ModuleDescriptor,
 	renderer *sdl.Renderer) error {
+	for i := range forbiddenNames {
+		if descr.ID == forbiddenNames[i] {
+			return fmt.Errorf("module id may not be one of %v", forbiddenNames)
+		}
+	}
 	module, err := descr.CreateModule(renderer)
 	if err != nil {
 		return err
@@ -324,7 +354,7 @@ func (qs *QuestScreen) registerPlugin(plugin *api.Plugin, renderer *sdl.Renderer
 func (qs *QuestScreen) loadModuleResources() {
 	for i := range qs.modules {
 		descr := qs.modules[i].Descriptor()
-		collections := make([][]resourceFile, 0, 32)
+		collections := make([][]ownedResourceFile, 0, 32)
 		selectors := descr.ResourceCollections
 		for i := range selectors {
 			collections = append(collections, qs.listFiles(descr.ID, selectors[i]))
@@ -371,6 +401,11 @@ func (qs *QuestScreen) GetResources(
 		}
 	}
 	return ret
+}
+
+// GetTextures filters textures by current group and system.
+func (qs *QuestScreen) GetTextures() []api.Resource {
+	return qs.textures
 }
 
 // ViewHeroes returns a view of the heroes of the active group

@@ -153,7 +153,8 @@ class DataPage {
 
 class App {
 	constructor() {
-		this.controllers = {};
+		this.stateControllers = {};
+		this.configItemControllers = {};
 		this.modules = [];
 		this.plugins = [];
 		this.systems = [];
@@ -161,9 +162,13 @@ class App {
 		this.fonts = [];
 	}
 
-	/* registers a controller. must be called before init(). */
-	registerController(controller) {
-		this.controllers[controller.id] = controller;
+	/* registers a controller for a module state. must be called before init(). */
+	registerStateController(controller) {
+		this.stateControllers[controller.id] = controller;
+	}
+
+	registerConfigItemController(controller) {
+		this.configItemControllers[controller.name] = controller;
 	}
 
 	static async fetch(url, method, content) {
@@ -319,14 +324,15 @@ class App {
 	async init() {
 		const returned = await App.fetch("/static", "GET", null);
 		for (const module of returned.modules) {
-			if (this.controllers.hasOwnProperty(module.id)) {
-				module.controller = this.controllers[module.id];
+			if (this.stateControllers.hasOwnProperty(module.id)) {
+				module.controller = this.stateControllers[module.id];
 				this.modules.push(module);
 			} else {
 				console.error("Missing controller for module \"%s\"", module.id);
 			}
 		}
 		this.fonts = returned.fonts;
+		this.textures = returned.textures;
 		this.plugins = returned.plugins;
 		this.numPluginSystems = returned.numPluginSystems;
 
@@ -343,8 +349,8 @@ class App {
 		}
 
 		this.cfgPage = new DataPage(this, "/config",
-				(app, _, url, data) => new ConfigView(app, data, url), "Configuration",
-				true);
+				(app, _, url, data) => new ConfigView(app, data, url,
+					app.configItemControllers), "Configuration", true);
 		this.datasetPage = new DataPage(this, "/data", genDatasetView,
 				"Dataset", false);
 		document.querySelector("#show-config").addEventListener(

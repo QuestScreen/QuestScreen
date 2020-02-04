@@ -6,8 +6,7 @@ import (
 )
 
 type state struct {
-	caption   string
-	resources []api.Resource
+	caption string
 }
 
 type endpoint struct {
@@ -15,7 +14,7 @@ type endpoint struct {
 }
 
 func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) {
-	s := &state{resources: ctx.GetResources(0)}
+	s := &state{}
 
 	if input == nil {
 		s.caption = ""
@@ -29,10 +28,7 @@ func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) 
 }
 
 func (s *state) CreateModuleData() interface{} {
-	ret := &fullRequest{caption: s.caption}
-	if len(s.resources) > 0 {
-		ret.mask = s.resources[0]
-	}
+	ret := &changeRequest{caption: s.caption}
 	return ret
 }
 

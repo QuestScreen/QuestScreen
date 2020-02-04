@@ -9,6 +9,7 @@ import (
 
 	"github.com/QuestScreen/QuestScreen/api"
 	"github.com/QuestScreen/QuestScreen/app"
+	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
@@ -53,6 +54,10 @@ func (rc renderContext) GetResources(index api.ResourceCollectionIndex) []api.Re
 	return rc.owner.GetResources(rc.moduleIndex, index)
 }
 
+func (rc renderContext) GetTextures() []api.Resource {
+	return rc.owner.GetTextures()
+}
+
 func (rc renderContext) Renderer() *sdl.Renderer {
 	return rc.Display.Renderer
 }
@@ -68,6 +73,45 @@ func (rc renderContext) DefaultBorderWidth() int32 {
 
 func (rc renderContext) Heroes() api.HeroList {
 	return rc.heroes
+}
+
+func (rc renderContext) LoadTexture(textureIndex int,
+	color api.RGBColor) (*sdl.Texture, error) {
+	textures := rc.owner.GetTextures()
+	path := textures[textureIndex].Path()
+	surface, err := img.Load(path)
+	if err != nil {
+		return nil, fmt.Errorf("unable to load %s: %s", path, err.Error())
+	}
+	if surface.Format.Format != sdl.PIXELFORMAT_INDEX8 {
+		grayscale, err := surface.ConvertFormat(sdl.PIXELFORMAT_INDEX8, 0)
+		if err != nil {
+			return nil, fmt.Errorf("could not convert %s to grayscale: %s", path,
+				err.Error())
+		}
+		surface.Free()
+		surface = grayscale
+	}
+	colorSurface, err := sdl.CreateRGBSurfaceWithFormat(0, surface.W,
+		surface.H, 32, uint32(sdl.PIXELFORMAT_RGBA32))
+	grayPixels := surface.Pixels()
+	colorPixels := colorSurface.Pixels()
+	for y := int32(0); y < colorSurface.H; y++ {
+		for x := int32(0); x < colorSurface.W; x++ {
+			offset := (y*colorSurface.W + x)
+			cOffset := offset * 4
+			copy(colorPixels[cOffset:cOffset+4], []byte{color.Red, color.Green,
+				color.Blue, 255 - grayPixels[offset]})
+		}
+	}
+	surface.Free()
+	tex, err := rc.Display.Renderer.CreateTextureFromSurface(colorSurface)
+	colorSurface.Free()
+	if err != nil {
+		return nil, fmt.Errorf("unable to create texture from %s: %s", path,
+			err.Error())
+	}
+	return tex, nil
 }
 
 // Init initializes the display. The renderer and window need to be generated

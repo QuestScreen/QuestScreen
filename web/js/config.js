@@ -4,18 +4,26 @@ const ItemKind = {
 
 tmpl.config = {
 	item: new Template("#tmpl-config-item",
-			function (itemDesc, content, checked) {
+			function (itemDesc, app, data) {
 		this.querySelector(".config-item-name").textContent =
 				itemDesc.config.name;
 		const container = this.querySelector("fieldset");
-		container.appendChild(content);
 		const checkbox = container.querySelector(".config-item-checkbox");
+		const indicator = container.querySelector(".config-edit-indicator");
+		const content = itemDesc.handler.genUI(app, data, () => {
+			indicator.classList.add("edited");
+		});
+		if (data == null) {
+			itemDesc.handler.setEnabled(false);
+		}
+
+		container.querySelector(".config-item-container").appendChild(content);
 		checkbox.addEventListener("change", e => {
 			itemDesc.enabled = e.currentTarget.checked;
 			itemDesc.handler.setEnabled(e.currentTarget.checked);
-			itemDesc.handler.cfg.setChanged();
+			indicator.classList.add("edited");
 		});
-		checkbox.checked = checked;
+		checkbox.checked = data != null;
 	}),
 	module: new Template("#tmpl-config-module",
 			function(app, moduleDesc, data) {
@@ -24,9 +32,7 @@ tmpl.config = {
 		const content = this.querySelector(".config-module-content");
 		for (let i = 0; i < moduleDesc.items.length; i++) {
 			content.appendChild(tmpl.config.item.render(
-					moduleDesc.items[i],
-					moduleDesc.items[i].handler.genUI(app, data[i]),
-					data[i] != null));
+					moduleDesc.items[i], app, data[i]));
 		}
 	}),
 	view: new Template("#tmpl-config-view",
@@ -43,93 +49,7 @@ tmpl.config = {
 			saveHandler();
 			e.preventDefault();
 		});
-	}),
-	selectableFont: new Template("#tmpl-config-selectable-font",
-			function (fonts) {
-		const families = this.querySelector(".font-families");
-		for (let i = 0; i < fonts.length; i++) {
-			const option = document.createElement("OPTION");
-			option.value = i;
-			option.textContent = fonts[i];
-			families.appendChild(option);
-		}
 	})
-}
-
-class SelectableFont {
-	constructor(cfg) {
-		this.cfg = cfg;
-	}
-
-	setValues() {
-		this.families.value = this.cur.familyIndex;
-		this.sizes.value = this.cur.size;
-		let style = this.cur.style;
-		if (style >= 2) {
-			this.styles.querySelector(".italic").classList.add("pure-button-active");
-			style -= 2;
-		} else {
-			this.styles.querySelector(".italic").classList.remove("pure-button-active");
-		}
-		if (style == 1) {
-			this.styles.querySelector(".bold").classList.add("pure-button-active");
-		} else {
-			this.styles.querySelector(".bold").classList.remove("pure-button-active");
-		}
-	}
-
-	genUI(app, data) {
-		this.node = tmpl.config.selectableFont.render(app.fonts);
-		this.families = this.node.querySelector(".font-families");
-		this.sizes = this.node.querySelector(".font-size");
-		this.styles = this.node.querySelector(".pure-button-group");
-
-		for (const button of this.styles.querySelectorAll("button")) {
-			button.addEventListener("click", this.cfg.buttonHandler.bind(null, button));
-		}
-		this.families.addEventListener("change", this.cfg.changedHandler);
-		this.sizes.addEventListener("change", this.cfg.changedHandler);
-
-		if (data == null) {
-			this.cur = {
-				familyIndex: 0, size: 1, style: 0
-			}
-			this.setEnabled(false);
-		} else {
-			this.cur = data;
-		}
-		this.setValues();
-		return this.node;
-	}
-
-	setEnabled(value) {
-		if (value) {
-			this.families.disabled = false;
-			this.sizes.disabled = false;
-			for (const button of this.styles.querySelectorAll("button")) {
-				button.disabled = false;
-			}
-		} else {
-			this.families.disabled = true;
-			this.sizes.disabled = true;
-			for (const button of this.styles.querySelectorAll("button")) {
-				button.disabled = true;
-			}
-		}
-	}
-
-	getData() {
-		this.cur.familyIndex = parseInt(this.families.value, 10);
-		this.cur.size = parseInt(this.sizes.value, 10);
-		this.cur.style = 0;
-		if (this.styles.querySelector(".bold.pure-button-active") != null) {
-			this.cur.style = 1;
-		}
-		if (this.styles.querySelector(".italic.pure-button-active") != null) {
-			this.cur.style += 2;
-		}
-		return this.cur;
-	}
 }
 
 class ModuleItemDesc {
@@ -148,23 +68,19 @@ class ModuleDesc {
 }
 
 class ConfigView {
-	setChanged() {
-		document.querySelector(".config-changed").style.visibility = "visible";
-	}
-
-	swapButton(button) {
+	swapButton(button, indicator) {
 		if (button.classList.contains("pure-button-active")) {
 			button.classList.remove("pure-button-active");
 		} else {
 			button.classList.add("pure-button-active");
 		}
-		this.setChanged();
+		indicator.classList.add("edited");
 	}
 
-	constructor(app, data, url) {
+	constructor(app, data, url, controllers) {
 		this.app = app;
 		this.url = url;
-		this.changedHandler = this.setChanged.bind(this);
+		this.controllers = controllers;
 		this.buttonHandler = this.swapButton.bind(this);
 		this.moduleDescs = [];
 		for (let i = 0; i < app.modules.length; i++) {
@@ -176,9 +92,10 @@ class ConfigView {
 			for (let j = 0; j < app.modules[i].config.length; j++) {
 				const config = app.modules[i].config[j];
 				let handler = null;
-				switch (config.type) {
-					case "SelectableFont":
-						handler = new SelectableFont(this);
+				if (this.controllers.hasOwnProperty(config.type)) {
+					handler = new this.controllers[config.type](this);
+				} else {
+					alert("Unknown config item type: " + config.type);
 				}
 
 				moduleItemDescs.push(new ModuleItemDesc(
@@ -206,7 +123,7 @@ class ConfigView {
 			jsonConfig.push(vals);
 		}
 		await App.fetch(this.url, "PUT", jsonConfig);
-		document.querySelector(".config-changed").style.visibility = "hidden";
+		document.querySelector(".config-edit-indicator").classList.remove("edited");
 	}
 
 	ui(data) {

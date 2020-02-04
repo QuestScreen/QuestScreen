@@ -112,7 +112,7 @@ class Title {
 	}
 }
 
-app.registerController(new Background());
-app.registerController(new HeroList());
-app.registerController(new Overlays());
-app.registerController(new Title());
+app.registerStateController(new Background());
+app.registerStateController(new HeroList());
+app.registerStateController(new Overlays());
+app.registerStateController(new Title());

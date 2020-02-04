@@ -41,6 +41,8 @@ type ResourceProvider interface {
 	// The resources are filtered by the currently active system, group and scene.
 	// Each Resource object is read-only and may be freely shared between threads.
 	GetResources(index ResourceCollectionIndex) []Resource
+	// GetTextures queries the list of available textures.
+	GetTextures() []Resource
 }
 
 // ServerContext gives access to data available in the server thread.
@@ -73,6 +75,10 @@ type ExtendedRenderContext interface {
 	RenderContext
 	// Heroes returns a non-null list iff the module's description has UseHeroes set.
 	Heroes() HeroList
+	// LoadTexture is a helper function that loads a grayscale texture image into
+	// an SDL texture which has its alpha channel set to the image's grayscale
+	// channel and the color channels set to the given color.
+	LoadTexture(textureIndex int, color RGBColor) (*sdl.Texture, error)
 }
 
 // ResourceNames generates a list of resource names from a list of resources.

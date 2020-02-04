@@ -398,6 +398,10 @@ article {
 	color: black;
 }
 
+.dropdown-selector > .pure-menu-link.pure-menu-disabled {
+	cursor: not-allowed;
+}
+
 .pure-menu-selected .dropdown-invisible {
 	visibility: hidden;
 }
@@ -441,6 +445,14 @@ article {
 
 .config-view-controls > div:last-child {
 	flex: 0 0 auto;
+}
+
+.config-item-container {
+	display: inline-block;
+}
+
+.config-edit-indicator:not(.edited) {
+	visibility: hidden;
 }
 
 /* datasets */

@@ -38,6 +38,7 @@ type App interface {
 	ServerContext(moduleIndex ModuleIndex, heroes api.HeroList) api.ServerContext
 	GetResources(moduleIndex ModuleIndex,
 		index api.ResourceCollectionIndex) []api.Resource
+	GetTextures() []api.Resource
 	Font(fontFamily int, style api.FontStyle, size api.FontSize) *ttf.Font
 	FontNames() []string
 	ViewHeroes() HeroView

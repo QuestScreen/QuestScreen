@@ -131,12 +131,18 @@ func (c Communication) modules(a app.App) []jsonModuleDesc {
 // StaticData returns a serializable view of all static data (i.e. data that
 // will never change during the execution of PnPScreen)
 func (c Communication) StaticData(app app.App, plugins interface{}) interface{} {
+	textures := app.GetTextures()
+	textureNames := make([]string, len(textures))
+	for i := range textures {
+		textureNames[i] = textures[i].Name()
+	}
 	return struct {
 		Fonts            []string         `json:"fonts"`
+		Textures         []string         `json:"textures"`
 		Modules          []jsonModuleDesc `json:"modules"`
 		NumPluginSystems int              `json:"numPluginSystems"`
 		Plugins          interface{}      `json:"plugins"`
-	}{Fonts: app.FontNames(), Modules: c.modules(app),
+	}{Fonts: app.FontNames(), Textures: textureNames, Modules: c.modules(app),
 		NumPluginSystems: c.d.numPluginSystems, Plugins: plugins}
 }
 
