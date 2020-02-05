@@ -37,15 +37,16 @@ tmpl.config = {
 	}),
 	view: new Template("#tmpl-config-view",
 			function(app, moduleDescs, data, saveHandler) {
-		const container = this.querySelector("article");
+		const form = this.querySelector("form");
+		const controls = this.querySelector("fieldset");
 		for (let i = moduleDescs.length - 1; i >= 0; i--) {
 			const desc = moduleDescs[i];
 			if (desc != null && desc.items.length > 0) {
-				container.insertBefore(tmpl.config.module.render(
-					app, desc, data[i]), container.childNodes[0]);
+				form.insertBefore(tmpl.config.module.render(
+					app, desc, data[i]), controls);
 			}
 		}
-		container.querySelector(".config-save").addEventListener("click", e => {
+		form.addEventListener("submit", e => {
 			saveHandler();
 			e.preventDefault();
 		});

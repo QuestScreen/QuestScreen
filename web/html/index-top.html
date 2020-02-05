@@ -153,54 +153,69 @@
 
 <template id="tmpl-config-view">
 	<article>
-		<div class="pure-form">
+		<form class="pure-form">
 			<fieldset class="config-view-controls">
-				<div>
-					<button class="pure-button config-cancel">Cancel</button>
-					<button class="pure-button pure-button-primary config-save">Save</button>
-				</div>
+				<button type="reset" class="pure-button config-cancel">Cancel</button>
+				<button type="submit" class="pure-button pure-button-primary config-save">Save</button>
 			</fieldset>
-		</div>
+		</form>
 	</article>
 </template>
 <template id="tmpl-config-module">
-	<div class="pure-g config-module">
+	<section class="pure-g config-module">
 		<div class="pure-u-1 pure-u-md-1-5 config-module-header"><h3 class="config-module-name"></h3></div>
-		<div class="pure-u-1 pure-u-md-4-5 pure-form config-module-content"></div>
-	</div>
+		<div class="pure-u-1 pure-u-md-4-5 config-module-content"></div>
+	</section>
 </template>
 
 <template id="tmpl-config-item">
 	<fieldset>
-		<label>
+		<label class="config-item-header">
 			<input type="checkbox" class="config-item-checkbox"/>
-			<span class="config-item-name"></span>:
+			<span class="config-item-name"></span>
+			<i class="fas fa-edit config-edit-indicator"></i>
 		</label>
 		<div class="config-item-container"><!-- setting contents goes here --></div>
-		<i class="fas fa-edit config-edit-indicator"></i>
 	</fieldset>
 </template>
 
 <template id="tmpl-config-selectable-font">
-	<select class="font-families"></select>
-	<select class="font-size">
-		<option value="0">Small</option>
-		<option value="1">Content</option>
-		<option value="2">Medium</option>
-		<option value="3">Heading</option>
-		<option value="4">Large</option>
-		<option value="5">Huge</option>
-	</select>
-	<div class="pure-button-group" role="group" aria-label="Font Faces" style="display: inline">
-		<button class="pure-button font-style-selector bold"><i class="fas fa-bold"></i></button>
-		<button class="pure-button font-style-selector italic"><i class="fas fa-italic"></i></button>
+	<div class="config-item-fragment">
+		<label for="font-family">Family</label>
+		<select name="font-family" class="font-families"></select>
+	</div>
+	<div class="config-item-fragment">
+		<label for="font-size">Size</label>
+		<select name="font-size" class="font-size">
+			<option value="0">Small</option>
+			<option value="1">Content</option>
+			<option value="2">Medium</option>
+			<option value="3">Heading</option>
+			<option value="4">Large</option>
+			<option value="5">Huge</option>
+		</select>
+	</div>
+	<div class="config-item-fragment">
+		<label for="font-style">Style</label>
+		<div class="pure-button-group" role="group" aria-label="Font Faces" style="display: inline">
+			<button class="pure-button font-style-selector bold"><i class="fas fa-bold"></i></button>
+			<button class="pure-button font-style-selector italic"><i class="fas fa-italic"></i></button>
+		</div>
 	</div>
 </template>
 
 <template id="tmpl-config-selectable-background">
-	<label for="primary">Primary: </label><input type="color" name="primary" required />
-	<label for="texture">Texture: </label><!-- texture dropdown injected here -->
-	<label for="secondary">Secondary: </label><input type="color" name="secondary" required />
+	<div class="config-item-fragment">
+		<label for="primary">Primary</label>
+		<input type="color" name="primary" required />
+	</div>
+	<div class="config-item-fragment">
+		<label for="texture">Texture</label><!-- texture dropdown injected here -->
+	</div>
+	<div class="config-item-fragment">
+		<label for="secondary">Secondary</label>
+		<input type="color" name="secondary" required />
+	</div>
 </template>
 
 <!-- templates for editing datasets -->

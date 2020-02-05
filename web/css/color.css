@@ -40,11 +40,15 @@ nav .pure-menu-heading {
   background-color: var(--strong);
 }
 
-.state-module-header, .config-module-header {
+.state-module-header, .config-module-header, .config-item-header {
   background-color: var(--strong);
 }
 
 .state-module-content, .config-module-content {
+  background-color: var(--medium);
+}
+
+.config-item-container {
   background-color: var(--light);
 }
 
