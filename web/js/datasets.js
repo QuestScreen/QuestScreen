@@ -279,7 +279,7 @@ class SystemSelector extends DropdownSelector {
 	ui(app, changeHandler) {
 		const captions = app.systems.map(s => s.name);
 		this.changeHandler = changeHandler;
-		return this.genUi(this.curIndex, captions);
+		return super.ui(this.curIndex, captions);
 	}
 
 	async itemClick(index) {

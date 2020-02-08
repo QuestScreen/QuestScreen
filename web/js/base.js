@@ -6,7 +6,7 @@ class Background extends DropdownSelector {
 	}
 
 	ui(app, state) {
-		return this.genUi(state.curIndex, state.items);
+		return super.ui(state.curIndex, state.items);
 	}
 
 	async itemClick(index) {
@@ -37,7 +37,7 @@ class HeroList extends DropdownSelector {
 
 	ui(app, state) {
 		const captions = app.groups[app.activeGroup].heroes.map(h => h.name);
-		const listUI = this.genUi(state.heroes, captions);
+		const listUI = this.ui(state.heroes, captions);
 		return tmpl.herolist.state.render(state, this, listUI);
 	}
 
@@ -70,7 +70,7 @@ class Overlays extends DropdownSelector {
 	ui(app, state) {
 		const captions = state.map(s => s.name);
 		const visible = state.map(s => s.selected);
-		return this.genUi(visible, captions);
+		return super.ui(visible, captions);
 	}
 
 	async itemClick(index) {

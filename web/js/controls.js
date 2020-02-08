@@ -119,7 +119,7 @@ class DropdownSelector {
 		this.menuName = menuName;
 	}
 
-	genUi(visible, captions) {
+	ui(visible, captions) {
 		const ret = tmpl.controls.dropdown.root.render(this, visible, captions);
 		this.uiItems = ret.querySelector(".pure-menu-children").children;
 		if (this.kind != SelectorKind.multiple) {

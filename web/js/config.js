@@ -10,7 +10,7 @@ tmpl.config = {
 		const container = this.querySelector("fieldset");
 		const checkbox = container.querySelector(".config-item-checkbox");
 		const indicator = container.querySelector(".config-edit-indicator");
-		const content = itemDesc.handler.genUI(app, data, () => {
+		const content = itemDesc.handler.ui(app, data, () => {
 			indicator.classList.add("edited");
 		});
 		if (data == null) {
@@ -19,11 +19,11 @@ tmpl.config = {
 
 		container.querySelector(".config-item-container").appendChild(content);
 		checkbox.addEventListener("change", e => {
-			itemDesc.enabled = e.currentTarget.checked;
-			itemDesc.handler.setEnabled(e.currentTarget.checked);
+			itemDesc.setEnabled(e.currentTarget.checked);
 			indicator.classList.add("edited");
 		});
 		checkbox.checked = data != null;
+		itemDesc.checkbox = checkbox;
 	}),
 	module: new Template("#tmpl-config-module",
 			function(app, moduleDesc, data) {
@@ -31,23 +31,24 @@ tmpl.config = {
 		name.textContent = moduleDesc.name;
 		const content = this.querySelector(".config-module-content");
 		for (let i = 0; i < moduleDesc.items.length; i++) {
-			content.appendChild(tmpl.config.item.render(
-					moduleDesc.items[i], app, data[i]));
+			content.appendChild(moduleDesc.items[i].ui(app, data[i]));
 		}
 	}),
-	view: new Template("#tmpl-config-view",
-			function(app, moduleDescs, data, saveHandler) {
+	view: new Template("#tmpl-config-view", function(controller, data) {
 		const form = this.querySelector("form");
 		const controls = this.querySelector("fieldset");
-		for (let i = moduleDescs.length - 1; i >= 0; i--) {
-			const desc = moduleDescs[i];
+		for (let i = controller.moduleDescs.length - 1; i >= 0; i--) {
+			const desc = controller.moduleDescs[i];
 			if (desc != null && desc.items.length > 0) {
-				form.insertBefore(tmpl.config.module.render(
-					app, desc, data[i]), controls);
+				form.insertBefore(desc.ui(controller.app, data[i]), controls);
 			}
 		}
 		form.addEventListener("submit", e => {
-			saveHandler();
+			controller.save();
+			e.preventDefault();
+		});
+		form.addEventListener("reset", e => {
+			controller.reset();
 			e.preventDefault();
 		});
 	})
@@ -57,7 +58,26 @@ class ModuleItemDesc {
 	constructor(config, enabled, handler) {
 		this.config = config;
 		this.enabled = enabled;
+		this.origEnabled = enabled;
 		this.handler = handler;
+	}
+
+	setEnabled(value) {
+		this.handler.setEnabled(value);
+		this.enabled = value;
+	}
+
+	reset() {
+		this.handler.reset();
+		if (this.origEnabled != this.enabled) {
+			this.enabled = this.origEnabled;
+			this.handler.setEnabled(this.enabled);
+			this.checkbox.checked = this.enabled;
+		}
+	}
+
+	ui(app, data) {
+		return tmpl.config.item.render(this, app, data);
 	}
 }
 
@@ -65,6 +85,16 @@ class ModuleDesc {
 	constructor(name, items) {
 		this.name = name;
 		this.items = items;
+	}
+
+	reset() {
+		for (const item of this.items) {
+			item.reset();
+		}
+	}
+
+	ui(app, data) {
+		return tmpl.config.module.render(app, this, data);
 	}
 }
 
@@ -106,7 +136,13 @@ class ConfigView {
 		}
 	}
 
-	async put() {
+	removeEditIndicators() {
+		for (const indicator of document.querySelectorAll(".config-edit-indicator")) {
+			indicator.classList.remove("edited");
+		}
+	}
+
+	async save() {
 		const jsonConfig = [];
 		for (const moduleDesc of this.moduleDescs) {
 			if (moduleDesc == null) {
@@ -120,15 +156,22 @@ class ConfigView {
 				} else {
 					vals.push(null);
 				}
+				itemDesc.origEnabled = itemDesc.enabled;
 			}
 			jsonConfig.push(vals);
 		}
 		await App.fetch(this.url, "PUT", jsonConfig);
-		document.querySelector(".config-edit-indicator").classList.remove("edited");
+		this.removeEditIndicators();
+	}
+
+	reset() {
+		for (const moduleDesc of this.moduleDescs) {
+			moduleDesc.reset();
+		}
+		this.removeEditIndicators();
 	}
 
 	ui(data) {
-		return tmpl.config.view.render(this.app, this.moduleDescs,
-			data, this.put.bind(this));
+		return tmpl.config.view.render(this, data);
 	}
 }

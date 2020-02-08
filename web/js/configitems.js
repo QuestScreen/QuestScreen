@@ -35,7 +35,7 @@ class SelectableFont {
 		}
 	}
 
-	genUI(app, data, editHandler) {
+	ui(app, data, editHandler) {
 		this.node = tmpl.config.items.selectableFont.render(app.fonts);
 		this.families = this.node.querySelector(".font-families");
 		this.sizes = this.node.querySelector(".font-size");
@@ -120,7 +120,7 @@ class SelectableTexturedBackground {
 		this.textures.setIndex(this.cur.textureIndex);
 	}
 
-	genUI(app, data, editHandler) {
+	ui(app, data, editHandler) {
 		this.node = tmpl.config.items.selectableBackground.render();
 		this.primary = this.node.querySelector('input[name=primary]');
 		this.secondary = this.node.querySelector('input[name="secondary"]');
@@ -131,7 +131,7 @@ class SelectableTexturedBackground {
 		}
 		this.textures = new TextureSelector(this.cur.textureIndex, editHandler);
 		const texLabel = this.node.querySelector('label[for="texture"]');
-		texLabel.parentNode.insertBefore(this.textures.genUi(this.cur.textureIndex,
+		texLabel.parentNode.insertBefore(this.textures.ui(this.cur.textureIndex,
 			app.textures), texLabel.nextSibling);
 
 		this.primary.addEventListener("changed", editHandler);
