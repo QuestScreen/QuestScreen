@@ -30,7 +30,7 @@ all: questscreen/questscreen
 
 web/data.go: ${WEBFILES}
 	#go get github.com/go-bindata/go-bindata/...
-	${GOPATH}/bin/go-bindata -o web/data.go -pkg web web/html web/css web/js web/webfonts
+	${GOPATH}/bin/go-bindata -o web/data.go -pkg web web/favicon web/html web/css web/js web/webfonts
 
 questscreen/questscreen: web/data.go
 	cd questscreen && go build

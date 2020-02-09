@@ -1,0 +1,9 @@
+<svg version="1.1"
+     baseProfile="full"
+     width="230" height="230" viewBox="0 0 230 230"
+     xmlns="http://www.w3.org/2000/svg">
+
+  <path fill="black" fill-rule="evenodd" stroke-width="10" stroke="black"
+      d="M15,30 h200 a10,10 0 0 1 10,10 v150 a10,10 0 0 1 -10,10 h-200 a10,10 0 0 1 -10,-10 v-150 a10,10 0 0 1 10,-10 z
+         M63,85 l52,-30 l52,30 l0,60 l-52,30 l-52,-30 l0,-60 z"/>
+</svg>

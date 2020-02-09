@@ -1,9 +1,16 @@
 <svg version="1.1"
      baseProfile="full"
-     width="270" height="180" viewBox="0 0 270 180"
+     width="230" height="180" viewBox="0 0 230 180"
      xmlns="http://www.w3.org/2000/svg">
-  <path fill="none" stroke-width="10" stroke="black"
-      d="M15,5 h240 a10,10 0 0 1 10,10 v150 a10,10 0 0 1 -10,10 h-240 a10,10 0 0 1 -10,-10 v-150 a10,10 0 0 1 10,-10 z"/>
+  <defs>
+    <linearGradient id="color" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:rgb(40,200,40);stop-opacity:1" />
+      <stop offset="100%" style="stop-color:rgb(20,160,0);stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <path fill="url(#color)" stroke-width="10" stroke="black"
+      d="M15,5 h200 a10,10 0 0 1 10,10 v150 a10,10 0 0 1 -10,10 h-200 a10,10 0 0 1 -10,-10 v-150 a10,10 0 0 1 10,-10 z"/>
 
   <!-- kante: 60 -->
   <!-- a =    30 -->
@@ -12,15 +19,15 @@
   <!-- 0.375 * b = 19,485-->
 
   <path fill="none" stroke-width="8" stroke="black" stroke-linejoin="round"
-      d="M83,60 l52,-30 l52,30 l0,60 l-52,30 l-52,-30 l0,-60 z"/>
+      d="M63,60 l52,-30 l52,30 l0,60 l-52,30 l-52,-30 l0,-60 z"/>
   <path fill="none" stroke-width="8" stroke="black" stroke-linejoin="round"
-      d="M83,60 l19,11 L135,30 L168,71 l19,-11" />
+      d="M63,60 l19,11 L115,30 L148,71 l19,-11" />
   <path fill="none" stroke-width="8" stroke="black" stroke-linejoin="round"
-      d="M83,120 L102,71 L168,71 L187,120" />
+      d="M63,120 L82,71 L148,71 L167,120" />
   <path fill="none" stroke-width="8" stroke="black" stroke-linejoin="round"
-      d="M135,150 l0,-22 L83,120" />
+      d="M115,150 l0,-22 L63,120" />
   <path fill="none" stroke-width="8" stroke="black" stroke-linejoin="round"
-      d="M135,128 L187,120" />
+      d="M115,128 L167,120" />
   <path fill="none" stroke-width="8" stroke="black" stroke-linejoin="round"
-      d="M102,71 L135,128 L168,71" />
+      d="M82,71 L115,128 L148,71" />
 </svg>

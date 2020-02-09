@@ -95,19 +95,34 @@ func (srh *staticResourceHandler) ServeHTTP(
 	}
 }
 
+func (srh *staticResourceHandler) faviconRes(name string, contentType string) {
+	srh.resources["/"+name] = staticResource{
+		contentType: contentType, content: web.MustAsset("web/favicon/" + name)}
+}
+
 func newStaticResourceHandler(qs *QuestScreen) *staticResourceHandler {
-	ep := &staticResourceHandler{
+	srh := &staticResourceHandler{
 		resources: make(map[string]staticResource)}
 
 	indexRes := staticResource{
 		contentType: "text/html; charset=utf-8", content: qs.html}
-	ep.resources["/"] = indexRes
-	ep.resources["/index.html"] = indexRes
-	ep.resources["/all.js"] = staticResource{
+	srh.resources["/"] = indexRes
+	srh.resources["/index.html"] = indexRes
+	srh.resources["/all.js"] = staticResource{
 		contentType: "application/javascript", content: qs.js}
-	ep.resources["/style.css"] = staticResource{
+	srh.resources["/style.css"] = staticResource{
 		contentType: "text/css", content: qs.css}
-	return ep
+	srh.faviconRes("android-chrome-192x192.png", "image/png")
+	srh.faviconRes("android-chrome-512x512.png", "image/png")
+	srh.faviconRes("apple-touch-icon.png", "image/png")
+	srh.faviconRes("browserconfig.xml", "application/xml")
+	srh.faviconRes("favicon-16x16.png", "image/png")
+	srh.faviconRes("favicon-32x32.png", "image/png")
+	srh.faviconRes("favicon.ico", "image/vnd.microsoft.icon")
+	srh.faviconRes("mstile-150x150.png", "image/png")
+	srh.faviconRes("safari-pinned-tab.svg", "image/svg+xml")
+	srh.faviconRes("site.webmanifest", "application/manifest+json")
+	return srh
 }
 
 func (srh *staticResourceHandler) add(path string, contentType string) {
