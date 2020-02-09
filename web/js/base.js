@@ -37,7 +37,7 @@ class HeroList extends DropdownSelector {
 
 	ui(app, state) {
 		const captions = app.groups[app.activeGroup].heroes.map(h => h.name);
-		const listUI = this.ui(state.heroes, captions);
+		const listUI = super.ui(state.heroes, captions);
 		return tmpl.herolist.state.render(state, this, listUI);
 	}
 

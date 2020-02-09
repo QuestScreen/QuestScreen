@@ -258,6 +258,7 @@ func (d *Display) RenderLoop() {
 				case d.Events.SceneChangeID:
 					d.enabledModules = d.queuedEnabledModules
 					d.queuedEnabledModules = nil
+					d.initial = false
 					fallthrough
 				case d.Events.ModuleConfigID:
 					ctx := renderContext{Display: d, heroes: d.owner.ViewHeroes()}
@@ -277,7 +278,6 @@ func (d *Display) RenderLoop() {
 						}
 					}
 					ctx.heroes.Close()
-					d.initial = false
 				case d.Events.HeroesChangedID:
 					ctx := renderContext{Display: d, heroes: d.owner.ViewHeroes()}
 					for i := app.FirstModule; i < d.owner.NumModules(); i++ {
@@ -290,7 +290,6 @@ func (d *Display) RenderLoop() {
 						}
 					}
 					ctx.heroes.Close()
-					d.initial = false
 				}
 				render = true
 				atomic.StoreUint32(&d.request, noRequest)

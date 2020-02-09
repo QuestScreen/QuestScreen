@@ -1,6 +1,7 @@
 :root {
   --strong: #305f88;
   --medium: #4ba3ed;
+  --medium-highlight: #2887cb;
   --light: #8fccff;
   --light-highlight: #afeeff;
   --text: black;
@@ -44,11 +45,11 @@ nav .pure-menu-heading {
   background-color: var(--strong);
 }
 
-.state-module-content, .config-module-content {
+.config-module-content {
   background-color: var(--medium);
 }
 
-.config-item-container {
+.config-item-container, .state-module-content {
   background-color: var(--light);
 }
 
@@ -63,8 +64,10 @@ nav .pure-menu-heading {
 
 .dropdown-selector > a:hover,
 .dropdown-selector > a:active,
-.dropdown-selector.pure-menu-active > a {
-  background-color: var(--medium);
+.dropdown-selector.pure-menu-active > a,
+.dropdown-selector > .pure-menu-children a:hover,
+.dropdown-selector > .pure-menu-children a:active {
+  background-color: var(--medium-highlight);
 }
 
 .dropdown-selector .pure-menu-link {

@@ -54,8 +54,8 @@ tmpl.data = {
 		});
 		form.addEventListener("reset", e => {
 			input.value = ctrl[itemName].name;
-			if (ctrl.revert) {
-				ctrl.revert.call(ctrl, additionalUI);
+			if (ctrl.reset) {
+				ctrl.reset.call(ctrl, additionalUI);
 			}
 			for (const controlGroup of form.querySelectorAll(".pure-control-group")) {
 				controlGroup.classList.remove("edited");
@@ -102,8 +102,6 @@ tmpl.data = {
 		hero: new Template("#tmpl-data-group-hero", function(ctrl, hero, index) {
 			const sheet = this.children[0];
 			const form = sheet.querySelector("form");
-			const submit = form.querySelector("button.pure-button-primary");
-			const cancel = form.querySelector("button.revert");
 			const nameInput = form.querySelector('input[name="name"]');
 			const descrInput = form.querySelector('input[name="description"]');
 			const deleteButton = sheet.querySelector("button.delete");
@@ -130,8 +128,8 @@ tmpl.data = {
 					sheet.classList.add("active");
 				});
 				sheet.querySelector(".data-sheet-header").textContent = "Create Hero";
-				submit.textContent = "Create";
-				cancel.textContent = "Cancel";
+				form.querySelector('button[type="submit"]').textContent = "Create";
+				form.querySelector('button[type="reset"]').textContent = "Cancel";
 				form.addEventListener("reset", e => {
 					nameInput.value = "";
 					descrInput.value = "";
@@ -313,7 +311,7 @@ class GroupDataView {
 		this.app.datasetPage.updateTitle(this.group);
 	}
 
-	revert() {
+	reset() {
 		this.systemSelector.itemClick(this.systemSelector.originalIndex);
 	}
 
@@ -391,7 +389,7 @@ class SceneDataView {
 		this.app.datasetPage.updateTitle({name: this.group.name + ' ' + this.scene.name});
 	}
 
-	revert(ui) {
+	reset(ui) {
 		this.curModules = [...this.scene.modules];
 		for (const [index, input] of ui.querySelectorAll("label.switch > input").entries()) {
 			input.checked = this.curModules[index];
