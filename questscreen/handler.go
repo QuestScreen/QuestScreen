@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/QuestScreen/QuestScreen/api"
 )
@@ -144,6 +145,7 @@ type handler struct {
 	name     string
 	basePath string
 	path     []pathItem
+	mutex    *sync.Mutex
 }
 
 func sendJSON(w http.ResponseWriter, data interface{}) {
@@ -160,6 +162,8 @@ func sendJSON(w http.ResponseWriter, data interface{}) {
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Clacks-Overhead", "GNU Terry Pratchett")
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
 	method := parseMethod(r.Method)
 
 	var ids []string
@@ -226,7 +230,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func reg(name string, basePath string, pathItems ...pathItem) {
+func reg(name string, basePath string, mutex *sync.Mutex, pathItems ...pathItem) {
 	http.Handle(basePath, &handler{name: name, basePath: basePath,
-		path: pathItems})
+		path: pathItems, mutex: mutex})
 }

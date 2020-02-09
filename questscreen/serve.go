@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/QuestScreen/QuestScreen/api"
 	"github.com/QuestScreen/QuestScreen/app"
@@ -694,6 +695,7 @@ func startServer(owner *QuestScreen, events display.Events,
 	port uint16) *http.Server {
 	server := &http.Server{Addr: ":" + strconv.Itoa(int(port))}
 	env := &endpointEnv{qs: owner, events: events}
+	mutex := &sync.Mutex{}
 
 	sep := newStaticResourceHandler(owner)
 	sep.add("/css/pure-min.css", "text/css")
@@ -707,26 +709,26 @@ func startServer(owner *QuestScreen, events display.Events,
 	sep.add("/webfonts/fa-solid-900.woff2", "font/woff2")
 	http.Handle("/", sep)
 
-	reg("StaticDataHandler", "/static",
+	reg("StaticDataHandler", "/static", mutex,
 		endpoint{httpGet, &staticDataEndpoint{env}})
-	reg("StateHandler", "/state",
+	reg("StateHandler", "/state", mutex,
 		endpoint{httpGet | httpPost, &stateEndpoint{env}})
-	reg("BaseConfigHandler", "/config/base",
+	reg("BaseConfigHandler", "/config/base", mutex,
 		endpoint{httpGet | httpPut, &baseConfigEndpoint{env}})
-	reg("SystemConfigHandler", "/config/systems/",
+	reg("SystemConfigHandler", "/config/systems/", mutex,
 		idCapture{}, endpoint{httpGet | httpPut, &systemConfigEndpoint{env}})
-	reg("GroupConfigHandler", "/config/groups/",
+	reg("GroupConfigHandler", "/config/groups/", mutex,
 		idCapture{}, endpoint{httpGet | httpPut, &groupConfigEndpoint{env}},
 		pathFragment("scenes"), idCapture{},
 		endpoint{httpGet | httpPut, &sceneConfigEndpoint{env}})
-	reg("DataHandler", "/data", endpoint{httpGet, &dataEndpoint{env}})
-	reg("DataSystemsHandler", "/data/systems",
+	reg("DataHandler", "/data", mutex, endpoint{httpGet, &dataEndpoint{env}})
+	reg("DataSystemsHandler", "/data/systems", mutex,
 		endpoint{httpPost, &dataSystemsEndpoint{env}})
-	reg("DataSystemHandler", "/data/systems/", idCapture{},
+	reg("DataSystemHandler", "/data/systems/", mutex, idCapture{},
 		endpoint{httpPut | httpDelete, &systemEndpoint{env}})
-	reg("DataGroupsHandler", "/data/groups",
+	reg("DataGroupsHandler", "/data/groups", mutex,
 		endpoint{httpPost, &dataGroupsEndpoint{env}})
-	reg("DataGroupHandler", "/data/groups/", idCapture{},
+	reg("DataGroupHandler", "/data/groups/", mutex, idCapture{},
 		endpoint{httpPut | httpDelete, &dataGroupEndpoint{env}},
 		&branch{"scenes"}, endpoint{httpPost, &dataScenesEndpoint{env}},
 		idCapture{}, endpoint{httpPut | httpDelete, &dataSceneEndpoint{env}},
@@ -769,12 +771,12 @@ func startServer(owner *QuestScreen, events display.Events,
 			}
 			builder.WriteString(path)
 			if len(path) != 0 && path[len(path)-1] == '/' {
-				reg("ModuleEndpoint("+path+")", builder.String(),
+				reg("ModuleEndpoint("+path+")", builder.String(), mutex,
 					idCapture{}, endpoint{httpPut,
 						&moduleEndpoint{endpointEnv: env, moduleIndex: i, endpointIndex: j,
 							pure: false}})
 			} else {
-				reg("ModuleEndpoint("+path+")", builder.String(),
+				reg("ModuleEndpoint("+path+")", builder.String(), mutex,
 					endpoint{httpPut,
 						&moduleEndpoint{endpointEnv: env, moduleIndex: i, endpointIndex: j,
 							pure: true}})
