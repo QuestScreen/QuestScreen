@@ -130,8 +130,8 @@ func (c Communication) modules(a app.App) []jsonModuleDesc {
 
 // StaticData returns a serializable view of all static data (i.e. data that
 // will never change during the execution of PnPScreen)
-func (c Communication) StaticData(app app.App, plugins interface{}) interface{} {
-	textures := app.GetTextures()
+func (c Communication) StaticData(a app.App, plugins interface{}) interface{} {
+	textures := a.GetTextures()
 	textureNames := make([]string, len(textures))
 	for i := range textures {
 		textureNames[i] = textures[i].Name()
@@ -142,8 +142,10 @@ func (c Communication) StaticData(app app.App, plugins interface{}) interface{} 
 		Modules          []jsonModuleDesc `json:"modules"`
 		NumPluginSystems int              `json:"numPluginSystems"`
 		Plugins          interface{}      `json:"plugins"`
-	}{Fonts: app.FontNames(), Textures: textureNames, Modules: c.modules(app),
-		NumPluginSystems: c.d.numPluginSystems, Plugins: plugins}
+		FontDir          string           `json:"fontDir"`
+	}{Fonts: a.FontNames(), Textures: textureNames, Modules: c.modules(a),
+		NumPluginSystems: c.d.numPluginSystems, Plugins: plugins,
+		FontDir: a.DataDir("fonts")}
 }
 
 // ViewAll returns a serializable view of all data items that are not part of

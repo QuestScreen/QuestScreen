@@ -108,6 +108,9 @@ func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error 
 }
 
 func (d *Display) genPopup(width int32, height int32) {
+	if d.owner.NumFontFamilies() == 0 {
+		return
+	}
 	var err error
 	d.popupTexture, err = d.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
 		width, height)

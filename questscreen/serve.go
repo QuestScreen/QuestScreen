@@ -726,75 +726,80 @@ func startServer(owner *QuestScreen, events display.Events,
 
 	reg("StaticDataHandler", "/static", mutex,
 		endpoint{httpGet, &staticDataEndpoint{env}})
-	reg("StateHandler", "/state", mutex,
-		endpoint{httpGet | httpPost, &stateEndpoint{env}})
-	reg("BaseConfigHandler", "/config/base", mutex,
-		endpoint{httpGet | httpPut, &baseConfigEndpoint{env}})
-	reg("SystemConfigHandler", "/config/systems/", mutex,
-		idCapture{}, endpoint{httpGet | httpPut, &systemConfigEndpoint{env}})
-	reg("GroupConfigHandler", "/config/groups/", mutex,
-		idCapture{}, endpoint{httpGet | httpPut, &groupConfigEndpoint{env}},
-		pathFragment("scenes"), idCapture{},
-		endpoint{httpGet | httpPut, &sceneConfigEndpoint{env}})
-	reg("DataHandler", "/data", mutex, endpoint{httpGet, &dataEndpoint{env}})
-	reg("DataSystemsHandler", "/data/systems", mutex,
-		endpoint{httpPost, &dataSystemsEndpoint{env}})
-	reg("DataSystemHandler", "/data/systems/", mutex, idCapture{},
-		endpoint{httpPut | httpDelete, &systemEndpoint{env}})
-	reg("DataGroupsHandler", "/data/groups", mutex,
-		endpoint{httpPost, &dataGroupsEndpoint{env}})
-	reg("DataGroupHandler", "/data/groups/", mutex, idCapture{},
-		endpoint{httpPut | httpDelete, &dataGroupEndpoint{env}},
-		&branch{"scenes"}, endpoint{httpPost, &dataScenesEndpoint{env}},
-		idCapture{}, endpoint{httpPut | httpDelete, &dataSceneEndpoint{env}},
-		&branch{"heroes"}, endpoint{httpPost, &dataHeroesEndpoint{env}},
-		idCapture{}, endpoint{httpPut | httpDelete, &dataHeroEndpoint{env}})
 
-	for i := app.FirstModule; i < owner.NumModules(); i++ {
-		seenSlash := false
-		seenOthers := false
+	// if no fonts are found, QuestScreen is not operable. We only provide static
+	// data (telling the client no fonts are available) and the static resources.
+	if len(owner.fonts) > 0 {
+		reg("StateHandler", "/state", mutex,
+			endpoint{httpGet | httpPost, &stateEndpoint{env}})
+		reg("BaseConfigHandler", "/config/base", mutex,
+			endpoint{httpGet | httpPut, &baseConfigEndpoint{env}})
+		reg("SystemConfigHandler", "/config/systems/", mutex,
+			idCapture{}, endpoint{httpGet | httpPut, &systemConfigEndpoint{env}})
+		reg("GroupConfigHandler", "/config/groups/", mutex,
+			idCapture{}, endpoint{httpGet | httpPut, &groupConfigEndpoint{env}},
+			pathFragment("scenes"), idCapture{},
+			endpoint{httpGet | httpPut, &sceneConfigEndpoint{env}})
+		reg("DataHandler", "/data", mutex, endpoint{httpGet, &dataEndpoint{env}})
+		reg("DataSystemsHandler", "/data/systems", mutex,
+			endpoint{httpPost, &dataSystemsEndpoint{env}})
+		reg("DataSystemHandler", "/data/systems/", mutex, idCapture{},
+			endpoint{httpPut | httpDelete, &systemEndpoint{env}})
+		reg("DataGroupsHandler", "/data/groups", mutex,
+			endpoint{httpPost, &dataGroupsEndpoint{env}})
+		reg("DataGroupHandler", "/data/groups/", mutex, idCapture{},
+			endpoint{httpPut | httpDelete, &dataGroupEndpoint{env}},
+			&branch{"scenes"}, endpoint{httpPost, &dataScenesEndpoint{env}},
+			idCapture{}, endpoint{httpPut | httpDelete, &dataSceneEndpoint{env}},
+			&branch{"heroes"}, endpoint{httpPost, &dataHeroesEndpoint{env}},
+			idCapture{}, endpoint{httpPut | httpDelete, &dataHeroEndpoint{env}})
 
-		desc := owner.modules[i].Descriptor()
-		seen := make(map[string]struct{})
+		for i := app.FirstModule; i < owner.NumModules(); i++ {
+			seenSlash := false
+			seenOthers := false
 
-		for j := range desc.EndpointPaths {
-			path := desc.EndpointPaths[j]
-			_, ok := seen[path]
-			if ok {
-				panic("module " + desc.Name + " has duplicate endpoint path " + path)
-			}
-			seen[path] = struct{}{}
-			if path == "" {
-			} else if path == "/" {
-				if seenOthers {
-					panic("module " + desc.Name +
-						" has \"/\" endpoint path besides non-empty paths")
+			desc := owner.modules[i].Descriptor()
+			seen := make(map[string]struct{})
+
+			for j := range desc.EndpointPaths {
+				path := desc.EndpointPaths[j]
+				_, ok := seen[path]
+				if ok {
+					panic("module " + desc.Name + " has duplicate endpoint path " + path)
 				}
-				seenSlash = true
-			} else {
-				if seenSlash {
-					panic("module " + desc.Name +
-						" has \"/\" endpoint path besides non-empty paths")
+				seen[path] = struct{}{}
+				if path == "" {
+				} else if path == "/" {
+					if seenOthers {
+						panic("module " + desc.Name +
+							" has \"/\" endpoint path besides non-empty paths")
+					}
+					seenSlash = true
+				} else {
+					if seenSlash {
+						panic("module " + desc.Name +
+							" has \"/\" endpoint path besides non-empty paths")
+					}
+					seenOthers = true
 				}
-				seenOthers = true
-			}
-			var builder strings.Builder
-			builder.WriteString("/state/")
-			builder.WriteString(desc.ID)
-			if len(path) != 0 && path[0] != '/' {
-				builder.WriteByte('/')
-			}
-			builder.WriteString(path)
-			if len(path) != 0 && path[len(path)-1] == '/' {
-				reg("ModuleEndpoint("+path+")", builder.String(), mutex,
-					idCapture{}, endpoint{httpPut,
-						&moduleEndpoint{endpointEnv: env, moduleIndex: i, endpointIndex: j,
-							pure: false}})
-			} else {
-				reg("ModuleEndpoint("+path+")", builder.String(), mutex,
-					endpoint{httpPut,
-						&moduleEndpoint{endpointEnv: env, moduleIndex: i, endpointIndex: j,
-							pure: true}})
+				var builder strings.Builder
+				builder.WriteString("/state/")
+				builder.WriteString(desc.ID)
+				if len(path) != 0 && path[0] != '/' {
+					builder.WriteByte('/')
+				}
+				builder.WriteString(path)
+				if len(path) != 0 && path[len(path)-1] == '/' {
+					reg("ModuleEndpoint("+path+")", builder.String(), mutex,
+						idCapture{}, endpoint{httpPut,
+							&moduleEndpoint{endpointEnv: env, moduleIndex: i, endpointIndex: j,
+								pure: false}})
+				} else {
+					reg("ModuleEndpoint("+path+")", builder.String(), mutex,
+						endpoint{httpPut,
+							&moduleEndpoint{endpointEnv: env, moduleIndex: i, endpointIndex: j,
+								pure: true}})
+				}
 			}
 		}
 	}

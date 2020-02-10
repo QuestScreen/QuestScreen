@@ -21,6 +21,17 @@ type HeroView interface {
 	Close()
 }
 
+// Warning is a warning message that should be displayed on the starting screen
+// of the client.
+type Warning struct {
+	// Index of the plugin the warning is issued from, -1 if none
+	PluginIndex int `json:"pluginIndex"`
+	// Index of the module the warning is issued from, -1 if none
+	ModuleIndex int `json:"moduleIndex"`
+	// Message to display
+	Message string `json:"message"`
+}
+
 // App is the interface to the application for the data and display modules.
 type App interface {
 	DataDir(subdirs ...string) string
@@ -40,6 +51,7 @@ type App interface {
 		index api.ResourceCollectionIndex) []api.Resource
 	GetTextures() []api.Resource
 	Font(fontFamily int, style api.FontStyle, size api.FontSize) *ttf.Font
+	NumFontFamilies() int
 	FontNames() []string
 	ViewHeroes() HeroView
 }

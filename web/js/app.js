@@ -336,6 +336,12 @@ class App {
 		this.plugins = returned.plugins;
 		this.numPluginSystems = returned.numPluginSystems;
 
+		if (this.fonts.length == 0) {
+			const msg = document.querySelector(".no-font-message");
+			msg.classList.add("active");
+			document.querySelector(".font-directory").textContent = returned.fontDir;
+			return;
+		}
 		const config = await App.fetch("/data", "GET", null);
 		this.systems = config.systems;
 		this.groups = config.groups;

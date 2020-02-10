@@ -167,7 +167,7 @@ func (d *Display) render(cur time.Time, popup bool) {
 			}
 		}
 	}
-	if popup {
+	if popup && d.popupTexture != nil {
 		d.Renderer.Copy(d.popupTexture, nil, nil)
 	}
 	d.Renderer.Present()

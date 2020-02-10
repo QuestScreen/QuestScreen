@@ -1,25 +1,75 @@
 package display
 
 import (
+	"log"
+	"net"
 	"strconv"
+	"unsafe"
 
 	"github.com/QuestScreen/QuestScreen/api"
+	"github.com/QuestScreen/QuestScreen/web"
 
+	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
+	"github.com/veandco/go-sdl2/ttf"
 )
 
-func (d *Display) genWelcome(width int32, height int32, port uint16) error {
-	// get outbound IP address
-	/*conn, err := net.Dial("udp", "8.8.8.8:80")
+func getIPAddresses() ([]string, error) {
+	ret := make([]string, 0, 16)
+	ifaces, err := net.Interfaces()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer conn.Close()*/
+	// handle err
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip.IsGlobalUnicast() {
+				ret = append(ret, ip.String())
+			}
+		}
+	}
+	return ret, nil
+}
 
-	outboundAddr := /*conn.LocalAddr().(*net.UDPAddr).IP.String()*/ "localhost"
+var fontColor = sdl.Color{R: 0, G: 0, B: 0, A: 200}
 
+func renderIPHint(r *sdl.Renderer, font *ttf.Font, ip string,
+	portPart string, width int32, y int32) int32 {
+	var ipHint *sdl.Surface
 	var err error
-	d.welcomeTexture, err = d.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET, width, height)
+	if ipHint, err = font.RenderUTF8Blended(
+		"http://"+ip+portPart, fontColor); err != nil {
+		log.Println("while rendering ip: " + err.Error())
+		return 0
+	}
+	defer ipHint.Free()
+	ipHintTexture, err := r.CreateTextureFromSurface(ipHint)
+	if err != nil {
+		log.Println("while rendering ip: " + err.Error())
+		return 0
+	}
+	defer ipHintTexture.Destroy()
+	ipHintRect := sdl.Rect{X: 0, Y: y, W: width, H: ipHint.H}
+	shrinkTo(&ipHintRect, ipHint.W, ipHint.H)
+	r.Copy(ipHintTexture, nil, &ipHintRect)
+	return ipHint.H
+}
+
+func (d *Display) genWelcome(width int32, height int32, port uint16) error {
+	var err error
+	d.welcomeTexture, err = d.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888,
+		sdl.TEXTUREACCESS_TARGET, width, height)
 	if err != nil {
 		return err
 	}
@@ -29,38 +79,55 @@ func (d *Display) genWelcome(width int32, height int32, port uint16) error {
 	d.Renderer.SetDrawColor(255, 255, 255, 255)
 	d.Renderer.FillRect(nil)
 
-	fontFace := d.owner.Font(0, api.Standard, api.HugeFont)
-	var title *sdl.Surface
-	if title, err = fontFace.RenderUTF8Blended(
-		"Quest Screen", sdl.Color{R: 0, G: 0, B: 0, A: 200}); err != nil {
-		return err
-	}
-	defer title.Free()
-	titleTexture, err := d.Renderer.CreateTextureFromSurface(title)
+	logoSource := web.MustAsset("web/favicon/android-chrome-512x512.png")
+	logoStream := sdl.RWFromMem(unsafe.Pointer(&logoSource[0]), len(logoSource))
+	logo, err := img.LoadTextureRW(d.Renderer, logoStream, true)
 	if err != nil {
-		return err
+		panic(err)
 	}
-	defer titleTexture.Destroy()
-	titleRect := sdl.Rect{X: 0, Y: 0, W: width, H: height / 2}
-	shrinkTo(&titleRect, title.W, title.H)
-	d.Renderer.Copy(titleTexture, nil, &titleRect)
+	_, _, logoW, _, _ := logo.Query()
+	var logoRect sdl.Rect
+	if logoW > width/3 {
+		logoW = width / 3
+	}
+	if logoW > height/3 {
+		logoW = height / 3
+	}
+	logoRect = sdl.Rect{X: (width - logoW) / 2, Y: 0, W: logoW, H: logoW}
+	d.Renderer.Copy(logo, nil, &logoRect)
 
-	ipFontFace := d.owner.Font(0, api.Standard, api.HeadingFont)
-	var ipHint *sdl.Surface
-	if ipHint, err = ipFontFace.RenderUTF8Blended(
-		"Connect to http://"+outboundAddr+":"+strconv.Itoa(int(port))+"/",
-		sdl.Color{R: 0, G: 0, B: 0, A: 200}); err != nil {
-		return err
+	if d.owner.NumFontFamilies() > 0 {
+		fontFace := d.owner.Font(0, api.Standard, api.LargeFont)
+		var title *sdl.Surface
+		if title, err = fontFace.RenderUTF8Blended(
+			"Quest Screen", fontColor); err != nil {
+			return err
+		}
+		defer title.Free()
+		titleTexture, err := d.Renderer.CreateTextureFromSurface(title)
+		if err != nil {
+			return err
+		}
+		defer titleTexture.Destroy()
+		titleRect := sdl.Rect{X: 0, Y: logoW, W: width, H: height/2 - logoW}
+		shrinkTo(&titleRect, title.W, title.H)
+		d.Renderer.Copy(titleTexture, nil, &titleRect)
+
+		ipFontFace := d.owner.Font(0, api.Standard, api.HeadingFont)
+		y := height/2 + 15
+		ips, err := getIPAddresses()
+		portPart := ":" + strconv.Itoa(int(port)) + "/"
+		if err == nil {
+			for i := range ips {
+				h := renderIPHint(d.Renderer, ipFontFace, ips[i], portPart, width, y)
+				if h > 0 {
+					y = y + h + 15
+				}
+			}
+		} else {
+			log.Println("while getting IPs: " + err.Error())
+		}
 	}
-	defer ipHint.Free()
-	ipHintTexture, err := d.Renderer.CreateTextureFromSurface(ipHint)
-	if err != nil {
-		return err
-	}
-	defer ipHintTexture.Destroy()
-	ipHintRect := sdl.Rect{X: 0, Y: height / 2, W: width, H: height / 2}
-	shrinkTo(&ipHintRect, ipHint.W, ipHint.H)
-	d.Renderer.Copy(ipHintTexture, nil, &ipHintRect)
 
 	return nil
 }

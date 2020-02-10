@@ -10,6 +10,15 @@ body {
 	flex-direction: column;
 }
 
+.no-font-message {
+	max-width: 720px;
+	margin: 0 auto;
+}
+
+.no-font-message:not(.active) {
+	visibility: hidden;
+}
+
 /* remove triangle. we use the nicer font-awesome triangle. */
 .pure-menu-horizontal .pure-menu-has-children > .pure-menu-link::after {
 	content: "";

@@ -98,9 +98,6 @@ func (qs *QuestScreen) Init(fullscreen bool, events display.Events, port uint16)
 	fontSizeMap := [6]int32{height / 37, height / 27, height / 19,
 		height / 13, height / 8, height / 4}
 	qs.fonts = createFontCatalog(qs.dataDir, fontSizeMap)
-	if qs.fonts == nil {
-		panic("No font available. PnP Screen needs at least one font.")
-	}
 	qs.modules = make([]moduleData, 0, 32)
 	qs.resourceCollections = make([][][]ownedResourceFile, 0, 32)
 	qs.activeGroupIndex = -1
@@ -180,10 +177,6 @@ type moduleContext struct {
 // GetResources filters resources by current group and system.
 func (mc *moduleContext) GetResources(index api.ResourceCollectionIndex) []api.Resource {
 	return mc.QuestScreen.GetResources(mc.moduleIndex, index)
-}
-
-func (mc *moduleContext) NumFontFamilies() int {
-	return len(mc.fonts)
 }
 
 func (mc *moduleContext) FontFamilyName(index int) string {
@@ -383,6 +376,11 @@ func (qs *QuestScreen) FontNames() []string {
 		ret = append(ret, qs.fonts[i].Name())
 	}
 	return ret
+}
+
+// NumFontFamilies returns the number of font families
+func (qs *QuestScreen) NumFontFamilies() int {
+	return len(qs.fonts)
 }
 
 // GetResources filters resources by current group and system.
