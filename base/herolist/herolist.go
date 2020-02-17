@@ -25,7 +25,8 @@ const (
 )
 
 type config struct {
-	Font *api.SelectableFont `config:"Font" yaml:"Font"`
+	Font       *api.SelectableFont               `yaml:"font"`
+	Background *api.SelectableTexturedBackground `yaml:"background"`
 }
 
 type heroRequest struct {
@@ -50,6 +51,7 @@ type HeroList struct {
 	curHero                     int32
 	curXOffset, curYOffset      int32
 	contentWidth, contentHeight int32
+	mask                        *sdl.Texture
 	status                      heroStatus
 }
 
@@ -69,7 +71,11 @@ var Descriptor = api.Module{
 	ResourceCollections: nil,
 	EndpointPaths:       []string{"", "/"},
 	DefaultConfig: &config{Font: &api.SelectableFont{
-		FamilyIndex: 0, Size: api.ContentFont, Style: api.Standard}},
+		FamilyIndex: 0, Size: api.ContentFont, Style: api.Standard},
+		Background: &api.SelectableTexturedBackground{
+			Primary:      api.RGBColor{Red: 255, Green: 255, Blue: 255},
+			TextureIndex: -1,
+		}},
 	CreateRenderer: newRenderer, CreateState: newState,
 }
 
@@ -141,10 +147,19 @@ func (l *HeroList) rebuildHeroBoxes(ctx api.ExtendedRenderContext) {
 				r.SetDrawColor(0, 0, 0, 192)
 				r.FillRect(&sdl.Rect{
 					X: 0, Y: 0, W: l.boxWidth(borderWidth), H: l.boxHeight(borderWidth)})
-				r.SetDrawColor(200, 173, 127, 255)
+				l.config.Background.Primary.Use(r)
 				r.FillRect(&sdl.Rect{X: 0, Y: borderWidth,
 					W: int32(l.contentWidth + 4*borderWidth),
 					H: int32(l.contentHeight + 2*borderWidth)})
+				if l.mask != nil {
+					_, _, maskWidth, maskHeight, _ := l.mask.Query()
+					for x := int32(0); x < l.contentWidth+6*borderWidth; x += maskWidth {
+						for y := int32(0); y < l.contentHeight+2*borderWidth; y += maskHeight {
+							r.Copy(l.mask, nil, &sdl.Rect{
+								X: x, Y: y, W: maskWidth, H: maskHeight})
+						}
+					}
+				}
 				r.Copy(name, nil, &sdl.Rect{
 					X: 2 * borderWidth, Y: borderWidth, W: nameWidth, H: nameHeight})
 
@@ -284,6 +299,20 @@ func (l *HeroList) SetConfig(value interface{}) {
 func (l *HeroList) RebuildState(
 	ctx api.ExtendedRenderContext, data interface{}) {
 	old := l.heroes
+	if l.mask != nil {
+		l.mask.Destroy()
+		l.mask = nil
+	}
+	if l.config.Background.TextureIndex != -1 {
+		var err error
+		l.mask, err = ctx.LoadTexture(l.config.Background.TextureIndex,
+			l.config.Background.Secondary)
+		if err != nil {
+			log.Println(err)
+		}
+	} else {
+		l.mask = nil
+	}
 	l.rebuildHeroBoxes(ctx)
 	if data != nil {
 		req := data.(*fullRequest)

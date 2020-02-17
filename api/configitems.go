@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/veandco/go-sdl2/sdl"
 	"gopkg.in/yaml.v3"
 )
 
@@ -113,6 +114,11 @@ type RGBColor struct {
 	Red   uint8 `yaml:"r"`
 	Green uint8 `yaml:"g"`
 	Blue  uint8 `yaml:"b"`
+}
+
+// Use sets the color as draw color for the given renderer
+func (c *RGBColor) Use(renderer *sdl.Renderer) error {
+	return renderer.SetDrawColor(c.Red, c.Green, c.Blue, 255)
 }
 
 // UnmarshalJSON loads a JSON string as HTML hexcode into RGBColor

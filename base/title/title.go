@@ -57,10 +57,6 @@ func (*Title) Descriptor() *api.Module {
 	return &Descriptor
 }
 
-func setRGBDrawColor(renderer *sdl.Renderer, color api.RGBColor) error {
-	return renderer.SetDrawColor(color.Red, color.Green, color.Blue, 255)
-}
-
 func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture {
 	face := ctx.Font(
 		t.config.Font.FamilyIndex, t.config.Font.Style, t.config.Font.Size)
@@ -97,7 +93,7 @@ func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture
 	r.SetDrawColor(0, 0, 0, 192)
 	r.FillRect(&sdl.Rect{X: 0, Y: 0,
 		W: int32(textWidth + 6*border), H: int32(textHeight) + 2*border})
-	setRGBDrawColor(r, t.config.Background.Primary)
+	t.config.Background.Primary.Use(r)
 	r.FillRect(&sdl.Rect{X: border, Y: 0,
 		W: int32(textWidth + 4*border), H: int32(textHeight + border)})
 	if t.mask != nil {
