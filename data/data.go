@@ -265,7 +265,7 @@ func (d *Data) MergeConfig(moduleIndex app.ModuleIndex,
 	var configStack [5]*reflect.Value
 	module := d.owner.ModuleAt(moduleIndex)
 
-	defaultValues := module.Descriptor().DefaultConfig
+	defaultValues := module.DefaultConfig
 	configType := reflect.TypeOf(defaultValues).Elem()
 
 	{
@@ -279,21 +279,21 @@ func (d *Data) MergeConfig(moduleIndex app.ModuleIndex,
 	{
 		conf := d.groups[groupIndex].modules[moduleIndex]
 		if conf == nil {
-			panic("group config missing for " + module.Descriptor().ID)
+			panic("group config missing for " + module.ID)
 		}
 		configStack[1] = confValue(conf)
 	}
 	if systemIndex != -1 {
 		conf := d.systems[systemIndex].modules[moduleIndex]
 		if conf == nil {
-			panic("system config missing for " + module.Descriptor().ID)
+			panic("system config missing for " + module.ID)
 		}
 		configStack[2] = confValue(conf)
 	}
 
 	baseConf := d.baseConfigs[moduleIndex]
 	if baseConf == nil {
-		panic("base config missing for " + module.Descriptor().ID)
+		panic("base config missing for " + module.ID)
 	}
 	baseValue := reflect.ValueOf(baseConf).Elem()
 	configStack[3] = &baseValue

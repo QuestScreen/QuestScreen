@@ -154,7 +154,7 @@ func sendScene(qs *QuestScreen, req *display.Request) {
 	for i := app.FirstModule; i < qs.NumModules(); i++ {
 		data[i] = scene.UsesModule(i)
 		if data[i] {
-			req.SendModuleData(i, qs.data.StateOf(i).CreateModuleData())
+			req.SendRendererData(i, qs.data.StateOf(i).CreateRendererData())
 		}
 	}
 	req.SendEnabledModulesList(data)
@@ -175,7 +175,7 @@ func propagateHeroesChange(heroes api.HeroList, action api.HeroChangeAction,
 				if ok {
 					hams.HeroListChanged(heroes, action, heroIndex)
 					if i == qs.data.State.ActiveScene() {
-						req.SendModuleData(j, state.CreateModuleData())
+						req.SendRendererData(j, state.CreateRendererData())
 					}
 				}
 			}
@@ -406,7 +406,7 @@ func (me *moduleEndpoint) Handle(method httpMethods, ids []string,
 	if state == nil {
 		return nil, &api.BadRequest{
 			Message: fmt.Sprintf("module \"%s\" not enabled for current scene",
-				me.qs.modules[me.moduleIndex].Descriptor().ID)}
+				me.qs.modules[me.moduleIndex].ID)}
 	}
 
 	req, err := me.qs.display.StartRequest(
@@ -428,7 +428,7 @@ func (me *moduleEndpoint) Handle(method httpMethods, ids []string,
 		return nil, err
 	}
 
-	req.SendModuleData(me.moduleIndex, data)
+	req.SendRendererData(me.moduleIndex, data)
 	req.Commit()
 	me.qs.persistence.WriteState()
 	return responseObj, nil
@@ -758,7 +758,7 @@ func startServer(owner *QuestScreen, events display.Events,
 			seenSlash := false
 			seenOthers := false
 
-			desc := owner.modules[i].Descriptor()
+			desc := owner.modules[i]
 			seen := make(map[string]struct{})
 
 			for j := range desc.EndpointPaths {

@@ -36,7 +36,7 @@ type Warning struct {
 type App interface {
 	DataDir(subdirs ...string) string
 	NumModules() ModuleIndex
-	ModuleAt(index ModuleIndex) api.Module
+	ModuleAt(index ModuleIndex) *api.Module
 	ModulePluginIndex(index ModuleIndex) int
 	NumPlugins() int
 	Plugin(index int) *api.Plugin

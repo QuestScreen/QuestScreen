@@ -68,20 +68,20 @@ func renderIPHint(r *sdl.Renderer, font *ttf.Font, ip string,
 
 func (d *Display) genWelcome(width int32, height int32, port uint16) error {
 	var err error
-	d.welcomeTexture, err = d.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888,
+	d.welcomeTexture, err = d.Backend.CreateTexture(sdl.PIXELFORMAT_RGB888,
 		sdl.TEXTUREACCESS_TARGET, width, height)
 	if err != nil {
 		return err
 	}
-	d.Renderer.SetRenderTarget(d.welcomeTexture)
-	defer d.Renderer.SetRenderTarget(nil)
-	d.Renderer.Clear()
-	d.Renderer.SetDrawColor(255, 255, 255, 255)
-	d.Renderer.FillRect(nil)
+	d.Backend.SetRenderTarget(d.welcomeTexture)
+	defer d.Backend.SetRenderTarget(nil)
+	d.Backend.Clear()
+	d.Backend.SetDrawColor(255, 255, 255, 255)
+	d.Backend.FillRect(nil)
 
 	logoSource := web.MustAsset("web/favicon/android-chrome-512x512.png")
 	logoStream := sdl.RWFromMem(unsafe.Pointer(&logoSource[0]), len(logoSource))
-	logo, err := img.LoadTextureRW(d.Renderer, logoStream, true)
+	logo, err := img.LoadTextureRW(d.Backend, logoStream, true)
 	if err != nil {
 		panic(err)
 	}
@@ -94,7 +94,7 @@ func (d *Display) genWelcome(width int32, height int32, port uint16) error {
 		logoW = height / 3
 	}
 	logoRect = sdl.Rect{X: (width - logoW) / 2, Y: 0, W: logoW, H: logoW}
-	d.Renderer.Copy(logo, nil, &logoRect)
+	d.Backend.Copy(logo, nil, &logoRect)
 
 	if d.owner.NumFontFamilies() > 0 {
 		fontFace := d.owner.Font(0, api.Standard, api.LargeFont)
@@ -104,14 +104,14 @@ func (d *Display) genWelcome(width int32, height int32, port uint16) error {
 			return err
 		}
 		defer title.Free()
-		titleTexture, err := d.Renderer.CreateTextureFromSurface(title)
+		titleTexture, err := d.Backend.CreateTextureFromSurface(title)
 		if err != nil {
 			return err
 		}
 		defer titleTexture.Destroy()
 		titleRect := sdl.Rect{X: 0, Y: logoW, W: width, H: height/2 - logoW}
 		shrinkTo(&titleRect, title.W, title.H)
-		d.Renderer.Copy(titleTexture, nil, &titleRect)
+		d.Backend.Copy(titleTexture, nil, &titleRect)
 
 		ipFontFace := d.owner.Font(0, api.Standard, api.HeadingFont)
 		y := height/2 + 15
@@ -119,7 +119,7 @@ func (d *Display) genWelcome(width int32, height int32, port uint16) error {
 		portPart := ":" + strconv.Itoa(int(port)) + "/"
 		if err == nil {
 			for i := range ips {
-				h := renderIPHint(d.Renderer, ipFontFace, ips[i], portPart, width, y)
+				h := renderIPHint(d.Backend, ipFontFace, ips[i], portPart, width, y)
 				if h > 0 {
 					y = y + h + 15
 				}

@@ -44,7 +44,7 @@ func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) 
 	return s, nil
 }
 
-func (s *state) CreateModuleData() interface{} {
+func (s *state) CreateRendererData() interface{} {
 	resources := make([]showRequest, 0, len(s.resources))
 	for i := range s.resources {
 		if s.visible[i] {

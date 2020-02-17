@@ -34,12 +34,12 @@ const (
 	waitTime       = time.Millisecond * 100
 )
 
-func newModule(renderer *sdl.Renderer) (api.Module, error) {
+func newRenderer(renderer *sdl.Renderer) (api.ModuleRenderer, error) {
 	return &Title{curTitle: nil}, nil
 }
 
 // Descriptor describes the Title module
-var Descriptor = api.ModuleDescriptor{
+var Descriptor = api.Module{
 	Name:          "Scene Title",
 	ID:            "title",
 	EndpointPaths: []string{""},
@@ -49,11 +49,11 @@ var Descriptor = api.ModuleDescriptor{
 			Primary:      api.RGBColor{Red: 255, Green: 255, Blue: 255},
 			TextureIndex: -1,
 		}},
-	CreateModule: newModule, CreateState: newState,
+	CreateRenderer: newRenderer, CreateState: newState,
 }
 
 // Descriptor returns the descriptor of the Title module
-func (*Title) Descriptor() *api.ModuleDescriptor {
+func (*Title) Descriptor() *api.Module {
 	return &Descriptor
 }
 

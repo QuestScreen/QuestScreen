@@ -12,7 +12,7 @@ import (
 // Base is a plugin providing the most common system-independent modules.
 var Base = api.Plugin{
 	Name: "Base",
-	Modules: []*api.ModuleDescriptor{
+	Modules: []*api.Module{
 		&background.Descriptor, &herolist.Descriptor, &overlays.Descriptor,
 		&title.Descriptor},
 	AdditionalJS:    web.MustAsset("web/js/base.js"),

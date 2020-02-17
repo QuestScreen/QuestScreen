@@ -107,7 +107,7 @@ func (c Communication) groups() []jsonGroup {
 func (c Communication) modules(a app.App) []jsonModuleDesc {
 	ret := make([]jsonModuleDesc, 0, a.NumModules())
 	for i := app.FirstModule; i < a.NumModules(); i++ {
-		module := a.ModuleAt(i).Descriptor()
+		module := a.ModuleAt(i)
 		modConfig := c.d.baseConfigs[i]
 		modValue := reflect.ValueOf(modConfig).Elem()
 		for ; modValue.Kind() == reflect.Interface ||

@@ -40,7 +40,7 @@ type ownedResourceFile struct {
 }
 
 type moduleData struct {
-	api.Module
+	*api.Module
 	pluginIndex int
 }
 
@@ -145,13 +145,13 @@ func (qs *QuestScreen) DataDir(subdirs ...string) string {
 }
 
 // ModuleAt returns the module at the given index
-func (qs *QuestScreen) ModuleAt(index app.ModuleIndex) api.Module {
+func (qs *QuestScreen) ModuleAt(index app.ModuleIndex) *api.Module {
 	return qs.modules[index].Module
 }
 
-func (qs *QuestScreen) moduleByID(id string) (index int, module api.Module) {
+func (qs *QuestScreen) moduleByID(id string) (index int, module *api.Module) {
 	for i := range qs.modules {
-		if qs.modules[i].Module.Descriptor().ID == id {
+		if qs.modules[i].Module.ID == id {
 			return i, qs.modules[i].Module
 		}
 	}
@@ -304,18 +304,13 @@ func (qs *QuestScreen) listFiles(
 
 var forbiddenNames = [5]string{"scenes", "heroes", "textures", "config.yaml", "state.yaml"}
 
-func (qs *QuestScreen) registerModule(descr *api.ModuleDescriptor,
-	renderer *sdl.Renderer) error {
+func (qs *QuestScreen) registerModule(descr *api.Module) error {
 	for i := range forbiddenNames {
 		if descr.ID == forbiddenNames[i] {
 			return fmt.Errorf("module id may not be one of %v", forbiddenNames)
 		}
 	}
-	module, err := descr.CreateModule(renderer)
-	if err != nil {
-		return err
-	}
-	qs.modules = append(qs.modules, moduleData{module, len(qs.plugins)})
+	qs.modules = append(qs.modules, moduleData{descr, len(qs.plugins)})
 	return nil
 }
 
@@ -335,7 +330,7 @@ func (qs *QuestScreen) registerPlugin(plugin *api.Plugin, renderer *sdl.Renderer
 	}
 	modules := plugin.Modules
 	for i := range modules {
-		if err := qs.registerModule(modules[i], renderer); err != nil {
+		if err := qs.registerModule(modules[i]); err != nil {
 			log.Println("While registering module " + plugin.Name + " > " + modules[i].Name + ":")
 			log.Println("  " + err.Error())
 		}
@@ -346,7 +341,7 @@ func (qs *QuestScreen) registerPlugin(plugin *api.Plugin, renderer *sdl.Renderer
 
 func (qs *QuestScreen) loadModuleResources() {
 	for i := range qs.modules {
-		descr := qs.modules[i].Descriptor()
+		descr := qs.modules[i]
 		collections := make([][]ownedResourceFile, 0, 32)
 		selectors := descr.ResourceCollections
 		for i := range selectors {
@@ -392,7 +387,7 @@ func (qs *QuestScreen) GetResources(
 		if (complete[i].group == -1 || complete[i].group == qs.activeGroupIndex) &&
 			(complete[i].system == -1 || complete[i].system == qs.activeSystemIndex) {
 			ret = append(ret, &complete[i])
-			if qs.modules[moduleIndex].Descriptor().ResourceCollections[index].Name != "" {
+			if qs.modules[moduleIndex].ResourceCollections[index].Name != "" {
 				// single file
 				return ret
 			}

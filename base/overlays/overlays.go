@@ -70,23 +70,23 @@ type Overlays struct {
 
 const duration = time.Second
 
-func newModule(renderer *sdl.Renderer) (api.Module, error) {
+func newRenderer(backend *sdl.Renderer) (api.ModuleRenderer, error) {
 	return &Overlays{status: resting, shownTexWidth: 0, curActive: -1}, nil
 }
 
 // Descriptor describes the Overlays module
-var Descriptor = api.ModuleDescriptor{
+var Descriptor = api.Module{
 	Name: "Overlays",
 	ID:   "overlays",
 	ResourceCollections: []api.ResourceSelector{
 		{Subdirectory: "", Suffixes: nil}},
-	EndpointPaths: []string{""},
-	DefaultConfig: &config{},
-	CreateModule:  newModule, CreateState: newState,
+	EndpointPaths:  []string{""},
+	DefaultConfig:  &config{},
+	CreateRenderer: newRenderer, CreateState: newState,
 }
 
 // Descriptor returns the descriptor of the Overlays module
-func (o *Overlays) Descriptor() *api.ModuleDescriptor {
+func (o *Overlays) Descriptor() *api.Module {
 	return &Descriptor
 }
 

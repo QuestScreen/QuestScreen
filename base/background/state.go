@@ -41,7 +41,7 @@ func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) 
 	return s, nil
 }
 
-func (s *state) CreateModuleData() interface{} {
+func (s *state) CreateRendererData() interface{} {
 	if s.curIndex == -1 {
 		return &request{file: nil}
 	}

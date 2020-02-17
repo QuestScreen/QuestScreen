@@ -29,7 +29,8 @@ const (
 type Display struct {
 	Events
 	owner                app.App
-	Renderer             *sdl.Renderer
+	renderers            []api.ModuleRenderer
+	Backend              *sdl.Renderer
 	Window               *sdl.Window
 	defaultBorderWidth   int32
 	textureBuffer        uint32
@@ -59,7 +60,7 @@ func (rc renderContext) GetTextures() []api.Resource {
 }
 
 func (rc renderContext) Renderer() *sdl.Renderer {
-	return rc.Display.Renderer
+	return rc.Display.Backend
 }
 
 func (rc renderContext) Font(
@@ -105,7 +106,7 @@ func (rc renderContext) LoadTexture(textureIndex int,
 		}
 	}
 	surface.Free()
-	tex, err := rc.Display.Renderer.CreateTextureFromSurface(colorSurface)
+	tex, err := rc.Display.Backend.CreateTextureFromSurface(colorSurface)
 	colorSurface.Free()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create texture from %s: %s", path,
@@ -122,10 +123,10 @@ func (d *Display) Init(
 	d.owner = owner
 	d.Events = events
 	d.Window = window
-	d.Renderer = renderer
+	d.Backend = renderer
 	d.initial = true
 
-	width, height, err := d.Renderer.GetOutputSize()
+	width, height, err := d.Backend.GetOutputSize()
 	if err != nil {
 		return err
 	}
@@ -138,58 +139,66 @@ func (d *Display) Init(
 	}
 
 	d.moduleStates = make([]moduleState, d.owner.NumModules())
+
+	d.renderers = make([]api.ModuleRenderer, d.owner.NumModules())
+	for i := app.ModuleIndex(0); i < app.ModuleIndex(len(d.renderers)); i++ {
+		d.renderers[i], err = d.owner.ModuleAt(i).CreateRenderer(d.Backend)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (d *Display) render(cur time.Time, popup bool) {
 	ctx := renderContext{Display: d}
-	d.Renderer.Clear()
+	d.Backend.Clear()
 	if d.initial {
-		_ = d.Renderer.Copy(d.welcomeTexture, nil, nil)
+		_ = d.Backend.Copy(d.welcomeTexture, nil, nil)
 	} else {
-		d.Renderer.SetDrawColor(255, 255, 255, 255)
-		d.Renderer.FillRect(nil)
+		d.Backend.SetDrawColor(255, 255, 255, 255)
+		d.Backend.FillRect(nil)
 		for i := app.FirstModule; i < d.owner.NumModules(); i++ {
 			if d.enabledModules[i] {
 				ctx.moduleIndex = i
 				state := &d.moduleStates[i]
-				module := d.owner.ModuleAt(i)
+				r := d.renderers[i]
 				if state.transitioning {
 					if cur.After(state.transEnd) {
-						module.FinishTransition(ctx)
+						r.FinishTransition(ctx)
 						d.numTransitions--
 						state.transitioning = false
 					} else {
-						module.TransitionStep(ctx, cur.Sub(state.transStart))
+						r.TransitionStep(ctx, cur.Sub(state.transStart))
 					}
 				}
-				module.Render(ctx)
+				r.Render(ctx)
 			}
 		}
 	}
 	if popup && d.popupTexture != nil {
-		d.Renderer.Copy(d.popupTexture, nil, nil)
+		d.Backend.Copy(d.popupTexture, nil, nil)
 	}
-	d.Renderer.Present()
+	d.Backend.Present()
 }
 
 func (d *Display) startTransition(moduleIndex app.ModuleIndex) {
 	ctx := renderContext{Display: d, moduleIndex: moduleIndex}
-	module := d.owner.ModuleAt(moduleIndex)
+	r := d.renderers[moduleIndex]
 	state := &d.moduleStates[moduleIndex]
 	if state.queuedData == nil {
 		panic("Trying to call InitTransition without data")
 	}
 	if state.transitioning {
-		module.FinishTransition(ctx)
+		r.FinishTransition(ctx)
 		d.numTransitions--
 		state.transitioning = false
 	}
 
-	transDur := module.InitTransition(ctx, state.queuedData)
+	transDur := r.InitTransition(ctx, state.queuedData)
 	state.queuedData = nil
 	if transDur == 0 {
-		module.FinishTransition(ctx)
+		r.FinishTransition(ctx)
 	} else if transDur > 0 {
 		d.numTransitions++
 
@@ -263,17 +272,17 @@ func (d *Display) RenderLoop() {
 				case d.Events.ModuleConfigID:
 					ctx := renderContext{Display: d, heroes: d.owner.ViewHeroes()}
 					for i := app.FirstModule; i < d.owner.NumModules(); i++ {
-						module := d.owner.ModuleAt(i)
+						r := d.renderers[i]
 						state := &d.moduleStates[i]
 						forceRebuild := false
 						if state.queuedConfig != nil {
-							module.SetConfig(state.queuedConfig)
+							r.SetConfig(state.queuedConfig)
 							state.queuedConfig = nil
 							forceRebuild = true
 						}
 						if forceRebuild || state.queuedData != nil {
 							ctx.moduleIndex = i
-							module.RebuildState(ctx, state.queuedData)
+							r.RebuildState(ctx, state.queuedData)
 							state.queuedData = nil
 						}
 					}
@@ -284,8 +293,8 @@ func (d *Display) RenderLoop() {
 						state := &d.moduleStates[i]
 						if state.queuedData != nil {
 							ctx.moduleIndex = i
-							module := d.owner.ModuleAt(i)
-							module.RebuildState(ctx, state.queuedData)
+							r := d.renderers[i]
+							r.RebuildState(ctx, state.queuedData)
 							state.queuedData = nil
 						}
 					}
@@ -344,10 +353,10 @@ func (r *Request) SendModuleConfig(index app.ModuleIndex, config interface{}) er
 	return nil
 }
 
-// SendModuleData queues the given data for the module at the given ID as part
+// SendRendererData queues the given data for the module at the given ID as part
 // of the request. Whether the data is used for RebuiltState or InitTransition
 // depends on the event ID of the request.
-func (r *Request) SendModuleData(index app.ModuleIndex, data interface{}) error {
+func (r *Request) SendRendererData(index app.ModuleIndex, data interface{}) error {
 	if index < 0 || index >= r.d.owner.NumModules() {
 		return fmt.Errorf("Module index %d outside of range 0..%d", index, len(r.d.moduleStates))
 	}
@@ -396,6 +405,6 @@ func (r *Request) Close() {
 
 // Destroy destroys window and renderer
 func (d *Display) Destroy() {
-	d.Renderer.Destroy()
+	d.Backend.Destroy()
 	d.Window.Destroy()
 }

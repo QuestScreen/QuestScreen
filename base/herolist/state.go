@@ -62,7 +62,7 @@ func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) 
 	return s, nil
 }
 
-func (s *state) CreateModuleData() interface{} {
+func (s *state) CreateRendererData() interface{} {
 	states := make([]bool, len(s.heroVisible))
 	copy(states, s.heroVisible)
 	return &fullRequest{heroes: states, global: s.globalVisible}

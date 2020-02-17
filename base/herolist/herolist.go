@@ -55,27 +55,26 @@ type HeroList struct {
 
 const duration = time.Second / 2
 
-// CreateModule creates the HeroList module.
-func newModule(renderer *sdl.Renderer) (api.Module, error) {
-	winWidth, winHeight, _ := renderer.GetOutputSize()
+func newRenderer(backend *sdl.Renderer) (api.ModuleRenderer, error) {
+	winWidth, winHeight, _ := backend.GetOutputSize()
 	return &HeroList{curGlobalVisible: false, curXOffset: 0,
 		curYOffset: 0, contentWidth: winWidth / 4, contentHeight: winHeight / 10,
 		status: resting}, nil
 }
 
 // Descriptor describes the HeroList module.
-var Descriptor = api.ModuleDescriptor{
+var Descriptor = api.Module{
 	Name:                "Hero List",
 	ID:                  "herolist",
 	ResourceCollections: nil,
 	EndpointPaths:       []string{"", "/"},
 	DefaultConfig: &config{Font: &api.SelectableFont{
 		FamilyIndex: 0, Size: api.ContentFont, Style: api.Standard}},
-	CreateModule: newModule, CreateState: newState,
+	CreateRenderer: newRenderer, CreateState: newState,
 }
 
 // Descriptor returns the descriptor of the HeroList
-func (*HeroList) Descriptor() *api.ModuleDescriptor {
+func (*HeroList) Descriptor() *api.Module {
 	return &Descriptor
 }
 

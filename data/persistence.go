@@ -121,21 +121,21 @@ func (p Persistence) loadModuleConfigInto(heroes api.HeroList,
 	return true
 }
 
-func findModule(owner app.App, id string) (api.Module, app.ModuleIndex) {
+func findModule(owner app.App, id string) (*api.Module, app.ModuleIndex) {
 	for i := app.FirstModule; i < owner.NumModules(); i++ {
 		module := owner.ModuleAt(i)
-		if module.Descriptor().ID == id {
+		if module.ID == id {
 			return module, i
 		}
 	}
 	return nil, -1
 }
 
-func configType(mod api.Module) reflect.Type {
-	defaultType := reflect.TypeOf(mod.Descriptor().DefaultConfig)
+func configType(mod *api.Module) reflect.Type {
+	defaultType := reflect.TypeOf(mod.DefaultConfig)
 	if defaultType.Kind() != reflect.Ptr ||
 		defaultType.Elem().Kind() != reflect.Struct {
-		panic("config type of module " + mod.Descriptor().ID +
+		panic("config type of module " + mod.ID +
 			" is not pointer to struct!")
 	}
 	return defaultType.Elem()
@@ -151,7 +151,7 @@ func (p Persistence) loadModuleConfigs(heroes api.HeroList,
 		}
 
 		target := reflect.New(configType(mod)).Interface()
-		if p.loadModuleConfigInto(heroes, index, target, rawItems, mod.Descriptor().ID) {
+		if p.loadModuleConfigInto(heroes, index, target, rawItems, mod.ID) {
 			ret[index] = target
 		}
 	}
@@ -201,7 +201,7 @@ func (p Persistence) persistingModuleConfigs(heroes api.HeroList,
 			}
 		}
 		if fields != nil {
-			ret[p.d.owner.ModuleAt(i).Descriptor().ID] = fields
+			ret[p.d.owner.ModuleAt(i).ID] = fields
 		}
 	}
 	return ret
@@ -460,7 +460,7 @@ func (p Persistence) loadScene(heroes api.HeroList, id string,
 			return scene{}, fmt.Errorf("Unknown module \"%s\"", name)
 		}
 		target := reflect.New(configType(mod)).Interface()
-		if p.loadModuleConfigInto(heroes, index, target, value.Config, mod.Descriptor().ID) {
+		if p.loadModuleConfigInto(heroes, index, target, value.Config, mod.ID) {
 			ret.modules[index] = sceneModule{enabled: value.Enabled, config: target}
 		}
 	}
@@ -471,7 +471,7 @@ func (p Persistence) writeScene(g *group, value *scene) error {
 	data := persistingScene{
 		Name: value.name, Modules: make(map[string]persistingSceneModule)}
 	for i := app.FirstModule; i < p.d.owner.NumModules(); i++ {
-		moduleDesc := p.d.owner.ModuleAt(i).Descriptor()
+		moduleDesc := p.d.owner.ModuleAt(i)
 		moduleData := &value.modules[i]
 		data.Modules[moduleDesc.ID] = persistingSceneModule{
 			Enabled: moduleData.enabled, Config: moduleData.config}
@@ -773,7 +773,7 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 					moduleFound := false
 					for j := app.FirstModule; j < a.NumModules(); j++ {
 						module := a.ModuleAt(j)
-						if modName == module.Descriptor().ID {
+						if modName == module.ID {
 							moduleFound = true
 							if !sceneDescr.UsesModule(j) {
 								log.Printf("Scene \"%s\": Data given for module %s"+
@@ -781,7 +781,7 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 								break
 							}
 
-							state, err := module.Descriptor().CreateState(
+							state, err := module.CreateState(
 								&modRaw, a.ServerContext(j, heroes))
 							if err != nil {
 								log.Printf(
@@ -803,12 +803,12 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 						module := a.ModuleAt(j)
 						log.Printf(
 							"Scene \"%s\": Missing data for module %s, loading default\n",
-							sceneName, module.Descriptor().ID)
-						state, err := module.Descriptor().CreateState(
+							sceneName, module.ID)
+						state, err := module.CreateState(
 							nil, a.ServerContext(j, heroes))
 						if err != nil {
 							panic("Failed to create state with default values for module " +
-								module.Descriptor().ID)
+								module.ID)
 						}
 						sceneData[j] = state
 					}
@@ -831,10 +831,10 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 			for j := app.FirstModule; j < a.NumModules(); j++ {
 				if sceneDescr.UsesModule(j) {
 					module := a.ModuleAt(j)
-					state, err := module.Descriptor().CreateState(nil, a.ServerContext(j, heroes))
+					state, err := module.CreateState(nil, a.ServerContext(j, heroes))
 					if err != nil {
 						panic("Failed to create state with default values for module " +
-							module.Descriptor().ID)
+							module.ID)
 					}
 					sceneData[j] = state
 				}
@@ -856,7 +856,7 @@ func (s *State) buildYaml() ([]byte, error) {
 		data := make(map[string]interface{})
 		for j := app.FirstModule; j < s.a.NumModules(); j++ {
 			if sceneDescr.UsesModule(j) {
-				data[s.a.ModuleAt(j).Descriptor().ID] =
+				data[s.a.ModuleAt(j).ID] =
 					s.scenes[i][j].PersistingView(s.a.ServerContext(j, heroes))
 			}
 		}

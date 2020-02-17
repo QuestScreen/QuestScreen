@@ -63,46 +63,46 @@ func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error 
 		curRect := sdl.Rect{X: frame.X + padding - 2*borderWidth,
 			Y: curY - 2*borderWidth, W: maxHeight + 4*borderWidth,
 			H: maxHeight + 4*borderWidth}
-		d.Renderer.SetDrawColor(0, 0, 0, 255)
-		d.Renderer.FillRect(&curRect)
+		d.Backend.SetDrawColor(0, 0, 0, 255)
+		d.Backend.FillRect(&curRect)
 		d.shrinkByBorder(&curRect)
-		d.Renderer.SetDrawColor(255, 255, 255, 255)
-		d.Renderer.FillRect(&curRect)
+		d.Backend.SetDrawColor(255, 255, 255, 255)
+		d.Backend.FillRect(&curRect)
 		var keySurface *sdl.Surface
 		if keySurface, err = fontFace.RenderUTF8Blended(
 			options[i].key, sdl.Color{R: 0, G: 0, B: 0, A: 230}); err != nil {
 			return err
 		}
-		keyTex, err := d.Renderer.CreateTextureFromSurface(keySurface)
+		keyTex, err := d.Backend.CreateTextureFromSurface(keySurface)
 		if err != nil {
 			keySurface.Free()
 			return err
 		}
 		shrinkTo(&curRect, keySurface.W, keySurface.H)
-		d.Renderer.Copy(keyTex, nil, &curRect)
+		d.Backend.Copy(keyTex, nil, &curRect)
 		keySurface.Free()
 		keyTex.Destroy()
 
-		textTex, err := d.Renderer.CreateTextureFromSurface(surfaces[i])
+		textTex, err := d.Backend.CreateTextureFromSurface(surfaces[i])
 		if err != nil {
 			return err
 		}
 		curRect = sdl.Rect{X: frame.X + padding + maxHeight + 4*borderWidth,
 			Y: curY, W: surfaces[i].W, H: maxHeight}
 		shrinkTo(&curRect, surfaces[i].W, surfaces[i].H)
-		d.Renderer.Copy(textTex, nil, &curRect)
+		d.Backend.Copy(textTex, nil, &curRect)
 		textTex.Destroy()
 
 		curY = curY + padding*2 + maxHeight
 	}
 
 	var bottomTextTex *sdl.Texture
-	if bottomTextTex, err = d.Renderer.CreateTextureFromSurface(bottomText); err != nil {
+	if bottomTextTex, err = d.Backend.CreateTextureFromSurface(bottomText); err != nil {
 		return err
 	}
 	bottomRect := sdl.Rect{X: frame.X, Y: curY, W: frame.W, H: maxHeight}
 	shrinkTo(&bottomRect, bottomText.W, bottomText.H)
-	d.Renderer.Copy(bottomTextTex, nil, &bottomRect)
+	d.Backend.Copy(bottomTextTex, nil, &bottomRect)
 	bottomTextTex.Destroy()
 	return nil
 }
@@ -112,22 +112,22 @@ func (d *Display) genPopup(width int32, height int32) {
 		return
 	}
 	var err error
-	d.popupTexture, err = d.Renderer.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
+	d.popupTexture, err = d.Backend.CreateTexture(sdl.PIXELFORMAT_RGB888, sdl.TEXTUREACCESS_TARGET,
 		width, height)
 	if err != nil {
 		panic(err)
 	}
-	d.Renderer.SetRenderTarget(d.popupTexture)
-	defer d.Renderer.SetRenderTarget(nil)
-	d.Renderer.Clear()
-	d.Renderer.SetDrawColor(0, 0, 0, 127)
-	d.Renderer.FillRect(nil)
+	d.Backend.SetRenderTarget(d.popupTexture)
+	defer d.Backend.SetRenderTarget(nil)
+	d.Backend.Clear()
+	d.Backend.SetDrawColor(0, 0, 0, 127)
+	d.Backend.FillRect(nil)
 	rect := sdl.Rect{X: width / 4, Y: height / 4, W: width / 2, H: height / 2}
-	d.Renderer.SetDrawColor(0, 0, 0, 255)
-	d.Renderer.FillRect(&rect)
+	d.Backend.SetDrawColor(0, 0, 0, 255)
+	d.Backend.FillRect(&rect)
 	d.shrinkByBorder(&rect)
-	d.Renderer.SetDrawColor(255, 255, 255, 255)
-	d.Renderer.FillRect(&rect)
+	d.Backend.SetDrawColor(255, 255, 255, 255)
+	d.Backend.FillRect(&rect)
 
 	if err = d.renderKeyOptions(&rect, keyOption{key: "X", desc: "Quit"},
 		keyOption{key: "S", desc: "Shutdown"}); err != nil {

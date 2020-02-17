@@ -27,7 +27,7 @@ func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) 
 	return s, nil
 }
 
-func (s *state) CreateModuleData() interface{} {
+func (s *state) CreateRendererData() interface{} {
 	ret := &changeRequest{caption: s.caption}
 	return ret
 }

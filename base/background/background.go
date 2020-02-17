@@ -23,7 +23,7 @@ type Background struct {
 	curFile                api.Resource
 }
 
-func newModule(renderer *sdl.Renderer) (api.Module, error) {
+func newRenderer(backend *sdl.Renderer) (api.ModuleRenderer, error) {
 	bg := new(Background)
 	bg.curTexture = nil
 	bg.newTexture = nil
@@ -32,19 +32,19 @@ func newModule(renderer *sdl.Renderer) (api.Module, error) {
 }
 
 // Descriptor describes the Background module.
-var Descriptor = api.ModuleDescriptor{
+var Descriptor = api.Module{
 	Name: "Background Image",
 	ID:   "background",
 	ResourceCollections: []api.ResourceSelector{
 		api.ResourceSelector{Subdirectory: "", Suffixes: nil}},
-	EndpointPaths: []string{""},
-	DefaultConfig: &backgroundConfig{},
-	CreateModule:  newModule,
-	CreateState:   newState,
+	EndpointPaths:  []string{""},
+	DefaultConfig:  &backgroundConfig{},
+	CreateRenderer: newRenderer,
+	CreateState:    newState,
 }
 
 // Descriptor returns the Background's descriptor
-func (bg *Background) Descriptor() *api.ModuleDescriptor {
+func (bg *Background) Descriptor() *api.Module {
 	return &Descriptor
 }
 
