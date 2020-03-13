@@ -1,8 +1,6 @@
 package overlays
 
 import (
-	"log"
-
 	"github.com/QuestScreen/QuestScreen/api"
 	"gopkg.in/yaml.v3"
 )
@@ -18,7 +16,8 @@ type endpoint struct {
 
 type persistentState []string
 
-func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) {
+func newState(input *yaml.Node, ctx api.ServerContext,
+	ms api.MessageSender) (api.ModuleState, error) {
 	s := &state{resources: ctx.GetResources(0)}
 	s.visible = make([]bool, len(s.resources))
 	if input != nil {
@@ -36,7 +35,7 @@ func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) 
 				}
 			}
 			if !found {
-				log.Println("Did not find resource \"" + tmp[i] + "\"")
+				ms.Warning("Did not find resource \"" + tmp[i] + "\"")
 			}
 		}
 	}

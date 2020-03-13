@@ -21,15 +21,15 @@ type HeroView interface {
 	Close()
 }
 
-// Warning is a warning message that should be displayed on the starting screen
-// of the client.
-type Warning struct {
-	// Index of the plugin the warning is issued from, -1 if none
-	PluginIndex int `json:"pluginIndex"`
-	// Index of the module the warning is issued from, -1 if none
-	ModuleIndex int `json:"moduleIndex"`
-	// Message to display
-	Message string `json:"message"`
+// Message is a warning or an error that should be displayed on the starting
+// screen of the client.
+type Message struct {
+	// true if this is an error, false if it's just a warning.
+	IsError bool `json:"isError"`
+	// Index of the module the message is issued from, -1 if none
+	ModuleIndex ModuleIndex `json:"moduleIndex"`
+	// text to display
+	Text string `json:"text"`
 }
 
 // App is the interface to the application for the data and display modules.
@@ -54,6 +54,8 @@ type App interface {
 	NumFontFamilies() int
 	FontNames() []string
 	ViewHeroes() HeroView
+	Messages() []Message
+	MessageSenderFor(index ModuleIndex) api.MessageSender
 }
 
 // TooManyRequests is an error that is issued if the server receives more data

@@ -2,7 +2,6 @@ package background
 
 import (
 	"errors"
-	"log"
 
 	"github.com/QuestScreen/QuestScreen/api"
 	"gopkg.in/yaml.v3"
@@ -18,7 +17,8 @@ type endpoint struct {
 }
 
 // LoadFrom loads the stored selection, defaults to no item being selected.
-func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) {
+func newState(input *yaml.Node, ctx api.ServerContext,
+	ms api.MessageSender) (api.ModuleState, error) {
 	s := new(state)
 	s.resources = ctx.GetResources(0)
 	s.curIndex = -1
@@ -34,7 +34,7 @@ func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) 
 				}
 			}
 			if s.curIndex == -1 {
-				log.Println("Didn't find resource \"" + input.Value + "\"")
+				ms.Warning("Didn't find resource \"" + input.Value + "\"")
 			}
 		}
 	}

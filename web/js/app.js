@@ -147,7 +147,7 @@ class DataPage {
 
 	updateTitle(item) {
 		const subtitle = item == null ? "" : item.name;
-		this.app.setTitle(this.titleMain, subtitle);
+		this.app.setTitle(this.titleMain, subtitle, false);
 	}
 }
 
@@ -160,6 +160,7 @@ class App {
 		this.systems = [];
 		this.groups = [];
 		this.fonts = [];
+		this.backButtonLeavesGroup = false;
 	}
 
 	/* registers a controller for a module state. must be called before init(). */
@@ -191,10 +192,24 @@ class App {
 		}
 	}
 
+	async handleBackButton() {
+		if (this.backButtonLeavesGroup) {
+			await App.fetch("/state", "POST", {action: "leavegroup", index: -1});
+			this.showStartScreen();
+		} else {
+			const stateResp = await App.fetch("/state", "GET", null);
+			if (stateResp.activeGroup != -1) {
+				this.showGroup(stateResp);
+			} else {
+				this.showStartScreen();
+			}
+		}
+	}
+
 	setMenu(content) {
 		const pagemenu = document.querySelector("#pagemenu");
 		const newMenu = pagemenu.cloneNode(false);
-		newMenu.appendChild(content);
+		if (content != null) newMenu.appendChild(content);
 		pagemenu.parentNode.replaceChild(newMenu, pagemenu);
 	}
 
@@ -205,9 +220,19 @@ class App {
 		page.parentNode.replaceChild(newPage, page);
 	}
 
-	setTitle(caption, subtitle) {
+	setTitle(caption, subtitle, backButtonLeavesGroup) {
+		this.backButtonLeavesGroup = backButtonLeavesGroup;
 		document.querySelector("#title").textContent = caption;
 		document.querySelector("#subtitle").textContent = subtitle;
+		const backButton = document.querySelector("#back-button");
+		const backButtonCaption = backButton.querySelector("#back-button-caption");
+		if (backButtonLeavesGroup === null) {
+			backButtonCaption.textContent = "";
+			backButton.classList.add("empty");
+		} else {
+			backButtonCaption.textContent = backButtonLeavesGroup ? "Leave" : "Back";
+			backButton.classList.remove("empty");
+		}
 	}
 
 	handlePageMenuClick(controller, item) {
@@ -234,23 +259,29 @@ class App {
 	async setGroup(groupIndex) {
 		const response = await App.fetch(
 			"/state", "POST", {action: "setgroup", index: groupIndex});
-		this.updateViewFromStateResponse(response);
+		this.showGroup(response);
 	}
 
-	updateViewFromStateResponse(response) {
-		if (!Array.isArray(response.modules) ||
-				response.modules.length != this.modules.length) {
+	async showStartScreen() {
+		this.setTitle("Info", null, null);
+		this.setMenu(null);
+		this.setPage(tmpl.info.view.render(this));
+	}
+
+	showGroup(state) {
+		if (!Array.isArray(state.modules) ||
+				state.modules.length != this.modules.length) {
 			throw Error(
 					"Invalid response structure (resp.modules not an array or wrong length)");
-		} else if (response.activeGroup < 0 ||
-				response.activeGroup >= this.groups.length ||response.activeScene < 0 ||
-				response.activeScene >= this.groups[response.activeGroup].scenes.length) {
+		} else if (state.activeGroup < 0 ||
+				state.activeGroup >= this.groups.length ||state.activeScene < 0 ||
+				state.activeScene >= this.groups[state.activeGroup].scenes.length) {
 			throw Error("Invalid response (resp.activeScene outside of group scene range)")
 		}
-		this.activeGroup = response.activeGroup;
-		this.setTitle(this.groups[response.activeGroup].name, "");
-		this.setMenu(this.statePage.genMenu(response.activeScene));
-		this.statePage.setSceneData(response.modules);
+		this.activeGroup = state.activeGroup;
+		this.setTitle(this.groups[state.activeGroup].name, "", true);
+		this.setMenu(this.statePage.genMenu(state.activeScene));
+		this.statePage.setSceneData(state.modules);
 		for(const [index, entry] of
 				document.querySelectorAll(".rp-menu-group-entry").entries()) {
 			if (index == this.activeGroup) {
@@ -335,6 +366,13 @@ class App {
 		this.textures = returned.textures;
 		this.plugins = returned.plugins;
 		this.numPluginSystems = returned.numPluginSystems;
+		this.messages = returned.messages;
+
+		const backButton = document.querySelector("#back-button");
+		backButton.addEventListener("click", async e => {
+			await this.handleBackButton();
+			e.preventDefault();
+		});
 
 		if (this.fonts.length == 0) {
 			const msg = document.querySelector(".no-font-message");
@@ -347,12 +385,6 @@ class App {
 		this.groups = config.groups;
 		this.activeGroup = -1;
 		this.regenGroupListUI();
-
-		this.statePage = new StatePage(this);
-		const stateResp = await App.fetch("/state", "GET", null);
-		if (stateResp.activeGroup != -1) {
-			this.updateViewFromStateResponse(stateResp);
-		}
 
 		this.cfgPage = new DataPage(this, "/config",
 				(app, _, url, data) => new ConfigView(app, data, url,
@@ -376,6 +408,14 @@ class App {
 				this.showDatasets();
 				e.preventDefault();
 			});
+
+		this.statePage = new StatePage(this);
+		const stateResp = await App.fetch("/state", "GET", null);
+		if (stateResp.activeGroup != -1) {
+			this.showGroup(stateResp);
+		} else {
+			this.showStartScreen();
+		}
 	}
 }
 

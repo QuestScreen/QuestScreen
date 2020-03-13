@@ -27,9 +27,8 @@ type LoadedFontFamily struct {
 
 // CreateFontCatalog loads all the fonts in the fonts directory
 func createFontCatalog(
-	dataDir string, fontSizeMap [api.NumFontSizes]int32) []api.FontFamily {
-	fontPath := filepath.Join(dataDir, "fonts")
-	files, err := ioutil.ReadDir(fontPath)
+	fontDir string, fontSizeMap [api.NumFontSizes]int32) []api.FontFamily {
+	files, err := ioutil.ReadDir(fontDir)
 
 	if err != nil {
 		log.Println(err)
@@ -39,7 +38,7 @@ func createFontCatalog(
 	catalog := make([]api.FontFamily, 0, len(files))
 	for _, file := range files {
 		if !file.IsDir() {
-			path := filepath.Join(fontPath, file.Name())
+			path := filepath.Join(fontDir, file.Name())
 			if font, err := ttf.OpenFont(path, int(fontSizeMap[api.ContentFont])); err != nil {
 				log.Println(err)
 			} else {

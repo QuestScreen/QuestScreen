@@ -781,8 +781,8 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 								break
 							}
 
-							state, err := module.CreateState(
-								&modRaw, a.ServerContext(j, heroes))
+							state, err := module.CreateState(&modRaw,
+								a.ServerContext(j, heroes), p.d.owner.MessageSenderFor(j))
 							if err != nil {
 								log.Printf(
 									"Scene \"%s\": Could not load state for module %s: %s\n",
@@ -805,7 +805,7 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 							"Scene \"%s\": Missing data for module %s, loading default\n",
 							sceneName, module.ID)
 						state, err := module.CreateState(
-							nil, a.ServerContext(j, heroes))
+							nil, a.ServerContext(j, heroes), p.d.owner.MessageSenderFor(j))
 						if err != nil {
 							panic("Failed to create state with default values for module " +
 								module.ID)
@@ -831,7 +831,8 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 			for j := app.FirstModule; j < a.NumModules(); j++ {
 				if sceneDescr.UsesModule(j) {
 					module := a.ModuleAt(j)
-					state, err := module.CreateState(nil, a.ServerContext(j, heroes))
+					state, err := module.CreateState(nil, a.ServerContext(j, heroes),
+						p.d.owner.MessageSenderFor(j))
 					if err != nil {
 						panic("Failed to create state with default values for module " +
 							module.ID)

@@ -214,6 +214,7 @@ type stateAction int
 const (
 	setgroup stateAction = iota
 	setscene
+	leaveGroup
 )
 
 type validatedStateAction struct {
@@ -242,6 +243,8 @@ func (vsa *validatedStateAction) UnmarshalJSON(data []byte) error {
 		if vsa.Value.Index < 0 || vsa.Value.Index > vsa.MaxScenes {
 			return fmt.Errorf("index out of range [0..%d]", vsa.Value.Index)
 		}
+	case "leavegroup":
+		vsa.Action = leaveGroup
 	default:
 		return fmt.Errorf("unknown action: %s", vsa.Value.Action)
 	}
@@ -264,36 +267,45 @@ func (se stateEndpoint) Handle(method httpMethods, ids []string,
 			return nil, err
 		}
 
-		req, err := se.qs.display.StartRequest(se.events.SceneChangeID, 0)
-		if err != nil {
-			return nil, err
-		}
-		defer req.Close()
-
-		switch value.Action {
-		case setgroup:
-			activeScene, err = se.qs.setActiveGroup(value.Value.Index)
+		if value.Action == leaveGroup {
+			se.qs.setActiveGroup(-1)
+			req, err := se.qs.display.StartRequest(se.events.LeaveGroupID, 0)
 			if err != nil {
 				return nil, err
 			}
-			if err = se.qs.data.SetScene(activeScene); err != nil {
+			req.Commit()
+		} else {
+			req, err := se.qs.display.StartRequest(se.events.SceneChangeID, 0)
+			if err != nil {
 				return nil, err
 			}
-		case setscene:
-			if g == nil {
-				return nil, &api.BadRequest{Message: "No active group"}
+			defer req.Close()
+
+			switch value.Action {
+			case setgroup:
+				activeScene, err = se.qs.setActiveGroup(value.Value.Index)
+				if err != nil {
+					return nil, err
+				}
+				if err = se.qs.data.SetScene(activeScene); err != nil {
+					return nil, err
+				}
+			case setscene:
+				if g == nil {
+					return nil, &api.BadRequest{Message: "No active group"}
+				}
+
+				if err := se.qs.data.SetScene(value.Value.Index); err != nil {
+					return nil, err
+				}
+				se.qs.persistence.WriteState()
 			}
 
-			if err := se.qs.data.SetScene(value.Value.Index); err != nil {
-				return nil, err
-			}
-			se.qs.persistence.WriteState()
+			sendScene(se.qs, &req)
+			mergeAndSendConfigs(se.qs, &req)
+			req.Commit()
+			modules = se.qs.communication.ViewSceneState(se.qs)
 		}
-
-		sendScene(se.qs, &req)
-		mergeAndSendConfigs(se.qs, &req)
-		req.Commit()
-		modules = se.qs.communication.ViewSceneState(se.qs)
 	} else {
 		if se.qs.activeGroupIndex != -1 {
 			activeScene = se.qs.data.ActiveScene()

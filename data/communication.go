@@ -143,9 +143,10 @@ func (c Communication) StaticData(a app.App, plugins interface{}) interface{} {
 		NumPluginSystems int              `json:"numPluginSystems"`
 		Plugins          interface{}      `json:"plugins"`
 		FontDir          string           `json:"fontDir"`
+		Messages         []app.Message    `json:"messages"`
 	}{Fonts: a.FontNames(), Textures: textureNames, Modules: c.modules(a),
 		NumPluginSystems: c.d.numPluginSystems, Plugins: plugins,
-		FontDir: a.DataDir("fonts")}
+		FontDir: a.DataDir("fonts"), Messages: a.Messages()}
 }
 
 // ViewAll returns a serializable view of all data items that are not part of

@@ -10,6 +10,7 @@ WEBFILES = \
 	web/js/configitems.js\
 	web/js/controls.js\
 	web/js/datasets.js\
+	web/js/info.js\
 	web/js/init.js\
 	web/js/popup.js\
 	web/js/state.js\

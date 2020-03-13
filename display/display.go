@@ -141,8 +141,9 @@ func (d *Display) Init(
 	d.moduleStates = make([]moduleState, d.owner.NumModules())
 
 	d.renderers = make([]api.ModuleRenderer, d.owner.NumModules())
-	for i := app.ModuleIndex(0); i < app.ModuleIndex(len(d.renderers)); i++ {
-		d.renderers[i], err = d.owner.ModuleAt(i).CreateRenderer(d.Backend)
+	for i := app.FirstModule; i < app.ModuleIndex(len(d.renderers)); i++ {
+		d.renderers[i], err = d.owner.ModuleAt(i).CreateRenderer(
+			d.Backend, owner.MessageSenderFor(i))
 		if err != nil {
 			return err
 		}
@@ -299,6 +300,8 @@ func (d *Display) RenderLoop() {
 						}
 					}
 					ctx.heroes.Close()
+				case d.Events.LeaveGroupID:
+					d.initial = true
 				}
 				render = true
 				atomic.StoreUint32(&d.request, noRequest)

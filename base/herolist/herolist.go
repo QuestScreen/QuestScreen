@@ -57,7 +57,8 @@ type HeroList struct {
 
 const duration = time.Second / 2
 
-func newRenderer(backend *sdl.Renderer) (api.ModuleRenderer, error) {
+func newRenderer(
+	backend *sdl.Renderer, ms api.MessageSender) (api.ModuleRenderer, error) {
 	winWidth, winHeight, _ := backend.GetOutputSize()
 	return &HeroList{curGlobalVisible: false, curXOffset: 0,
 		curYOffset: 0, contentWidth: winWidth / 4, contentHeight: winHeight / 10,

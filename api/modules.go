@@ -170,7 +170,8 @@ type Module struct {
 	// data;
 	// RebuildState will be issued to the renderer before the first Render() call
 	// to fully initialize its state.
-	CreateRenderer func(backend *sdl.Renderer) (ModuleRenderer, error)
+	CreateRenderer func(backend *sdl.Renderer,
+		ms MessageSender) (ModuleRenderer, error)
 	// CreateState will be called in the server thread. It shall create a
 	// ModuleState for the module created by CreateModule.
 	//
@@ -184,7 +185,8 @@ type Module struct {
 	//
 	// If the module accesses a group's heroes, its state must additionally
 	// implement HeroAwareModuleState.
-	CreateState func(input *yaml.Node, ctx ServerContext) (ModuleState, error)
+	CreateState func(input *yaml.Node, ctx ServerContext,
+		ms MessageSender) (ModuleState, error)
 }
 
 // ModuleRenderer describes the rendere of a module. This object belongs with

@@ -1,8 +1,6 @@
 package herolist
 
 import (
-	"log"
-
 	"github.com/QuestScreen/QuestScreen/api"
 	"gopkg.in/yaml.v3"
 )
@@ -26,7 +24,8 @@ type heroEndpoint struct {
 	*state
 }
 
-func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) {
+func newState(input *yaml.Node, ctx api.ServerContext,
+	ms api.MessageSender) (api.ModuleState, error) {
 	s := &state{heroVisible: make([]bool, ctx.NumHeroes()),
 		heroIDToIndex: make(map[string]int)}
 	for i := 0; i < ctx.NumHeroes(); i++ {
@@ -54,7 +53,7 @@ func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) 
 				}
 			}
 			if !found {
-				log.Println("Unknown hero: \"" + tmp.HeroVisible[i] + "\"")
+				ms.Warning("Unknown hero: \"" + tmp.HeroVisible[i] + "\"")
 			}
 		}
 	}

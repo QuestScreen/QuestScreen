@@ -51,6 +51,7 @@
 </header>
 
 <h2 id="title-wrapper">
+	<a id="back-button" class="empty" href="#"><i class="fas fa-angle-left"></i> <span id="back-button-caption"></span></a>
 	<span id="title"></span><span id="subtitle"></span>
 	<a id="header-toggle"><i class="fas fa-angle-up"></i></a>
 </h2>
@@ -148,6 +149,58 @@
 	</li>
 </template>
 
+<!-- templates for the main (info) page -->
+
+<template id="tmpl-info-module-path">
+	<span class="plugin-name"></span>
+	<i class="fas fa-angle-right"></i>
+	<span class="module-name"></span>
+</template>
+
+<template id="tmpl-info-module">
+	<tr>
+		<td class="module-path"></td>
+		<td class="module-id"></td>
+	</tr>
+</template>
+
+<template id="tmpl-info-core-message">
+	<tr>
+		<td><i class="fas"></i></td>
+		<td>Core</td>
+		<td class="text"></td>
+	</tr>
+</template>
+
+<template id="tmpl-info-module-message">
+	<tr>
+		<td><i class="fas"></i></td>
+		<td class="module-path"></td>
+		<td class="text"></td>
+	</tr>
+</template>
+
+<template id="tmpl-info-messages">
+	<section class="messages">
+		<h4 class="message-list-header">Messages</h4>
+		<table class="message-list">
+			<tbody></tbody>
+		</table>
+	</section>
+</template>
+
+<template id="tmpl-info">
+	<section class="data-sheet">
+		<h4 class="data-sheet-header"><i class="fas fa-film"></i> Loaded Modules</h4>
+		<table class="module-list">
+			<thead>
+				<tr><th>Name</th><th>ID</th></tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</section>
+</template>
+
 <!-- templates for showing the state of the current group -->
 
 <template id="tmpl-state-menu">
@@ -237,17 +290,6 @@
 
 <!-- templates for editing datasets -->
 
-<template id="tmpl-data-module">
-	<tr>
-		<td>
-			<span class="plugin-name"></span>
-			<i class="fas fa-angle-right"></i>
-			<span class="module-name"></span>
-		</td>
-		<td class="module-id"></td>
-	</tr>
-</template>
-
 <template id="tmpl-data-base">
 	<article>
 		<section class="data-sheet">
@@ -265,15 +307,6 @@
 					<i class="fas fa-plus-square"></i>
 				</a>
 			</div>
-		</section>
-		<section class="data-sheet">
-			<h4 class="data-sheet-header"><i class="fas fa-film"></i> Available Modules</h4>
-			<table class="module-list">
-				<thead>
-					<tr><th>Name</th><th>ID</th></tr>
-				</thead>
-				<tbody></tbody>
-			</table>
 		</section>
 	</article>
 </template>

@@ -13,7 +13,8 @@ type endpoint struct {
 	*state
 }
 
-func newState(input *yaml.Node, ctx api.ServerContext) (api.ModuleState, error) {
+func newState(input *yaml.Node, ctx api.ServerContext,
+	ms api.MessageSender) (api.ModuleState, error) {
 	s := &state{}
 
 	if input == nil {

@@ -23,7 +23,8 @@ type Background struct {
 	curFile                api.Resource
 }
 
-func newRenderer(backend *sdl.Renderer) (api.ModuleRenderer, error) {
+func newRenderer(backend *sdl.Renderer,
+	ms api.MessageSender) (api.ModuleRenderer, error) {
 	bg := new(Background)
 	bg.curTexture = nil
 	bg.newTexture = nil

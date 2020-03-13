@@ -7,6 +7,13 @@ import (
 
 // the interfaces declared in this file are implemented by the QuestScreen core.
 
+// MessageSender is used to send warnings and errors issued at startup to the
+// client to be shown on the main page.
+type MessageSender interface {
+	Warning(text string)
+	Error(text string)
+}
+
 // Resource describes a selectable resource (typically a file).
 type Resource interface {
 	// Name of the file as it should be presented to the user.

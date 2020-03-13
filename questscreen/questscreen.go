@@ -59,7 +59,29 @@ type QuestScreen struct {
 	display             display.Display
 	activeGroupIndex    int
 	activeSystemIndex   int
+	messages            []app.Message
 	html, js, css       []byte
+}
+
+// implements api.MessageSender
+type messageCollector struct {
+	owner       *QuestScreen
+	moduleIndex app.ModuleIndex
+}
+
+func (mc *messageCollector) Warning(text string) {
+	mc.owner.messages = append(mc.owner.messages, app.Message{
+		IsError: false, ModuleIndex: mc.moduleIndex, Text: text})
+}
+
+func (mc *messageCollector) Error(text string) {
+	mc.owner.messages = append(mc.owner.messages, app.Message{
+		IsError: true, ModuleIndex: mc.moduleIndex, Text: text})
+}
+
+// MessageSenderFor creates a new message sender for the given index.
+func (qs *QuestScreen) MessageSenderFor(index app.ModuleIndex) api.MessageSender {
+	return &messageCollector{moduleIndex: index, owner: qs}
 }
 
 func appendAssets(buffer []byte, paths ...string) []byte {
@@ -72,6 +94,8 @@ func appendAssets(buffer []byte, paths ...string) []byte {
 
 // Init initializes the static data
 func (qs *QuestScreen) Init(fullscreen bool, events display.Events, port uint16) {
+	mc := messageCollector{owner: qs, moduleIndex: -1}
+
 	// create window and renderer
 	var flags uint32 = sdl.WINDOW_OPENGL | sdl.WINDOW_ALLOW_HIGHDPI
 	if fullscreen {
@@ -97,16 +121,22 @@ func (qs *QuestScreen) Init(fullscreen bool, events display.Events, port uint16)
 	qs.dataDir = filepath.Join(usr.HomeDir, ".local", "share", "questscreen")
 	fontSizeMap := [6]int32{height / 37, height / 27, height / 19,
 		height / 13, height / 8, height / 4}
-	qs.fonts = createFontCatalog(qs.dataDir, fontSizeMap)
+	fontPath := filepath.Join(qs.dataDir, "fonts")
+	qs.fonts = createFontCatalog(fontPath, fontSizeMap)
+	if len(qs.fonts) == 0 {
+		mc.Error("Did not find any fonts. " +
+			"Please place at least one TTF/OTF font file in " + fontPath)
+	}
 	qs.modules = make([]moduleData, 0, 32)
 	qs.resourceCollections = make([][][]ownedResourceFile, 0, 32)
 	qs.activeGroupIndex = -1
 	qs.activeSystemIndex = -1
 
 	qs.html = appendAssets(qs.html, "web/html/index-top.html")
-	qs.js = appendAssets(qs.js, "web/js/template.js", "web/js/controls.js",
-		"web/js/popup.js", "web/js/datasets.js",
-		"web/js/config.js", "web/js/app.js", "web/js/state.js", "web/js/configitems.js")
+	qs.js = appendAssets(qs.js,
+		"web/js/template.js", "web/js/controls.js", "web/js/popup.js",
+		"web/js/datasets.js", "web/js/config.js", "web/js/info.js",
+		"web/js/app.js", "web/js/state.js", "web/js/configitems.js")
 	qs.css = appendAssets(qs.css, "web/css/style.css", "web/css/color.css")
 	if err = qs.registerPlugin(&base.Base, renderer); err != nil {
 		panic(err)
@@ -166,6 +196,11 @@ func (qs *QuestScreen) ModulePluginIndex(index app.ModuleIndex) int {
 // NumModules returns the number of registered modules
 func (qs *QuestScreen) NumModules() app.ModuleIndex {
 	return app.ModuleIndex(len(qs.modules))
+}
+
+// Messages returns the messages generated on app startup
+func (qs *QuestScreen) Messages() []app.Message {
+	return qs.messages
 }
 
 type moduleContext struct {
@@ -420,6 +455,10 @@ func (qs *QuestScreen) pathToState() string {
 // Returns the index of the currently active scene inside the group
 func (qs *QuestScreen) setActiveGroup(index int) (int, api.SendableError) {
 	qs.activeGroupIndex = index
+	if index == -1 {
+		qs.activeSystemIndex = -1
+		return -1, nil
+	}
 	group := qs.activeGroup()
 	qs.activeSystemIndex = group.SystemIndex()
 	groupState, err := qs.persistence.LoadState(group, qs.pathToState())

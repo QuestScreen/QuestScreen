@@ -34,7 +34,8 @@ const (
 	waitTime       = time.Millisecond * 100
 )
 
-func newRenderer(renderer *sdl.Renderer) (api.ModuleRenderer, error) {
+func newRenderer(
+	renderer *sdl.Renderer, ms api.MessageSender) (api.ModuleRenderer, error) {
 	return &Title{curTitle: nil}, nil
 }
 

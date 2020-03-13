@@ -64,22 +64,12 @@ tmpl.data = {
 		});
 		return this.children[0];
 	}),
-	module: new Template("#tmpl-data-module", function(module, pluginName) {
-		this.querySelector(".plugin-name").textContent = pluginName;
-		this.querySelector(".module-name").textContent = module.name;
-		this.querySelector(".module-id").textContent = module.id;
-		return this.children[0];
-	}),
+
 	base: new Template("#tmpl-data-base", function(app, ctrl) {
 		datasets.genList(this.querySelector(".systems"), app.systems,
 				ctrl, ctrl.delSystem, ctrl.createSystem, app.numPluginSystems);
 		datasets.genList(this.querySelector(".groups"), app.groups,
 				ctrl, ctrl.delGroup, ctrl.createGroup, 0);
-		const moduleList = this.querySelector("tbody");
-		for (const module of app.modules) {
-			moduleList.appendChild(tmpl.data.module.render(
-				module, app.plugins[module.pluginIndex].name));
-		}
 		return this.children[0];
 	}),
 	system: new Template("#tmpl-data-system", function(ctrl, system) {
