@@ -1,47 +1,35 @@
 # QuestScreen
 
-**QuestScreen** is a utility for displaying information during pen & paper
-roleplaying sessions. It renders information via SDL, you control it via web
-interface. It is designed to be run on boards like the Raspberry Pi.
+**QuestScreen** is a utility for displaying information during pen & paper roleplaying sessions.
+It renders information via SDL, you control it via web interface.
+It is designed to be run on boards like the Raspberry Pi.
 
 ## Compilation
 
-Dependencies:
+Build dependencies:
 
- * Go 1.10
-   - TODO: modules
- * SDL
-   - if you want to run QuestScreen without a window manager, make sure that you
-     enable SDL's kmsdrm support (`--enable-video-kmsdrm`). If you want to use
-     input with kmsdrm, make sure to link against libudev.
+ * **Go 1.10**
+
+   TODO: modules
+ * **SDL**
+
+   If you want to run QuestScreen without a window manager, make sure that you enable SDL's kmsdrm support (`--enable-video-kmsdrm`).
+   If you want to use input with kmsdrm, make sure to link against libudev.
+
+ * **go-bindata**
+
+   Install with `go get github.com/go-bindata/go-bindata/...`.
+   This is used for including web-related files (html, css, js) in the binary.
 
 Compile with `make`, install with `make install`.
 
-## Configuration
+## Documentation
 
-QuestScreen is configured in `~/.local/share/questscreen`, it looks like this:
+For user documentation, please see the [project's website](questscreen.github.io/questscreen).
 
-    fonts
-        <font files>
-    base
-        config.yaml
-        <module configs>
-    systems
-        <system-name>
-            config.yaml
-            <module configs>
-    groups
-        <group-name>
-            config.yaml
-            <module configs>
-    heroes
-        <hero-name>
-            config.yaml
-            <module configs>
+## License
 
-`<system-name>`, `<group-name>` and `<hero-name>` each can occur multiple times.
-`<module configs>` is a list of data items structured like this:
+The `api` package that can be used to develop plugins for QuestScreen, as well as all files in the `web` directory, are licensed under terms of the [MIT license](/license-mit.txt).
+This ensures that you can distribute QuestScreen plugins under any license.
 
-    <module-name>
-        <module specific data>
-
+All other packages, which constitute the main application, are licensed under the terms of the [GNU GPL v3](/license-gpl.txt).
