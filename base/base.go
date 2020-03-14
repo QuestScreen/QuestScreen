@@ -6,7 +6,7 @@ import (
 	"github.com/QuestScreen/QuestScreen/base/herolist"
 	"github.com/QuestScreen/QuestScreen/base/overlays"
 	"github.com/QuestScreen/QuestScreen/base/title"
-	"github.com/QuestScreen/QuestScreen/web"
+	"github.com/QuestScreen/QuestScreen/generated"
 )
 
 // Base is a plugin providing the most common system-independent modules.
@@ -15,8 +15,8 @@ var Base = api.Plugin{
 	Modules: []*api.Module{
 		&background.Descriptor, &herolist.Descriptor, &overlays.Descriptor,
 		&title.Descriptor},
-	AdditionalJS:    web.MustAsset("web/js/base.js"),
-	AdditionalHTML:  web.MustAsset("web/html/base.html"),
+	AdditionalJS:    generated.MustAsset("web/js/base.js"),
+	AdditionalHTML:  generated.MustAsset("web/html/base.html"),
 	AdditionalCSS:   nil,
 	SystemTemplates: nil,
 	GroupTemplates: []api.GroupTemplate{

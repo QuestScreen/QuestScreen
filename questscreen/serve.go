@@ -12,7 +12,7 @@ import (
 
 	"github.com/QuestScreen/QuestScreen/api"
 	"github.com/QuestScreen/QuestScreen/app"
-	"github.com/QuestScreen/QuestScreen/web"
+	"github.com/QuestScreen/QuestScreen/generated"
 
 	"github.com/QuestScreen/QuestScreen/display"
 )
@@ -97,7 +97,7 @@ func (srh *staticResourceHandler) ServeHTTP(
 
 func (srh *staticResourceHandler) faviconRes(name string, contentType string) {
 	srh.resources["/"+name] = staticResource{
-		contentType: contentType, content: web.MustAsset("web/favicon/" + name)}
+		contentType: contentType, content: generated.MustAsset("web/favicon/" + name)}
 }
 
 func newStaticResourceHandler(qs *QuestScreen) *staticResourceHandler {
@@ -127,7 +127,7 @@ func newStaticResourceHandler(qs *QuestScreen) *staticResourceHandler {
 
 func (srh *staticResourceHandler) add(path string, contentType string) {
 	srh.resources[path] = staticResource{
-		contentType: contentType, content: web.MustAsset("web" + path)}
+		contentType: contentType, content: generated.MustAsset("web" + path)}
 }
 
 type endpointEnv struct {

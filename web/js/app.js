@@ -367,6 +367,7 @@ class App {
 		this.plugins = returned.plugins;
 		this.numPluginSystems = returned.numPluginSystems;
 		this.messages = returned.messages;
+		this.appVersion = returned.appVersion;
 
 		const backButton = document.querySelector("#back-button");
 		backButton.addEventListener("click", async e => {

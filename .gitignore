@@ -1,6 +1,6 @@
 .idea
 .vscode
 go.sum
-web/data.go
+generated
 questscreen/questscreen
 __debug_bin

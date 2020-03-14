@@ -7,7 +7,7 @@ import (
 	"unsafe"
 
 	"github.com/QuestScreen/QuestScreen/api"
-	"github.com/QuestScreen/QuestScreen/web"
+	"github.com/QuestScreen/QuestScreen/generated"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
@@ -79,7 +79,7 @@ func (d *Display) genWelcome(width int32, height int32, port uint16) error {
 	d.Backend.SetDrawColor(255, 255, 255, 255)
 	d.Backend.FillRect(nil)
 
-	logoSource := web.MustAsset("web/favicon/android-chrome-512x512.png")
+	logoSource := generated.MustAsset("web/favicon/android-chrome-512x512.png")
 	logoStream := sdl.RWFromMem(unsafe.Pointer(&logoSource[0]), len(logoSource))
 	logo, err := img.LoadTextureRW(d.Backend, logoStream, true)
 	if err != nil {

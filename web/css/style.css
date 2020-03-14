@@ -650,3 +650,11 @@ table.module-list .text,
 table.message-list .text {
 	max-width: 40em;
 }
+
+.version-info {
+	text-align: center;
+}
+
+.app-version {
+	font-family: Menlo, Monaco, "Courier New", Courier, monospace;
+}

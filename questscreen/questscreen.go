@@ -13,7 +13,7 @@ import (
 	base "github.com/QuestScreen/QuestScreen/base"
 	"github.com/QuestScreen/QuestScreen/data"
 	"github.com/QuestScreen/QuestScreen/display"
-	"github.com/QuestScreen/QuestScreen/web"
+	"github.com/QuestScreen/QuestScreen/generated"
 
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
@@ -86,7 +86,7 @@ func (qs *QuestScreen) MessageSenderFor(index app.ModuleIndex) api.MessageSender
 
 func appendAssets(buffer []byte, paths ...string) []byte {
 	for i := range paths {
-		buffer = append(buffer, web.MustAsset(paths[i])...)
+		buffer = append(buffer, generated.MustAsset(paths[i])...)
 		buffer = append(buffer, '\n')
 	}
 	return buffer

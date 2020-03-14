@@ -21,6 +21,11 @@ Build dependencies:
    Install with `go get github.com/go-bindata/go-bindata/...`.
    This is used for including web-related files (html, css, js) in the binary.
 
+ * **git**
+
+   Used to autogenerate the current version string when building.
+   This requires any build to happen from within a git repository.
+
 Compile with `make`, install with `make install`.
 
 ## Documentation

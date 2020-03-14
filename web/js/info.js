@@ -43,6 +43,7 @@ tmpl.info = {
 		return this.children[0];
 	}),
 	view: new Template("#tmpl-info", function(app) {
+		this.querySelector(".app-version").textContent = app.appVersion;
 		const moduleList = this.querySelector("tbody");
 		for (const module of app.modules) {
 			moduleList.appendChild(tmpl.info.module.render(

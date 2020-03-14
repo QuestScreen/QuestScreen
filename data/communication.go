@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuestScreen/QuestScreen/api"
 	"github.com/QuestScreen/QuestScreen/app"
+	"github.com/QuestScreen/QuestScreen/generated"
 )
 
 // Communication implements (de)serialization of data for communication to the
@@ -144,9 +145,11 @@ func (c Communication) StaticData(a app.App, plugins interface{}) interface{} {
 		Plugins          interface{}      `json:"plugins"`
 		FontDir          string           `json:"fontDir"`
 		Messages         []app.Message    `json:"messages"`
+		AppVersion       string           `json:"appVersion"`
 	}{Fonts: a.FontNames(), Textures: textureNames, Modules: c.modules(a),
 		NumPluginSystems: c.d.numPluginSystems, Plugins: plugins,
-		FontDir: a.DataDir("fonts"), Messages: a.Messages()}
+		FontDir: a.DataDir("fonts"), Messages: a.Messages(),
+		AppVersion: generated.CurrentVersion}
 }
 
 // ViewAll returns a serializable view of all data items that are not part of
