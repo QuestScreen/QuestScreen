@@ -4,3 +4,5 @@ go.sum
 generated
 questscreen/questscreen
 __debug_bin
+*.m4v
+docs/demo.json

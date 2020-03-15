@@ -107,13 +107,24 @@ article {
   margin: 0;
   padding: 1em;
   text-align: justify;
+  max-width: 80ch;
 }
 
-article > p,
-article > h1,
-article > h2,
-article > h3 {
-  max-width: 80ch;
+article > aside {
+  display: flex;
+  background-color: var(--light-highlight);
+  border-radius: 0.25em;
+  padding: .375em;
+  align-items: center;
+}
+
+article > aside > i {
+  flex: 0 0 auto;
+  padding: 0 .75em;
+}
+
+article > aside > p {
+  flex: 1 1 auto;
 }
 
 article a::first-letter {
@@ -158,4 +169,34 @@ article > figure {
 article > figure > figcaption {
   text-align: center;
   font-size: large;
+}
+
+.video-demo > video {
+  max-width: 640px;
+  height: auto;
+}
+
+.video-demo > figcaption {
+  display: flex;
+  align-items: center;
+}
+
+.video-demo > figcaption > a {
+  flex: 0 0 auto;
+  font-size: x-large;
+  color: black !important;
+  display: block;
+  padding: .125em;
+  min-width: 1.5em;
+  text-align: center;
+}
+
+.video-demo > figcaption > a:hover,
+.video-demo > figcaption > a:active {
+  border-radius: .25em;
+  background-color: var(--light-highlight);
+}
+
+.video-demo > figcaption > span {
+  flex: 1 1 auto;
 }
