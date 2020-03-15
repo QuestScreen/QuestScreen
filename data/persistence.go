@@ -144,10 +144,15 @@ func configType(mod *api.Module) reflect.Type {
 func (p Persistence) loadModuleConfigs(heroes api.HeroList,
 	raw map[string]map[string]yaml.Node) ([]interface{}, error) {
 	ret := make([]interface{}, p.d.owner.NumModules())
+	unknowns := ""
 	for name, rawItems := range raw {
 		mod, index := findModule(p.d.owner, name)
 		if mod == nil {
-			return nil, fmt.Errorf("Unknown module \"%s\"", name)
+			if len(unknowns) > 0 {
+				unknowns += ", "
+			}
+			unknowns += name
+			continue
 		}
 
 		target := reflect.New(configType(mod)).Interface()
@@ -160,6 +165,9 @@ func (p Persistence) loadModuleConfigs(heroes api.HeroList,
 			mod := p.d.owner.ModuleAt(i)
 			ret[i] = reflect.New(configType(mod)).Interface()
 		}
+	}
+	if len(unknowns) > 0 {
+		return ret, errors.New("Unknown module(s): " + unknowns)
 	}
 	return ret, nil
 }
@@ -221,7 +229,7 @@ func (p Persistence) loadBase(path string) ([]interface{}, error) {
 	var data persistedBaseConfig
 	if len(path) != 0 {
 		if err := strictUnmarshalYAML(fileInput(path), &data); err != nil {
-			return make([]interface{}, p.d.owner.NumModules()), err
+			data.Modules = make(map[string]map[string]yaml.Node)
 		}
 	} else {
 		data.Modules = make(map[string]map[string]yaml.Node)

@@ -234,7 +234,7 @@ func (d *Data) LoadPersisted(owner app.App) (Persistence, Communication) {
 	basePath := d.owner.DataDir("base", "config.yaml")
 	ret, err := p.loadBase(basePath)
 	if err != nil {
-		log.Println(basePath+":", err)
+		log.Println("while loading base config:", err)
 	}
 	d.baseConfigs = ret
 	p.loadSystems()

@@ -375,7 +375,7 @@ class App {
 			e.preventDefault();
 		});
 
-		if (this.messages.find(msg => msg.isError)) {
+		if (this.messages != null && this.messages.find(msg => msg.isError)) {
 			const mainmenu = document.querySelector("#mainmenu");
 			const errorOverlay = document.createElement("div");
 			errorOverlay.id = "error-menu-overlay";
