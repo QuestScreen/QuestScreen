@@ -2,8 +2,50 @@
 <html lang="en">
   <head>
     <title>Quest Screen – {{page.title}}</title>
+    <link rel="stylesheet" href="/style/style.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" />
   </head>
   <body>
-    {{content}}
+    <nav>
+      <a href="#" class="header">
+        <span class="title">{{ site.title }}</span>
+        <i class="fas fa-caret-down"></i>
+      </a>
+      <ul>
+        {% assign pages = site.pages | sort:"weight" %}
+        {% for p in pages %}
+        <li{% if p.url == page.url %} class="active"{% endif %}>
+          <a href="{{ p.url }}">{{ p.title }}</a>
+        </li>
+        {% endfor %}
+        <li class="sep"></li>
+        <li>
+          <a href="https://github.com/QuestScreen"><i class="fab fa-github"></i>GitHub</a>
+        </li>
+      </ul>
+    </nav>
+    <article>
+      <header>
+        <h1>{{ page.title }}</h1>
+      </header>
+
+      {{content}}
+    </article>
+
+    <script>
+      document.querySelector("a.header").addEventListener("click", function(e) {
+        const nav = this.parentNode;
+        if (nav.classList.contains("expanded")) {
+          nav.classList.remove("expanded");
+          this.children[1].classList.add("fa-caret-down");
+          this.children[1].classList.remove("fa-caret-up");
+        } else {
+          nav.classList.add("expanded");
+          this.children[1].classList.remove("fa-caret-down");
+          this.children[1].classList.add("fa-caret-up");
+        }
+        e.preventDefault();
+      });
+    </script>
   </body>
 </html>

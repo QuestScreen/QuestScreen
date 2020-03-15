@@ -93,7 +93,8 @@ func appendAssets(buffer []byte, paths ...string) []byte {
 }
 
 // Init initializes the static data
-func (qs *QuestScreen) Init(fullscreen bool, events display.Events, port uint16) {
+func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
+	events display.Events, port uint16) {
 	mc := messageCollector{owner: qs, moduleIndex: -1}
 
 	// create window and renderer
@@ -102,7 +103,7 @@ func (qs *QuestScreen) Init(fullscreen bool, events display.Events, port uint16)
 		flags |= sdl.WINDOW_FULLSCREEN_DESKTOP
 	}
 	window, err := sdl.CreateWindow("QuestScreen", sdl.WINDOWPOS_UNDEFINED,
-		sdl.WINDOWPOS_UNDEFINED, 800, 600, flags)
+		sdl.WINDOWPOS_UNDEFINED, width, height, flags)
 	if err != nil {
 		panic(err)
 	}
@@ -114,13 +115,13 @@ func (qs *QuestScreen) Init(fullscreen bool, events display.Events, port uint16)
 		panic(err)
 	}
 
-	_, height, _ := renderer.GetOutputSize()
+	_, oHeight, _ := renderer.GetOutputSize()
 
 	usr, _ := user.Current()
 
 	qs.dataDir = filepath.Join(usr.HomeDir, ".local", "share", "questscreen")
-	fontSizeMap := [6]int32{height / 37, height / 27, height / 19,
-		height / 13, height / 8, height / 4}
+	fontSizeMap := [6]int32{oHeight / 37, oHeight / 27, oHeight / 19,
+		oHeight / 13, oHeight / 8, oHeight / 4}
 	fontPath := filepath.Join(qs.dataDir, "fonts")
 	qs.fonts = createFontCatalog(fontPath, fontSizeMap)
 	if len(qs.fonts) == 0 {

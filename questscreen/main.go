@@ -19,6 +19,8 @@ func init() {
 func main() {
 	fullscreenFlag := getopt.BoolLong("fullscreen", 'f', "start in fullscreen")
 	port := getopt.Uint16Long("port", 'p', 8080, "port to bind to")
+	width := getopt.Int32Long("width", 'w', 800, "width of the window")
+	height := getopt.Int32Long("height", 'h', 600, "height of the window")
 	getopt.Parse()
 
 	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_EVENTS); err != nil {
@@ -34,7 +36,7 @@ func main() {
 
 	events := display.GenEvents()
 	var qs QuestScreen
-	qs.Init(*fullscreenFlag, events, *port)
+	qs.Init(*fullscreenFlag, *width, *height, events, *port)
 	if err := sdl.GLSetSwapInterval(-1); err != nil {
 		log.Println("Could not set swap interval to -1")
 	}
