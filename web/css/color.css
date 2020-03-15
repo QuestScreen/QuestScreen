@@ -148,3 +148,7 @@ table.message-list tr.warning {
 table.message-list tr.error {
   background-color: var(--danger);
 }
+
+#error-menu-overlay {
+  background-color: var(--danger);
+}

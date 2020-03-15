@@ -375,12 +375,20 @@ class App {
 			e.preventDefault();
 		});
 
-		if (this.fonts.length == 0) {
-			const msg = document.querySelector(".no-font-message");
-			msg.classList.add("active");
-			document.querySelector(".font-directory").textContent = returned.fontDir;
+		if (this.messages.find(msg => msg.isError)) {
+			const mainmenu = document.querySelector("#mainmenu");
+			const errorOverlay = document.createElement("div");
+			errorOverlay.id = "error-menu-overlay";
+			errorOverlay.classList.add("pure-u-1");
+			errorOverlay.style.cssText = "width: " + mainmenu.offsetWidth +
+					"px; height: " + mainmenu.offsetHeight + "px;";
+			errorOverlay.textContent = "Fix errors to enable menu functionality";
+			mainmenu.style.position = "relative";
+			mainmenu.appendChild(errorOverlay);
+			this.showStartScreen();
 			return;
 		}
+
 		const config = await App.fetch("/data", "GET", null);
 		this.systems = config.systems;
 		this.groups = config.groups;

@@ -10,15 +10,6 @@ body {
 	flex-direction: column;
 }
 
-.no-font-message {
-	max-width: 720px;
-	margin: 0 auto;
-}
-
-.no-font-message:not(.active) {
-	visibility: hidden;
-}
-
 /* remove triangle. we use the nicer font-awesome triangle. */
 .pure-menu-horizontal .pure-menu-has-children > .pure-menu-link::after {
 	content: "";
@@ -657,4 +648,17 @@ table.message-list .text {
 
 .app-version {
 	font-family: Menlo, Monaco, "Courier New", Courier, monospace;
+}
+
+#error-menu-overlay {
+	position: absolute;
+	margin: 0;
+	padding: .5em;
+	text-align: center;
+	font-weight: bold;
+	top: 0;
+	left: 0;
+	z-index: 1;
+	border-radius: .125em;
+	box-sizing: border-box;
 }

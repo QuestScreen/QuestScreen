@@ -109,7 +109,7 @@ func (c Communication) modules(a app.App) []jsonModuleDesc {
 	ret := make([]jsonModuleDesc, 0, a.NumModules())
 	for i := app.FirstModule; i < a.NumModules(); i++ {
 		module := a.ModuleAt(i)
-		modConfig := c.d.baseConfigs[i]
+		modConfig := module.DefaultConfig
 		modValue := reflect.ValueOf(modConfig).Elem()
 		for ; modValue.Kind() == reflect.Interface ||
 			modValue.Kind() == reflect.Ptr; modValue = modValue.Elem() {

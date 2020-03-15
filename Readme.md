@@ -6,12 +6,10 @@ It is designed to be run on boards like the Raspberry Pi.
 
 ## Compilation
 
-Build dependencies:
+Dependencies that need to be installed manually (`go.mod` takes care of required Go modules):
 
- * **Go 1.10**
-
-   TODO: modules
- * **SDL**
+ * **Go 1.12** or later
+ * **SDL2**, **SDL2_image**, **SDL2_ttf**
 
    If you want to run QuestScreen without a window manager, make sure that you enable SDL's kmsdrm support (`--enable-video-kmsdrm`).
    If you want to use input with kmsdrm, make sure to link against libudev.
@@ -20,6 +18,7 @@ Build dependencies:
 
    Install with `go get github.com/go-bindata/go-bindata/...`.
    This is used for including web-related files (html, css, js) in the binary.
+   Since this is a compile-time only dependency, it is not listed in `go.mod`.
 
  * **git**
 
