@@ -1,7 +1,7 @@
 package overlays
 
 import (
-	"github.com/QuestScreen/QuestScreen/api"
+	"github.com/QuestScreen/api"
 	"gopkg.in/yaml.v3"
 )
 

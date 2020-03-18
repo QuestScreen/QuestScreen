@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/QuestScreen/QuestScreen/api"
+	"github.com/QuestScreen/api"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"

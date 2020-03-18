@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/QuestScreen/QuestScreen/api"
 	"github.com/QuestScreen/QuestScreen/app"
+	"github.com/QuestScreen/api"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"

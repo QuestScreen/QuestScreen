@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/QuestScreen/QuestScreen/api"
 	"github.com/QuestScreen/QuestScreen/app"
 	"github.com/QuestScreen/QuestScreen/generated"
+	"github.com/QuestScreen/api"
 )
 
 // Communication implements (de)serialization of data for communication to the

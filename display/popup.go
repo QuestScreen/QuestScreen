@@ -1,7 +1,7 @@
 package display
 
 import (
-	"github.com/QuestScreen/QuestScreen/api"
+	"github.com/QuestScreen/api"
 	"github.com/veandco/go-sdl2/sdl"
 )
 

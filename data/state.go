@@ -3,8 +3,8 @@ package data
 import (
 	"sync"
 
-	"github.com/QuestScreen/QuestScreen/api"
 	"github.com/QuestScreen/QuestScreen/app"
+	"github.com/QuestScreen/api"
 )
 
 // State holds the complete state for the currently active group.

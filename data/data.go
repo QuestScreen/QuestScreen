@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/QuestScreen/QuestScreen/api"
 	"github.com/QuestScreen/QuestScreen/app"
+	"github.com/QuestScreen/api"
 )
 
 // System describes a Pen & Paper system.

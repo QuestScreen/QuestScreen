@@ -3,7 +3,7 @@ package app
 import (
 	"net/http"
 
-	"github.com/QuestScreen/QuestScreen/api"
+	"github.com/QuestScreen/api"
 	"github.com/veandco/go-sdl2/ttf"
 )
 

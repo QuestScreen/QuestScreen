@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/QuestScreen/QuestScreen/api"
 	"github.com/QuestScreen/QuestScreen/generated"
+	"github.com/QuestScreen/api"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"

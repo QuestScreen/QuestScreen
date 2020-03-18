@@ -33,7 +33,6 @@ For user documentation, please see the [project's website](questscreen.github.io
 
 ## License
 
-The `api` package that can be used to develop plugins for QuestScreen, as well as all files in the `web` directory, are licensed under terms of the [MIT license](/license-mit.txt).
-This ensures that you can distribute QuestScreen plugins under any license.
+This app is licensed under the terms of the [GNU GPL v3](/license-gpl.txt).
 
-All other packages, which constitute the main application, are licensed under the terms of the [GNU GPL v3](/license-gpl.txt).
+Note that the [plugin API](https://github.com/QuestScreen/api) is a separate module licensed under the MIT license so that plugins need not conform to the GNU GPL.
