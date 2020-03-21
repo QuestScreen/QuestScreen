@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"plugin"
+	"strings"
 
 	"github.com/QuestScreen/QuestScreen/app"
 	base "github.com/QuestScreen/QuestScreen/base"
@@ -92,6 +94,39 @@ func appendAssets(buffer []byte, paths ...string) []byte {
 	return buffer
 }
 
+func (qs *QuestScreen) loadPlugins(renderer *sdl.Renderer) {
+	pluginPath := filepath.Join(qs.dataDir, "plugins")
+	if _, err := os.Stat(pluginPath); os.IsNotExist(err) {
+		return
+	}
+	files, err := ioutil.ReadDir(pluginPath)
+	if err != nil {
+		log.Printf("Unable to load plugin directory: %s\n", err.Error())
+		return
+	}
+	for _, file := range files {
+		if file.IsDir() || file.Name()[0] == '.' ||
+			!strings.HasSuffix(file.Name(), ".so") {
+			continue
+		}
+		path := filepath.Join(pluginPath, file.Name())
+		p, err := plugin.Open(path)
+		if err != nil {
+			log.Printf("%s: Unable to load plugin. Error:\n%s\n",
+				pluginPath, err.Error())
+			continue
+		}
+		o, err := p.Lookup("QSPlugin")
+		if err != nil {
+			log.Printf("%s: QSPlugin object missing\n", pluginPath)
+			continue
+		}
+		if err = qs.registerPlugin(o.(*api.Plugin), renderer); err != nil {
+			panic(err)
+		}
+	}
+}
+
 // Init initializes the static data
 func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	events display.Events, port uint16) {
@@ -142,6 +177,7 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	if err = qs.registerPlugin(&base.Base, renderer); err != nil {
 		panic(err)
 	}
+	qs.loadPlugins(renderer)
 	qs.html = appendAssets(qs.html, "web/html/index-bottom.html")
 	qs.js = appendAssets(qs.js, "web/js/init.js")
 
@@ -338,7 +374,8 @@ func (qs *QuestScreen) listFiles(
 	return resources
 }
 
-var forbiddenNames = [5]string{"scenes", "heroes", "textures", "config.yaml", "state.yaml"}
+var forbiddenNames = [7]string{"scenes", "heroes", "fonts", "textures",
+	"plugins", "config.yaml", "state.yaml"}
 
 func (qs *QuestScreen) registerModule(descr *api.Module) error {
 	for i := range forbiddenNames {
