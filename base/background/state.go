@@ -74,7 +74,7 @@ func (s *state) PureEndpoint(index int) api.ModulePureEndpoint {
 	return endpoint{s}
 }
 
-func (e endpoint) Put(payload []byte) (interface{}, interface{},
+func (e endpoint) Post(payload []byte) (interface{}, interface{},
 	api.SendableError) {
 	value := api.ValidatedInt{Min: -1, Max: len(e.resources) - 1}
 	if err := api.ReceiveData(payload, &value); err != nil {

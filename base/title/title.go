@@ -61,55 +61,27 @@ func (*Title) Descriptor() *api.Module {
 func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture {
 	face := ctx.Font(
 		t.config.Font.FamilyIndex, t.config.Font.Style, t.config.Font.Size)
-	surface, err := face.RenderUTF8Blended(
-		text, sdl.Color{R: 0, G: 0, B: 0, A: 230})
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
 	r := ctx.Renderer()
-	textTexture, err := r.CreateTextureFromSurface(surface)
-	if err != nil {
-		log.Println(err)
+	textTexture := ctx.TextToTexture(
+		text, face, sdl.Color{R: 0, G: 0, B: 0, A: 230})
+	if textTexture == nil {
 		return nil
 	}
 	defer textTexture.Destroy()
+	_, _, textWidth, textHeight, _ := textTexture.Query()
 	winWidth, _, _ := r.GetOutputSize()
-	textWidth := surface.W
-	textHeight := surface.H
-	surface.Free()
 	if textWidth > winWidth*2/3 {
 		textHeight = textHeight * (winWidth * 2 / 3) / textWidth
 		textWidth = winWidth * 2 / 3
 	}
 	border := ctx.DefaultBorderWidth()
-	ret, err := r.CreateTexture(sdl.PIXELFORMAT_RGB888,
-		sdl.TEXTUREACCESS_TARGET, textWidth+6*border, textHeight+2*border)
-	if err != nil {
-		panic(err)
-	}
-	r.SetRenderTarget(ret)
-	defer r.SetRenderTarget(nil)
-	r.Clear()
-	r.SetDrawColor(0, 0, 0, 192)
-	r.FillRect(&sdl.Rect{X: 0, Y: 0,
-		W: int32(textWidth + 6*border), H: int32(textHeight) + 2*border})
-	t.config.Background.Primary.Use(r)
-	r.FillRect(&sdl.Rect{X: border, Y: 0,
-		W: int32(textWidth + 4*border), H: int32(textHeight + border)})
-	if t.mask != nil {
-		// TODO: properly color the mask
-		_, _, maskWidth, maskHeight, _ := t.mask.Query()
-		for x := int32(0); x < textWidth+6*border; x += maskWidth {
-			for y := int32(0); y < textHeight+2*border; y += maskHeight {
-				r.Copy(t.mask, nil, &sdl.Rect{
-					X: x, Y: y, W: maskWidth, H: maskHeight})
-			}
-		}
-	}
+	bgColor := t.config.Background.Primary.WithAlpha(255)
+	canvas := ctx.CreateCanvas(textWidth+4*border, textHeight+border,
+		&bgColor, t.mask, api.West|api.East|api.South)
+
 	r.Copy(textTexture, nil,
 		&sdl.Rect{X: 3 * border, Y: 0, W: textWidth, H: textHeight})
-	return ret
+	return canvas.Finish()
 }
 
 // InitTransition initializes a transition.

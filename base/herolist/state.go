@@ -121,7 +121,7 @@ func (s *state) IDEndpoint(index int) api.ModuleIDEndpoint {
 	return heroEndpoint{s}
 }
 
-func (e globalEndpoint) Put(payload []byte) (interface{}, interface{},
+func (e globalEndpoint) Post(payload []byte) (interface{}, interface{},
 	api.SendableError) {
 	var value bool
 	if err := api.ReceiveData(payload, &value); err != nil {
@@ -131,7 +131,7 @@ func (e globalEndpoint) Put(payload []byte) (interface{}, interface{},
 	return value, &globalRequest{visible: e.globalVisible}, nil
 }
 
-func (e heroEndpoint) Put(id string, payload []byte) (interface{}, interface{},
+func (e heroEndpoint) Post(id string, payload []byte) (interface{}, interface{},
 	api.SendableError) {
 	hIndex, ok := e.heroIDToIndex[id]
 	if !ok {

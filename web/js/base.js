@@ -10,7 +10,7 @@ class Background extends DropdownSelector {
 	}
 
 	async itemClick(index) {
-		await App.fetch("state/background", "PUT", index);
+		await App.fetch("state/background", "POST", index);
 		this.setItemSelected(index, true);
 	}
 }
@@ -43,14 +43,14 @@ class HeroList extends DropdownSelector {
 
 	async itemClick(index) {
 		const shown = await App.fetch(
-			"state/herolist/" + app.groups[app.activeGroup].heroes[index].id, "PUT",
+			"state/herolist/" + app.groups[app.activeGroup].heroes[index].id, "POST",
 			!this.uiItems[index].classList.contains("pure-menu-selected"));
 		this.setItemSelected(index, shown);
 	}
 
 	async swapAll(node) {
 		const shown = await App.fetch(
-			"state/herolist", "PUT", !node.classList.contains("pure-button-primary"));
+			"state/herolist", "POST", !node.classList.contains("pure-button-primary"));
 		if (shown) {
 			node.classList.add("pure-button-primary");
 			node.textContent = "Hide All";
@@ -74,7 +74,7 @@ class Overlays extends DropdownSelector {
 	}
 
 	async itemClick(index) {
-		const visible = await App.fetch("state/overlays", "PUT",
+		const visible = await App.fetch("state/overlays", "POST",
 				{resourceIndex: index, visible:
 					!this.uiItems[index].classList.contains("pure-menu-selected")});
 		this.setItemSelected(index, visible);
@@ -107,7 +107,7 @@ class Title {
 		if (node.classList.contains("pure-button-primary")) {
 			value = input.value;
 		}
-		const newValue = await App.fetch("state/title", "PUT", value);
+		const newValue = await App.fetch("state/title", "POST", value);
 		input.value = newValue;
 	}
 }

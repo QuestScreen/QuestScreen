@@ -45,7 +45,7 @@ var Descriptor = api.Module{
 }
 
 // Descriptor returns the Background's descriptor
-func (bg *Background) Descriptor() *api.Module {
+func (*Background) Descriptor() *api.Module {
 	return &Descriptor
 }
 

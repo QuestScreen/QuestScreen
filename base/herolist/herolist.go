@@ -127,53 +127,32 @@ func (l *HeroList) rebuildHeroBoxes(ctx api.ExtendedRenderContext) {
 		l.heroes = nil
 	} else {
 		l.heroes = make([]displayedHero, heroes.NumHeroes())
-		var err error
 		borderWidth := ctx.DefaultBorderWidth()
 		for index := range l.heroes {
 			hero := heroes.Hero(index)
 			heroBox := &l.heroes[index]
 			heroBox.shown = true
-			heroBox.tex, err = r.CreateTexture(sdl.PIXELFORMAT_RGB888,
-				sdl.TEXTUREACCESS_TARGET,
-				l.boxWidth(borderWidth), l.boxHeight(borderWidth))
-			if err == nil {
-				r.SetRenderTarget(heroBox.tex)
-				name := l.renderText(hero.Name(), ctx, 0, 0, 0)
-				_, _, nameWidth, nameHeight, _ := name.Query()
-				name.SetBlendMode(sdl.BLENDMODE_BLEND)
-				descr := l.renderText(hero.Description(), ctx, 50, 50, 50)
-				_, _, descrWidth, descrHeight, _ := descr.Query()
-				descr.SetBlendMode(sdl.BLENDMODE_BLEND)
-				r.Clear()
-				r.SetDrawColor(0, 0, 0, 192)
-				r.FillRect(&sdl.Rect{
-					X: 0, Y: 0, W: l.boxWidth(borderWidth), H: l.boxHeight(borderWidth)})
-				l.config.Background.Primary.Use(r)
-				r.FillRect(&sdl.Rect{X: 0, Y: borderWidth,
-					W: int32(l.contentWidth + 4*borderWidth),
-					H: int32(l.contentHeight + 2*borderWidth)})
-				if l.mask != nil {
-					_, _, maskWidth, maskHeight, _ := l.mask.Query()
-					for x := int32(0); x < l.contentWidth+6*borderWidth; x += maskWidth {
-						for y := int32(0); y < l.contentHeight+2*borderWidth; y += maskHeight {
-							r.Copy(l.mask, nil, &sdl.Rect{
-								X: x, Y: y, W: maskWidth, H: maskHeight})
-						}
-					}
-				}
-				r.Copy(name, nil, &sdl.Rect{
-					X: 2 * borderWidth, Y: borderWidth, W: nameWidth, H: nameHeight})
-
-				r.Copy(descr, nil, &sdl.Rect{X: 2 * borderWidth,
-					Y: l.boxHeight(borderWidth) - 2*borderWidth - descrHeight,
-					W: descrWidth, H: descrHeight})
-				name.Destroy()
-				descr.Destroy()
-			} else {
-				log.Println(err)
-			}
+			bgColor := l.config.Background.Primary.WithAlpha(255)
+			canvas := ctx.CreateCanvas(l.boxWidth(borderWidth)-borderWidth,
+				l.boxHeight(borderWidth)-2*borderWidth, &bgColor, l.mask,
+				api.North|api.East|api.South)
+			face := ctx.Font(
+				l.config.Font.FamilyIndex, l.config.Font.Style, l.config.Font.Size)
+			name := ctx.TextToTexture(hero.Name(), face,
+				sdl.Color{R: 0, G: 0, B: 0, A: 255})
+			_, _, nameWidth, nameHeight, _ := name.Query()
+			r.Copy(name, nil, &sdl.Rect{
+				X: 2 * borderWidth, Y: borderWidth, W: nameWidth, H: nameHeight})
+			descr := ctx.TextToTexture(hero.Description(), face,
+				sdl.Color{R: 50, G: 50, B: 50, A: 255})
+			_, _, descrWidth, descrHeight, _ := descr.Query()
+			r.Copy(descr, nil, &sdl.Rect{X: 2 * borderWidth,
+				Y: l.boxHeight(borderWidth) - 2*borderWidth - descrHeight,
+				W: descrWidth, H: descrHeight})
+			name.Destroy()
+			descr.Destroy()
+			heroBox.tex = canvas.Finish()
 		}
-		r.SetRenderTarget(nil)
 	}
 }
 

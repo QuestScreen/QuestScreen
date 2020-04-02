@@ -88,7 +88,7 @@ func (s *state) PureEndpoint(index int) api.ModulePureEndpoint {
 	return endpoint{s}
 }
 
-func (e endpoint) Put(payload []byte) (interface{},
+func (e endpoint) Post(payload []byte) (interface{},
 	interface{}, api.SendableError) {
 	value := struct {
 		ResourceIndex api.ValidatedInt `json:"resourceIndex"`

@@ -431,10 +431,10 @@ func (me *moduleEndpoint) Handle(method httpMethods, ids []string,
 	var responseObj, data interface{}
 	if me.pure {
 		ep := state.(api.PureEndpointProvider).PureEndpoint(me.endpointIndex)
-		responseObj, data, err = ep.Put(raw)
+		responseObj, data, err = ep.Post(raw)
 	} else {
 		ep := state.(api.IDEndpointProvider).IDEndpoint(me.endpointIndex)
-		responseObj, data, err = ep.Put(ids[0], raw)
+		responseObj, data, err = ep.Post(ids[0], raw)
 	}
 	if err != nil {
 		return nil, err
@@ -803,12 +803,12 @@ func startServer(owner *QuestScreen, events display.Events,
 				builder.WriteString(path)
 				if len(path) != 0 && path[len(path)-1] == '/' {
 					reg("ModuleEndpoint("+path+")", builder.String(), mutex,
-						idCapture{}, endpoint{httpPut,
+						idCapture{}, endpoint{httpPost,
 							&moduleEndpoint{endpointEnv: env, moduleIndex: i, endpointIndex: j,
 								pure: false}})
 				} else {
 					reg("ModuleEndpoint("+path+")", builder.String(), mutex,
-						endpoint{httpPut,
+						endpoint{httpPost,
 							&moduleEndpoint{endpointEnv: env, moduleIndex: i, endpointIndex: j,
 								pure: true}})
 				}

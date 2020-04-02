@@ -51,6 +51,27 @@ type renderContext struct {
 	heroes      app.HeroView
 }
 
+type canvas struct {
+	prevRenderTarget *sdl.Texture
+	target           *sdl.Texture
+	renderer         *sdl.Renderer
+}
+
+func (c canvas) Finish() *sdl.Texture {
+	ret := c.target
+	c.target = nil
+	c.renderer.SetRenderTarget(c.prevRenderTarget)
+	return ret
+}
+
+func (c canvas) Close() {
+	if c.target != nil {
+		c.target.Destroy()
+		c.target = nil
+		c.renderer.SetRenderTarget(c.prevRenderTarget)
+	}
+}
+
 func (rc renderContext) GetResources(index api.ResourceCollectionIndex) []api.Resource {
 	return rc.owner.GetResources(rc.moduleIndex, index)
 }
@@ -113,6 +134,89 @@ func (rc renderContext) LoadTexture(textureIndex int,
 			err.Error())
 	}
 	return tex, nil
+}
+
+func (rc renderContext) TextToTexture(
+	text string, font *ttf.Font, color sdl.Color) *sdl.Texture {
+	surface, err := font.RenderUTF8Blended(text, color)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+	defer surface.Free()
+	r := rc.Display.Backend
+	textTexture, err := r.CreateTextureFromSurface(surface)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+	textTexture.SetBlendMode(sdl.BLENDMODE_BLEND)
+	return textTexture
+}
+
+func (rc renderContext) CreateCanvas(innerWidth, innerHeight int32,
+	background *sdl.Color, tile *sdl.Texture, borders api.Directions) api.Canvas {
+	ret := canvas{renderer: rc.Display.Backend,
+		prevRenderTarget: rc.Display.Backend.GetRenderTarget()}
+	var err error
+	width := innerWidth
+	xOffset, yOffset := int32(0), int32(0)
+	if borders&api.East != 0 {
+		width += rc.Display.defaultBorderWidth
+	}
+	if borders&api.West != 0 {
+		width += rc.Display.defaultBorderWidth
+		xOffset = rc.Display.defaultBorderWidth
+	}
+	height := innerHeight
+	if borders&api.North != 0 {
+		height += rc.Display.defaultBorderWidth
+		yOffset = rc.Display.defaultBorderWidth
+	}
+	if borders&api.South != 0 {
+		height += rc.Display.defaultBorderWidth
+	}
+	ret.target, err = ret.renderer.CreateTexture(sdl.PIXELFORMAT_RGB888,
+		sdl.TEXTUREACCESS_TARGET, width, height)
+	if err != nil {
+		panic(err)
+	}
+	ret.renderer.SetRenderTarget(ret.target)
+	ret.renderer.SetDrawColor(0, 0, 0, 192)
+	ret.renderer.Clear()
+	if background != nil {
+		ret.renderer.SetDrawColor(
+			background.R, background.G, background.B, background.A)
+		ret.renderer.FillRect(
+			&sdl.Rect{X: xOffset, Y: yOffset, W: innerWidth, H: innerHeight})
+	}
+	if tile != nil {
+		_, _, w, h, _ := tile.Query()
+		targetRect := sdl.Rect{X: 0, Y: 0, W: w, H: h}
+		for y := yOffset; y < innerHeight+yOffset; y += h {
+			targetRect.Y, targetRect.H = y, h
+			srcRect := sdl.Rect{X: -1, Y: -1, W: w, H: h}
+			if y+h > innerHeight+yOffset {
+				targetRect.H = (y + h) - (innerHeight + yOffset)
+				srcRect = sdl.Rect{X: 0, Y: 0, W: w, H: targetRect.H}
+			}
+
+			for x := xOffset; x < innerWidth+xOffset; x += w {
+				targetRect.X, targetRect.W = x, w
+				if x+w > innerWidth+yOffset {
+					targetRect.W = (x + w) - (innerWidth + xOffset)
+					srcRect.X, srcRect.Y, srcRect.W = 0, 0, targetRect.W
+				}
+				if srcRect.X == -1 {
+					ret.renderer.Copy(tile, &srcRect, &targetRect)
+				} else {
+					ret.renderer.Copy(tile, nil, &targetRect)
+				}
+			}
+
+		}
+	}
+	return ret
 }
 
 // Init initializes the display. The renderer and window need to be generated
