@@ -150,15 +150,10 @@ func (*Background) EmptyConfig() interface{} {
 	return &backgroundConfig{}
 }
 
-// SetConfig sets the module's configuration
-func (bg *Background) SetConfig(config interface{}) {
-	bg.config = config.(*backgroundConfig)
-}
-
-// RebuildState queries the texture index through the channel and immediately
-// sets that texture as background.
-func (bg *Background) RebuildState(
-	ctx api.ExtendedRenderContext, data interface{}) {
+// Rebuild receives state data and config and immediately updates everything.
+func (bg *Background) Rebuild(
+	ctx api.ExtendedRenderContext, data interface{}, configVal interface{}) {
+	bg.config = configVal.(*backgroundConfig)
 	if data != nil {
 		req := data.(*request)
 		if req.file != bg.curFile {

@@ -141,7 +141,7 @@ func (td *textureData) loadTexture(renderer *sdl.Renderer,
 
 func (o *Overlays) calcScale(ctx api.RenderContext) {
 	winWidth, _, _ := ctx.Renderer().GetOutputSize()
-	wholeWidth := o.shownTexWidth + int32(len(o.textures)-1)*ctx.DefaultBorderWidth()
+	wholeWidth := o.shownTexWidth + int32(len(o.textures)-1)*ctx.Unit()
 	if wholeWidth > winWidth*9/10 {
 		o.targetScale = float32(winWidth*9/10) / float32(o.shownTexWidth)
 		o.targetXOffset = winWidth / 20
@@ -221,6 +221,7 @@ func (o *Overlays) TransitionStep(ctx api.RenderContext, elapsed time.Duration) 
 	o.curXOffset = o.startXOffset + int32(pos*float32(o.targetXOffset-o.startXOffset))
 
 	active := &o.textures[o.curActive]
+	unit := ctx.Unit()
 	if o.status == fadeIn {
 		err := active.tex.SetAlphaMod(uint8(pos * 255))
 		if err != nil {
@@ -228,9 +229,9 @@ func (o *Overlays) TransitionStep(ctx api.RenderContext, elapsed time.Duration) 
 		}
 		o.curActiveScale = pos * o.targetScale
 		if o.curActive == 0 || o.curActive == len(o.textures)-1 {
-			o.activeBorderWidth = int32(pos * float32(ctx.DefaultBorderWidth()))
+			o.activeBorderWidth = int32(pos * float32(unit))
 		} else {
-			o.activeBorderWidth = ctx.DefaultBorderWidth()/2 + int32(pos*float32(ctx.DefaultBorderWidth()/2))
+			o.activeBorderWidth = unit/2 + int32(pos*float32(unit/2))
 		}
 	} else {
 		err := o.textures[o.curActive].tex.SetAlphaMod(255 - uint8(pos*255))
@@ -239,9 +240,9 @@ func (o *Overlays) TransitionStep(ctx api.RenderContext, elapsed time.Duration) 
 		}
 		o.curActiveScale = (1.0 - pos) * o.startScale
 		if o.curActive == 0 || o.curActive == len(o.textures)-1 {
-			o.activeBorderWidth = int32((1.0 - pos) * float32(ctx.DefaultBorderWidth()))
+			o.activeBorderWidth = int32((1.0 - pos) * float32(unit))
 		} else {
-			o.activeBorderWidth = ctx.DefaultBorderWidth()/2 + int32((1.0-pos)*float32(ctx.DefaultBorderWidth()/2))
+			o.activeBorderWidth = unit/2 + int32((1.0-pos)*float32(unit/2))
 		}
 	}
 }
@@ -289,19 +290,15 @@ func (o *Overlays) Render(ctx api.RenderContext) {
 		if i == o.curActive || i+1 == o.curActive {
 			curX += o.activeBorderWidth
 		} else {
-			curX += ctx.DefaultBorderWidth()
+			curX += ctx.Unit()
 		}
 	}
 }
 
-// SetConfig sets the module's configuration
-func (o *Overlays) SetConfig(value interface{}) {
-	o.config = value.(*config)
-}
-
-// RebuildState queries the new state through the channel and immediately
-// updates everything.
-func (o *Overlays) RebuildState(ctx api.ExtendedRenderContext, data interface{}) {
+// Rebuild receives state data and config and immediately updates everything.
+func (o *Overlays) Rebuild(ctx api.ExtendedRenderContext, data interface{},
+	configVal interface{}) {
+	o.config = configVal.(*config)
 	if data == nil {
 		return
 	}

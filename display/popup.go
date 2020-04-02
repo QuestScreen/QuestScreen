@@ -11,10 +11,10 @@ type keyOption struct {
 }
 
 func (d *Display) shrinkByBorder(rect *sdl.Rect) {
-	rect.X += d.defaultBorderWidth
-	rect.Y += d.defaultBorderWidth
-	rect.W -= 2 * d.defaultBorderWidth
-	rect.H -= 2 * d.defaultBorderWidth
+	rect.X += d.unit
+	rect.Y += d.unit
+	rect.W -= 2 * d.unit
+	rect.H -= 2 * d.unit
 }
 
 func shrinkTo(rect *sdl.Rect, w int32, h int32) {
@@ -58,11 +58,10 @@ func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error 
 	}()
 	padding := (frame.H - maxHeight*int32(len(options)+1)) / (2 * int32(len(options)+1))
 	curY := frame.Y + padding
-	borderWidth := d.defaultBorderWidth
 	for i := range options {
-		curRect := sdl.Rect{X: frame.X + padding - 2*borderWidth,
-			Y: curY - 2*borderWidth, W: maxHeight + 4*borderWidth,
-			H: maxHeight + 4*borderWidth}
+		curRect := sdl.Rect{X: frame.X + padding - 2*d.unit,
+			Y: curY - 2*d.unit, W: maxHeight + 4*d.unit,
+			H: maxHeight + 4*d.unit}
 		d.Backend.SetDrawColor(0, 0, 0, 255)
 		d.Backend.FillRect(&curRect)
 		d.shrinkByBorder(&curRect)
@@ -87,7 +86,7 @@ func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error 
 		if err != nil {
 			return err
 		}
-		curRect = sdl.Rect{X: frame.X + padding + maxHeight + 4*borderWidth,
+		curRect = sdl.Rect{X: frame.X + padding + maxHeight + 4*d.unit,
 			Y: curY, W: surfaces[i].W, H: maxHeight}
 		shrinkTo(&curRect, surfaces[i].W, surfaces[i].H)
 		d.Backend.Copy(textTex, nil, &curRect)

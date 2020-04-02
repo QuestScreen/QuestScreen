@@ -74,13 +74,13 @@ func (t *Title) genTitleTexture(ctx api.RenderContext, text string) *sdl.Texture
 		textHeight = textHeight * (winWidth * 2 / 3) / textWidth
 		textWidth = winWidth * 2 / 3
 	}
-	border := ctx.DefaultBorderWidth()
+	unit := ctx.Unit()
 	bgColor := t.config.Background.Primary.WithAlpha(255)
-	canvas := ctx.CreateCanvas(textWidth+4*border, textHeight+border,
+	canvas := ctx.CreateCanvas(textWidth+4*unit, textHeight+unit,
 		&bgColor, t.mask, api.West|api.East|api.South)
 
 	r.Copy(textTexture, nil,
-		&sdl.Rect{X: 3 * border, Y: 0, W: textWidth, H: textHeight})
+		&sdl.Rect{X: 3 * unit, Y: 0, W: textWidth, H: textHeight})
 	return canvas.Finish()
 }
 
@@ -149,14 +149,10 @@ func (t *Title) Render(ctx api.RenderContext) {
 	}
 }
 
-// SetConfig sets the module's configuration
-func (t *Title) SetConfig(value interface{}) {
-	t.config = value.(*config)
-}
-
-// RebuildState queries the new state through the channel and immediately
-// updates everything.
-func (t *Title) RebuildState(ctx api.ExtendedRenderContext, data interface{}) {
+// Rebuild receives state data and config and immediately updates everything.
+func (t *Title) Rebuild(ctx api.ExtendedRenderContext, data interface{},
+	configVal interface{}) {
+	t.config = configVal.(*config)
 	if data != nil {
 		req := data.(*changeRequest)
 		t.curTitleText = req.caption

@@ -32,7 +32,7 @@ type Display struct {
 	renderers            []api.ModuleRenderer
 	Backend              *sdl.Renderer
 	Window               *sdl.Window
-	defaultBorderWidth   int32
+	unit                 int32
 	textureBuffer        uint32
 	moduleStates         []moduleState
 	numTransitions       int32
@@ -89,8 +89,8 @@ func (rc renderContext) Font(
 	return rc.owner.Font(fontFamily, style, size)
 }
 
-func (rc renderContext) DefaultBorderWidth() int32 {
-	return rc.defaultBorderWidth
+func (rc renderContext) Unit() int32 {
+	return rc.unit
 }
 
 func (rc renderContext) Heroes() api.HeroList {
@@ -162,19 +162,19 @@ func (rc renderContext) CreateCanvas(innerWidth, innerHeight int32,
 	width := innerWidth
 	xOffset, yOffset := int32(0), int32(0)
 	if borders&api.East != 0 {
-		width += rc.Display.defaultBorderWidth
+		width += rc.Display.unit
 	}
 	if borders&api.West != 0 {
-		width += rc.Display.defaultBorderWidth
-		xOffset = rc.Display.defaultBorderWidth
+		width += rc.Display.unit
+		xOffset = rc.Display.unit
 	}
 	height := innerHeight
 	if borders&api.North != 0 {
-		height += rc.Display.defaultBorderWidth
-		yOffset = rc.Display.defaultBorderWidth
+		height += rc.Display.unit
+		yOffset = rc.Display.unit
 	}
 	if borders&api.South != 0 {
-		height += rc.Display.defaultBorderWidth
+		height += rc.Display.unit
 	}
 	ret.target, err = ret.renderer.CreateTexture(sdl.PIXELFORMAT_RGB888,
 		sdl.TEXTUREACCESS_TARGET, width, height)
@@ -234,7 +234,11 @@ func (d *Display) Init(
 	if err != nil {
 		return err
 	}
-	d.defaultBorderWidth = height / 133
+	if width < height {
+		d.unit = width / 144
+	} else {
+		d.unit = height / 144
+	}
 	d.numTransitions = 0
 
 	d.genPopup(width, height)
@@ -379,16 +383,11 @@ func (d *Display) RenderLoop() {
 					for i := app.FirstModule; i < d.owner.NumModules(); i++ {
 						r := d.renderers[i]
 						state := &d.moduleStates[i]
-						forceRebuild := false
-						if state.queuedConfig != nil {
-							r.SetConfig(state.queuedConfig)
-							state.queuedConfig = nil
-							forceRebuild = true
-						}
-						if forceRebuild || state.queuedData != nil {
+						if state.queuedConfig != nil || state.queuedData != nil {
 							ctx.moduleIndex = i
-							r.RebuildState(ctx, state.queuedData)
+							r.Rebuild(ctx, state.queuedData, state.queuedConfig)
 							state.queuedData = nil
+							state.queuedConfig = nil
 						}
 					}
 					ctx.heroes.Close()
@@ -399,7 +398,7 @@ func (d *Display) RenderLoop() {
 						if state.queuedData != nil {
 							ctx.moduleIndex = i
 							r := d.renderers[i]
-							r.RebuildState(ctx, state.queuedData)
+							r.Rebuild(ctx, state.queuedData, nil)
 							state.queuedData = nil
 						}
 					}

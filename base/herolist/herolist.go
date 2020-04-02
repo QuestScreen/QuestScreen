@@ -127,14 +127,14 @@ func (l *HeroList) rebuildHeroBoxes(ctx api.ExtendedRenderContext) {
 		l.heroes = nil
 	} else {
 		l.heroes = make([]displayedHero, heroes.NumHeroes())
-		borderWidth := ctx.DefaultBorderWidth()
+		unit := ctx.Unit()
 		for index := range l.heroes {
 			hero := heroes.Hero(index)
 			heroBox := &l.heroes[index]
 			heroBox.shown = true
 			bgColor := l.config.Background.Primary.WithAlpha(255)
-			canvas := ctx.CreateCanvas(l.boxWidth(borderWidth)-borderWidth,
-				l.boxHeight(borderWidth)-2*borderWidth, &bgColor, l.mask,
+			canvas := ctx.CreateCanvas(l.boxWidth(unit)-unit,
+				l.boxHeight(unit)-2*unit, &bgColor, l.mask,
 				api.North|api.East|api.South)
 			face := ctx.Font(
 				l.config.Font.FamilyIndex, l.config.Font.Style, l.config.Font.Size)
@@ -142,12 +142,12 @@ func (l *HeroList) rebuildHeroBoxes(ctx api.ExtendedRenderContext) {
 				sdl.Color{R: 0, G: 0, B: 0, A: 255})
 			_, _, nameWidth, nameHeight, _ := name.Query()
 			r.Copy(name, nil, &sdl.Rect{
-				X: 2 * borderWidth, Y: borderWidth, W: nameWidth, H: nameHeight})
+				X: 2 * unit, Y: unit, W: nameWidth, H: nameHeight})
 			descr := ctx.TextToTexture(hero.Description(), face,
 				sdl.Color{R: 50, G: 50, B: 50, A: 255})
 			_, _, descrWidth, descrHeight, _ := descr.Query()
-			r.Copy(descr, nil, &sdl.Rect{X: 2 * borderWidth,
-				Y: l.boxHeight(borderWidth) - 2*borderWidth - descrHeight,
+			r.Copy(descr, nil, &sdl.Rect{X: 2 * unit,
+				Y: l.boxHeight(unit) - 2*unit - descrHeight,
 				W: descrWidth, H: descrHeight})
 			name.Destroy()
 			descr.Destroy()
@@ -189,19 +189,19 @@ func (l *HeroList) InitTransition(
 // TransitionStep advances the transition
 func (l *HeroList) TransitionStep(ctx api.RenderContext, elapsed time.Duration) {
 	pos := api.TransitionCurve{Duration: duration}.Cubic(elapsed)
-	borderWidth := ctx.DefaultBorderWidth()
+	unit := ctx.Unit()
 	switch l.status {
 	case showingAll:
-		l.curXOffset = int32((1.0 - pos) * float32(l.boxWidth(borderWidth)))
+		l.curXOffset = int32((1.0 - pos) * float32(l.boxWidth(unit)))
 	case hidingAll:
-		l.curXOffset = int32(pos * float32(l.boxWidth(borderWidth)))
+		l.curXOffset = int32(pos * float32(l.boxWidth(unit)))
 	case showingHero:
-		l.curXOffset = int32((1.0 - pos) * float32((l.boxWidth(borderWidth))))
-		l.curYOffset = int32(pos * float32(l.boxHeight(borderWidth)+l.contentHeight/4))
+		l.curXOffset = int32((1.0 - pos) * float32((l.boxWidth(unit))))
+		l.curYOffset = int32(pos * float32(l.boxHeight(unit)+l.contentHeight/4))
 		l.heroes[l.curHero].tex.SetAlphaMod(uint8(pos * 255))
 	case hidingHero:
-		l.curXOffset = int32(pos * float32(l.boxWidth(borderWidth)))
-		l.curYOffset = int32((1.0 - pos) * float32(l.boxHeight(borderWidth)+l.contentHeight/4))
+		l.curXOffset = int32(pos * float32(l.boxWidth(unit)))
+		l.curYOffset = int32((1.0 - pos) * float32(l.boxHeight(unit)+l.contentHeight/4))
 		l.heroes[l.curHero].tex.SetAlphaMod(uint8((1.0 - pos) * 255))
 	}
 }
@@ -230,7 +230,7 @@ func (l *HeroList) Render(ctx api.RenderContext) {
 	if !l.curGlobalVisible && l.status == resting {
 		return
 	}
-	borderWidth := ctx.DefaultBorderWidth()
+	unit := ctx.Unit()
 	r := ctx.Renderer()
 	for i := range l.heroes {
 		if !l.heroes[i].shown && (l.curHero != int32(i) ||
@@ -245,17 +245,17 @@ func (l *HeroList) Render(ctx api.RenderContext) {
 		_, winHeight, _ := r.GetOutputSize()
 		if xOffset == 0 {
 			targetRect := sdl.Rect{X: 0, Y: winHeight/10 +
-				(l.boxHeight(borderWidth)+l.contentHeight/4)*shown + additionalYOffset,
-				W: l.boxWidth(borderWidth), H: l.boxHeight(borderWidth)}
+				(l.boxHeight(unit)+l.contentHeight/4)*shown + additionalYOffset,
+				W: l.boxWidth(unit), H: l.boxHeight(unit)}
 			if err := r.Copy(l.heroes[i].tex, nil, &targetRect); err != nil {
 				log.Println(err)
 			}
 		} else {
 			targetRect := sdl.Rect{X: 0, Y: winHeight/10 +
-				(l.boxHeight(borderWidth)+l.contentHeight/4)*shown + additionalYOffset,
-				W: l.boxWidth(borderWidth) - xOffset, H: l.boxHeight(borderWidth)}
-			sourceRect := sdl.Rect{X: l.curXOffset, Y: 0, W: l.boxWidth(borderWidth),
-				H: l.boxHeight(borderWidth)}
+				(l.boxHeight(unit)+l.contentHeight/4)*shown + additionalYOffset,
+				W: l.boxWidth(unit) - xOffset, H: l.boxHeight(unit)}
+			sourceRect := sdl.Rect{X: l.curXOffset, Y: 0, W: l.boxWidth(unit),
+				H: l.boxHeight(unit)}
 			if err := r.Copy(l.heroes[i].tex, &sourceRect, &targetRect); err != nil {
 				log.Println(err)
 			}
@@ -269,15 +269,10 @@ func (l *HeroList) Render(ctx api.RenderContext) {
 	}
 }
 
-// SetConfig sets the module's configuration
-func (l *HeroList) SetConfig(value interface{}) {
-	l.config = value.(*config)
-}
-
-// RebuildState queries the new state through the channel and immediately
-// updates everything.
-func (l *HeroList) RebuildState(
-	ctx api.ExtendedRenderContext, data interface{}) {
+// Rebuild receives state data and config and immediately updates everything.
+func (l *HeroList) Rebuild(
+	ctx api.ExtendedRenderContext, data interface{}, configVal interface{}) {
+	l.config = configVal.(*config)
 	old := l.heroes
 	if l.mask != nil {
 		l.mask.Destroy()
