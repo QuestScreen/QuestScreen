@@ -274,20 +274,7 @@ func (l *HeroList) Rebuild(
 	ctx api.ExtendedRenderContext, data interface{}, configVal interface{}) {
 	l.config = configVal.(*config)
 	old := l.heroes
-	if l.mask != nil {
-		l.mask.Destroy()
-		l.mask = nil
-	}
-	if l.config.Background.TextureIndex != -1 {
-		var err error
-		l.mask, err = ctx.LoadTexture(l.config.Background.TextureIndex,
-			l.config.Background.Secondary)
-		if err != nil {
-			log.Println(err)
-		}
-	} else {
-		l.mask = nil
-	}
+	ctx.UpdateMask(&l.mask, *l.config.Background)
 	l.rebuildHeroBoxes(ctx)
 	if data != nil {
 		req := data.(*fullRequest)

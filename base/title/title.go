@@ -157,20 +157,7 @@ func (t *Title) Rebuild(ctx api.ExtendedRenderContext, data interface{},
 		req := data.(*changeRequest)
 		t.curTitleText = req.caption
 	}
-	if t.mask != nil {
-		t.mask.Destroy()
-		t.mask = nil
-	}
-	if t.config.Background.TextureIndex != -1 {
-		var err error
-		t.mask, err = ctx.LoadTexture(t.config.Background.TextureIndex,
-			t.config.Background.Secondary)
-		if err != nil {
-			log.Println(err)
-		}
-	} else {
-		t.mask = nil
-	}
+	ctx.UpdateMask(&t.mask, *t.config.Background)
 
 	t.curYOffset = 0
 	if t.curTitle != nil {

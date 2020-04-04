@@ -97,43 +97,50 @@ func (rc renderContext) Heroes() api.HeroList {
 	return rc.heroes
 }
 
-func (rc renderContext) LoadTexture(textureIndex int,
-	color api.RGBColor) (*sdl.Texture, error) {
-	textures := rc.owner.GetTextures()
-	path := textures[textureIndex].Path()
-	surface, err := img.Load(path)
-	if err != nil {
-		return nil, fmt.Errorf("unable to load %s: %s", path, err.Error())
+func (rc renderContext) UpdateMask(target **sdl.Texture,
+	bg api.SelectableTexturedBackground) {
+	if *target != nil {
+		(*target).Destroy()
+		(*target) = nil
 	}
-	if surface.Format.Format != sdl.PIXELFORMAT_INDEX8 {
-		grayscale, err := surface.ConvertFormat(sdl.PIXELFORMAT_INDEX8, 0)
+	if bg.TextureIndex != -1 {
+		textures := rc.owner.GetTextures()
+		path := textures[bg.TextureIndex].Path()
+		surface, err := img.Load(path)
 		if err != nil {
-			return nil, fmt.Errorf("could not convert %s to grayscale: %s", path,
-				err.Error())
+			log.Printf("unable to load %s: %s\n", path, err.Error())
+			return
+		}
+		if surface.Format.Format != sdl.PIXELFORMAT_INDEX8 {
+			grayscale, err := surface.ConvertFormat(sdl.PIXELFORMAT_INDEX8, 0)
+			if err != nil {
+				log.Printf("could not convert %s to grayscale: %s\n", path,
+					err.Error())
+				return
+			}
+			surface.Free()
+			surface = grayscale
+		}
+		colorSurface, err := sdl.CreateRGBSurfaceWithFormat(0, surface.W,
+			surface.H, 32, uint32(sdl.PIXELFORMAT_RGBA32))
+		grayPixels := surface.Pixels()
+		colorPixels := colorSurface.Pixels()
+		color := bg.Secondary
+		for y := int32(0); y < colorSurface.H; y++ {
+			for x := int32(0); x < colorSurface.W; x++ {
+				offset := (y*colorSurface.W + x)
+				cOffset := offset * 4
+				copy(colorPixels[cOffset:cOffset+4], []byte{color.Red, color.Green,
+					color.Blue, 255 - grayPixels[offset]})
+			}
 		}
 		surface.Free()
-		surface = grayscale
-	}
-	colorSurface, err := sdl.CreateRGBSurfaceWithFormat(0, surface.W,
-		surface.H, 32, uint32(sdl.PIXELFORMAT_RGBA32))
-	grayPixels := surface.Pixels()
-	colorPixels := colorSurface.Pixels()
-	for y := int32(0); y < colorSurface.H; y++ {
-		for x := int32(0); x < colorSurface.W; x++ {
-			offset := (y*colorSurface.W + x)
-			cOffset := offset * 4
-			copy(colorPixels[cOffset:cOffset+4], []byte{color.Red, color.Green,
-				color.Blue, 255 - grayPixels[offset]})
+		*target, err = rc.Display.Backend.CreateTextureFromSurface(colorSurface)
+		colorSurface.Free()
+		if err != nil {
+			log.Printf("unable to create texture from %s: %s\n", path, err.Error())
 		}
 	}
-	surface.Free()
-	tex, err := rc.Display.Backend.CreateTextureFromSurface(colorSurface)
-	colorSurface.Free()
-	if err != nil {
-		return nil, fmt.Errorf("unable to create texture from %s: %s", path,
-			err.Error())
-	}
-	return tex, nil
 }
 
 func (rc renderContext) TextToTexture(
