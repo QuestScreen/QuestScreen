@@ -204,14 +204,14 @@ func (rc renderContext) CreateCanvas(innerWidth, innerHeight int32,
 			targetRect.Y, targetRect.H = y, h
 			srcRect := sdl.Rect{X: -1, Y: -1, W: w, H: h}
 			if y+h > innerHeight+yOffset {
-				targetRect.H = (y + h) - (innerHeight + yOffset)
+				targetRect.H = innerHeight + yOffset - y
 				srcRect = sdl.Rect{X: 0, Y: 0, W: w, H: targetRect.H}
 			}
 
 			for x := xOffset; x < innerWidth+xOffset; x += w {
 				targetRect.X, targetRect.W = x, w
 				if x+w > innerWidth+yOffset {
-					targetRect.W = (x + w) - (innerWidth + xOffset)
+					targetRect.W = innerWidth + xOffset - x
 					srcRect.X, srcRect.Y, srcRect.W = 0, 0, targetRect.W
 				}
 				if srcRect.X == -1 {
