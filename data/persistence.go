@@ -85,38 +85,51 @@ type persistingScene struct {
 	Modules map[string]persistingSceneModule
 }
 
+func yamlName(f reflect.StructField) string {
+	name := f.Tag.Get("yaml")
+	if name == "" {
+		nameTmp := f.Name
+		r, n := utf8.DecodeRuneInString(nameTmp)
+		name = string(unicode.ToLower(r)) + nameTmp[n:]
+	}
+	return name
+}
+
 func (p Persistence) loadModuleConfigInto(heroes api.HeroList,
 	moduleIndex app.ModuleIndex, target interface{},
 	values map[string]yaml.Node, moduleName string) bool {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
 	for i := 0; i < targetModuleType.NumField(); i++ {
-		name := targetModuleType.Field(i).Tag.Get("yaml")
-		if name == "" {
-			nameTmp := targetModuleType.Field(i).Name
-			r, n := utf8.DecodeRuneInString(nameTmp)
-			name = string(unicode.ToLower(r)) + nameTmp[n:]
-		}
-
-		inValue, ok := values[name]
-		if !ok || inValue.Kind == yaml.ScalarNode && inValue.Tag == "!!null" {
+		name := yamlName(targetModuleType.Field(i))
+		if name == "-" {
 			continue
 		}
-		wasNil := false
-		if targetModule.Field(i).IsNil() {
-			targetModule.Field(i).Set(reflect.New(targetModuleType.Field(i).Type.Elem()))
-			wasNil = true
+		inValue, ok := values[name]
+		if !ok {
+			continue
 		}
-		targetSetting := targetModule.Field(i).Interface().(api.ConfigItem)
-
-		if err := targetSetting.LoadPersisted(&inValue,
-			p.d.owner.ServerContext(moduleIndex, heroes)); err != nil {
-			if wasNil {
-				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
+		if inValue.Kind != yaml.ScalarNode || inValue.Tag != "!!null" {
+			wasNil := false
+			if targetModule.Field(i).IsNil() {
+				targetModule.Field(i).Set(reflect.New(targetModuleType.Field(i).Type.Elem()))
+				wasNil = true
 			}
-			log.Println(err)
-			return false
+			targetSetting := targetModule.Field(i).Interface().(api.ConfigItem)
+
+			if err := targetSetting.LoadPersisted(&inValue,
+				p.d.owner.ServerContext(moduleIndex, heroes)); err != nil {
+				if wasNil {
+					targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
+				}
+				log.Println(err)
+				return false
+			}
 		}
+		delete(values, name)
+	}
+	for key := range values {
+		log.Printf("[module %s] unable to map config value \"%s\"\n", moduleName, key)
 	}
 	return true
 }
@@ -190,13 +203,9 @@ func (p Persistence) persistingModuleConfigs(heroes api.HeroList,
 			panic("value type is not a struct!")
 		}
 		for j := 0; j < valueType.NumField(); j++ {
-			tagVal, ok := valueType.Field(j).Tag.Lookup("yaml")
-			fieldName := valueType.Field(j).Name
-			if ok {
-				if tagVal == "-" {
-					continue
-				}
-				fieldName = tagVal
+			fieldName := yamlName(valueType.Field(j))
+			if fieldName == "-" {
+				continue
 			}
 			fieldVal := value.Field(j)
 			if !fieldVal.IsNil() {
