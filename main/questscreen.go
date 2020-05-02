@@ -179,6 +179,12 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	usr, _ := user.Current()
 
 	qs.dataDir = filepath.Join(usr.HomeDir, ".local", "share", "questscreen")
+	os.MkdirAll(qs.DataDir("base"), 0755)
+	os.MkdirAll(qs.DataDir("fonts"), 0755)
+	os.MkdirAll(qs.DataDir("plugins"), 0755)
+	os.MkdirAll(qs.DataDir("groups"), 0755)
+	os.MkdirAll(qs.DataDir("systems"), 0755)
+	os.MkdirAll(qs.DataDir("textures"), 0755)
 	if err := qs.loadConfig(filepath.Join(qs.dataDir, "config.yaml"),
 		width, height, port, fullscreen); err != nil {
 		log.Printf("unable to read config. error was:\n  %s\n", err.Error())
