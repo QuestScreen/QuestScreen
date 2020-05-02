@@ -13,7 +13,7 @@ type config struct {
 	width      int32
 	height     int32
 	port       uint16
-	keyActions []display.KeyAction
+	keyActions []display.KeyAction `yaml:"keyActions"`
 }
 
 type tmpKeyAction struct {
