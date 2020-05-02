@@ -29,6 +29,7 @@ const (
 type Display struct {
 	Events
 	owner                app.App
+	actions              []KeyAction
 	renderers            []api.ModuleRenderer
 	Backend              *sdl.Renderer
 	Window               *sdl.Window
@@ -226,13 +227,21 @@ func (rc renderContext) CreateCanvas(innerWidth, innerHeight int32,
 	return ret
 }
 
+// KeyAction describes a key that closes the app with the given return value
+type KeyAction struct {
+	Key         sdl.Keycode
+	ReturnValue int
+	Description string
+}
+
 // Init initializes the display. The renderer and window need to be generated
 // before since the app needs to load fonts based on the window size.
 func (d *Display) Init(
 	owner app.App, events Events, fullscreen bool, port uint16,
-	window *sdl.Window, renderer *sdl.Renderer) error {
+	actions []KeyAction, window *sdl.Window, renderer *sdl.Renderer) error {
 	d.owner = owner
 	d.Events = events
+	d.actions = actions
 	d.Window = window
 	d.Backend = renderer
 	d.initial = true
@@ -248,7 +257,7 @@ func (d *Display) Init(
 	}
 	d.numTransitions = 0
 
-	d.genPopup(width, height)
+	d.genPopup(width, height, actions)
 	if err = d.genWelcome(width, height, port); err != nil {
 		return err
 	}
@@ -326,7 +335,7 @@ func (d *Display) startTransition(moduleIndex app.ModuleIndex) {
 
 // RenderLoop implements the rendering loop for the display.
 // This function MUST be called in the main thread
-func (d *Display) RenderLoop() {
+func (d *Display) RenderLoop() int {
 	render := true
 	popup := false
 
@@ -360,22 +369,20 @@ func (d *Display) RenderLoop() {
 			case *sdl.KeyboardEvent:
 				if e.Type == sdl.KEYDOWN {
 					if popup {
-						switch e.Keysym.Sym {
-						case sdl.K_x:
-							return
-						case sdl.K_s:
-							return
-						default:
-							render = true
-							popup = false
+						for i := range d.actions {
+							if e.Keysym.Sym == d.actions[i].Key {
+								return d.actions[i].ReturnValue
+							}
 						}
+						render = true
+						popup = false
 					} else {
 						render = true
 						popup = true
 					}
 				}
 			case *sdl.QuitEvent:
-				return
+				return 0
 			case *sdl.UserEvent:
 				switch e.Type {
 				case d.Events.ModuleUpdateID:

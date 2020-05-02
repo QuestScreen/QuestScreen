@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -9,6 +10,8 @@ import (
 	"path/filepath"
 	"plugin"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/QuestScreen/QuestScreen/app"
 	base "github.com/QuestScreen/QuestScreen/base"
@@ -49,6 +52,7 @@ type moduleData struct {
 // QuestScreen is the main application. it implements app.App.
 // this is logically a singleton, multiple instances are not supported.
 type QuestScreen struct {
+	config
 	dataDir             string
 	fonts               []api.FontFamily
 	modules             []moduleData
@@ -127,18 +131,67 @@ func (qs *QuestScreen) loadPlugins(renderer *sdl.Renderer) {
 	}
 }
 
+func (qs *QuestScreen) loadConfig(path string, width int32, height int32,
+	port uint16, fullscreen bool) error {
+	input, err := ioutil.ReadFile(path)
+	if err == nil {
+		decoder := yaml.NewDecoder(bytes.NewReader(input))
+		decoder.KnownFields(true)
+		err = decoder.Decode(&qs.config)
+		if err != nil {
+			return err
+		}
+	} else {
+		if os.IsNotExist(err) {
+			qs.config = defaultConfig()
+			output, err := yaml.Marshal(&qs.config)
+			if err != nil {
+				panic(err)
+			}
+			err = ioutil.WriteFile(path, output, 0644)
+			if err != nil {
+				log.Println("unable to write config file: " + err.Error())
+			} else {
+				log.Println("Wrote default config file " + path)
+			}
+		} else {
+			return err
+		}
+	}
+	if width != 0 && height != 0 {
+		qs.config.width = width
+		qs.config.height = height
+		qs.config.fullscreen = false
+	} else if fullscreen {
+		qs.config.fullscreen = true
+	}
+	if port != 0 {
+		qs.config.port = port
+	}
+	return nil
+}
+
 // Init initializes the static data
 func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	events display.Events, port uint16) {
 	mc := messageCollector{owner: qs, moduleIndex: -1}
 
+	usr, _ := user.Current()
+
+	qs.dataDir = filepath.Join(usr.HomeDir, ".local", "share", "questscreen")
+	if err := qs.loadConfig(filepath.Join(qs.dataDir, "config.yaml"),
+		width, height, port, fullscreen); err != nil {
+		log.Printf("unable to read config. error was:\n  %s\n", err.Error())
+		return
+	}
+
 	// create window and renderer
 	var flags uint32 = sdl.WINDOW_OPENGL | sdl.WINDOW_ALLOW_HIGHDPI
-	if fullscreen {
+	if qs.config.fullscreen {
 		flags |= sdl.WINDOW_FULLSCREEN_DESKTOP
 	}
 	window, err := sdl.CreateWindow("QuestScreen", sdl.WINDOWPOS_UNDEFINED,
-		sdl.WINDOWPOS_UNDEFINED, width, height, flags)
+		sdl.WINDOWPOS_UNDEFINED, qs.config.width, qs.config.height, flags)
 	if err != nil {
 		panic(err)
 	}
@@ -152,9 +205,6 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 
 	_, oHeight, _ := renderer.GetOutputSize()
 
-	usr, _ := user.Current()
-
-	qs.dataDir = filepath.Join(usr.HomeDir, ".local", "share", "questscreen")
 	fontSizeMap := [6]int32{oHeight / 37, oHeight / 27, oHeight / 19,
 		oHeight / 13, oHeight / 8, oHeight / 4}
 	fontPath := filepath.Join(qs.dataDir, "fonts")
@@ -200,7 +250,8 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	qs.loadModuleResources()
 
 	if err := qs.display.Init(
-		qs, events, fullscreen, port, window, renderer); err != nil {
+		qs, events, qs.config.fullscreen, qs.config.port, qs.config.keyActions,
+		window, renderer); err != nil {
 		panic(err)
 	}
 }

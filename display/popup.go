@@ -5,11 +5,6 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-type keyOption struct {
-	key  string
-	desc string
-}
-
 func (d *Display) shrinkByBorder(rect *sdl.Rect) {
 	rect.X += d.unit
 	rect.Y += d.unit
@@ -26,8 +21,23 @@ func shrinkTo(rect *sdl.Rect, w int32, h int32) {
 	rect.H -= 2 * yStep
 }
 
-func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error {
-	surfaces := make([]*sdl.Surface, len(options))
+func keyName(k sdl.Keycode) string {
+	switch k {
+	case sdl.K_ESCAPE:
+		return "Esc"
+	case sdl.K_INSERT:
+		return "Ins"
+	case sdl.K_DELETE:
+		return "Del"
+	case sdl.K_BACKSPACE:
+		return "<-"
+	default:
+		return sdl.GetKeyName(k)
+	}
+}
+
+func (d *Display) renderKeyOptions(frame *sdl.Rect, actions []KeyAction) error {
+	surfaces := make([]*sdl.Surface, len(actions))
 	fontFace := d.owner.Font(0, api.Standard, api.ContentFont)
 	var err error
 	var bottomText *sdl.Surface
@@ -38,9 +48,9 @@ func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error 
 	defer bottomText.Free()
 
 	maxHeight := bottomText.H
-	for i := range options {
+	for i := range actions {
 		if surfaces[i], err = fontFace.RenderUTF8Blended(
-			options[i].desc, sdl.Color{R: 0, G: 0, B: 0, A: 230}); err != nil {
+			actions[i].Description, sdl.Color{R: 0, G: 0, B: 0, A: 230}); err != nil {
 			for j := 0; j < i; j++ {
 				surfaces[j].Free()
 			}
@@ -56,9 +66,9 @@ func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error 
 			surfaces[i].Free()
 		}
 	}()
-	padding := (frame.H - maxHeight*int32(len(options)+1)) / (2 * int32(len(options)+1))
+	padding := (frame.H - maxHeight*int32(len(actions)+1)) / (2 * int32(len(actions)+1))
 	curY := frame.Y + padding
-	for i := range options {
+	for i := range actions {
 		curRect := sdl.Rect{X: frame.X + padding - 2*d.unit,
 			Y: curY - 2*d.unit, W: maxHeight + 4*d.unit,
 			H: maxHeight + 4*d.unit}
@@ -68,8 +78,8 @@ func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error 
 		d.Backend.SetDrawColor(255, 255, 255, 255)
 		d.Backend.FillRect(&curRect)
 		var keySurface *sdl.Surface
-		if keySurface, err = fontFace.RenderUTF8Blended(
-			options[i].key, sdl.Color{R: 0, G: 0, B: 0, A: 230}); err != nil {
+		if keySurface, err = fontFace.RenderUTF8Blended(keyName(actions[i].Key),
+			sdl.Color{R: 0, G: 0, B: 0, A: 230}); err != nil {
 			return err
 		}
 		keyTex, err := d.Backend.CreateTextureFromSurface(keySurface)
@@ -106,7 +116,7 @@ func (d *Display) renderKeyOptions(frame *sdl.Rect, options ...keyOption) error 
 	return nil
 }
 
-func (d *Display) genPopup(width int32, height int32) {
+func (d *Display) genPopup(width int32, height int32, actions []KeyAction) {
 	if d.owner.NumFontFamilies() == 0 {
 		return
 	}
@@ -128,8 +138,7 @@ func (d *Display) genPopup(width int32, height int32) {
 	d.Backend.SetDrawColor(255, 255, 255, 255)
 	d.Backend.FillRect(&rect)
 
-	if err = d.renderKeyOptions(&rect, keyOption{key: "X", desc: "Quit"},
-		keyOption{key: "S", desc: "Shutdown"}); err != nil {
+	if err = d.renderKeyOptions(&rect, actions); err != nil {
 		panic(err)
 	}
 	d.popupTexture.SetBlendMode(sdl.BLENDMODE_BLEND)

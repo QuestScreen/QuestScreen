@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 	"runtime"
 
 	"github.com/pborman/getopt"
@@ -18,9 +19,9 @@ func init() {
 
 func main() {
 	fullscreenFlag := getopt.BoolLong("fullscreen", 'f', "start in fullscreen")
-	port := getopt.Uint16Long("port", 'p', 8080, "port to bind to")
-	width := getopt.Int32Long("width", 'w', 800, "width of the window")
-	height := getopt.Int32Long("height", 'h', 600, "height of the window")
+	port := getopt.Uint16Long("port", 'p', 0, "port to bind to")
+	width := getopt.Int32Long("width", 'w', 0, "width of the window (set w and h to start windowed)")
+	height := getopt.Int32Long("height", 'h', 0, "height of the window (set w and h to start windowed)")
 	getopt.Parse()
 
 	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_EVENTS); err != nil {
@@ -43,7 +44,8 @@ func main() {
 
 	server := startServer(&qs, events, *port)
 
-	qs.display.RenderLoop()
+	ret := qs.display.RenderLoop()
 	_ = server.Close()
 	qs.destroy()
+	os.Exit(ret)
 }
