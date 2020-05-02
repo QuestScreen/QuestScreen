@@ -246,6 +246,8 @@ func (d *Display) Init(
 	d.Backend = renderer
 	d.initial = true
 
+	sdl.ShowCursor(sdl.DISABLE)
+
 	width, height, err := d.Backend.GetOutputSize()
 	if err != nil {
 		return err
@@ -383,6 +385,10 @@ func (d *Display) RenderLoop() int {
 				}
 			case *sdl.QuitEvent:
 				return 0
+			case *sdl.WindowEvent:
+				if e.Type == sdl.WINDOW_SHOWN {
+					render = true
+				}
 			case *sdl.UserEvent:
 				switch e.Type {
 				case d.Events.ModuleUpdateID:
