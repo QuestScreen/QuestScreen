@@ -386,7 +386,8 @@ func (d *Display) RenderLoop() int {
 			case *sdl.QuitEvent:
 				return 0
 			case *sdl.WindowEvent:
-				if e.Type == sdl.WINDOW_SHOWN {
+				switch e.Event {
+				case sdl.WINDOWEVENT_SHOWN, sdl.WINDOWEVENT_EXPOSED:
 					render = true
 				}
 			case *sdl.UserEvent:
