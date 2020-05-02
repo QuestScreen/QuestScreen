@@ -816,6 +816,7 @@ func startServer(owner *QuestScreen, events display.Events,
 		}
 	}
 
+	log.Printf("Listening on port %d\n", port)
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
 			if err != http.ErrServerClosed {

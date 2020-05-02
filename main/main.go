@@ -42,7 +42,7 @@ func main() {
 		log.Println("Could not set swap interval to -1")
 	}
 
-	server := startServer(&qs, events, *port)
+	server := startServer(&qs, events, qs.config.port)
 
 	ret := qs.display.RenderLoop()
 	_ = server.Close()
