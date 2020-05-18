@@ -4,21 +4,22 @@ import (
 	"log"
 	"time"
 
-	"github.com/QuestScreen/api"
-
-	"github.com/veandco/go-sdl2/img"
-	"github.com/veandco/go-sdl2/sdl"
+	"github.com/QuestScreen/api/colors"
+	"github.com/QuestScreen/api/modules"
+	"github.com/QuestScreen/api/render"
+	"github.com/QuestScreen/api/resources"
+	"github.com/QuestScreen/api/server"
 )
 
 type config struct{}
 
 type textureData struct {
-	tex           *sdl.Texture
+	tex           render.Image
 	resourceIndex int
 }
 
 type showRequest struct {
-	resource      api.Resource
+	resource      resources.Resource
 	resourceIndex int
 }
 
@@ -66,88 +67,67 @@ type Overlays struct {
 	// (grows/shrinks while fadeIn/fadeOut from/to the border of the two adjacent
 	// textures)
 	activeBorderWidth int32
+	alphaMod          uint8
 }
 
 const duration = time.Second
 
-func newRenderer(
-	backend *sdl.Renderer, ms api.MessageSender) (api.ModuleRenderer, error) {
+func newRenderer(r render.Renderer,
+	ms server.MessageSender) (modules.Renderer, error) {
 	return &Overlays{status: resting, shownTexWidth: 0, curActive: -1}, nil
 }
 
 // Descriptor describes the Overlays module
-var Descriptor = api.Module{
+var Descriptor = modules.Module{
 	Name: "Overlays",
 	ID:   "overlays",
-	ResourceCollections: []api.ResourceSelector{
+	ResourceCollections: []resources.Selector{
 		{Subdirectory: "", Suffixes: nil}},
 	EndpointPaths:  []string{""},
 	DefaultConfig:  &config{},
 	CreateRenderer: newRenderer, CreateState: newState,
 }
 
-// Descriptor returns the descriptor of the Overlays module
-func (o *Overlays) Descriptor() *api.Module {
-	return &Descriptor
-}
-
-func (td *textureData) loadTexture(renderer *sdl.Renderer,
-	resource api.Resource, resourceIndex int) (loadedWidth int32) {
-	tex, err := img.LoadTexture(renderer, resource.Path())
+func (o *Overlays) loadTexture(r render.Renderer, td *textureData,
+	resource resources.Resource, resourceIndex int) (loadedWidth int32) {
+	tex, err := r.LoadImageFile(resource.Path())
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	_, _, texWidth, texHeight, _ := tex.Query()
-	winWidth, winHeight, _ := renderer.GetOutputSize()
+	frame := r.OutputSize()
 	targetScale := float32(1.0)
-	if texHeight > winHeight*2/3 {
-		targetScale = float32(winHeight*2/3) / float32(texHeight)
-	} else if texHeight < winHeight/2 {
-		targetScale = float32(winHeight/2) / float32(texHeight)
+	if tex.Height > frame.Height*2/3 {
+		targetScale = float32(frame.Height*2/3) / float32(tex.Height)
+	} else if tex.Height < frame.Height/2 {
+		targetScale = float32(frame.Height/2) / float32(tex.Height)
 	}
-	if (float32(texWidth) * targetScale) > float32(winWidth/2) {
-		targetScale = float32(winWidth/2) / (float32(texWidth) * targetScale)
+	if (float32(tex.Width) * targetScale) > float32(frame.Width/2) {
+		targetScale = float32(frame.Width/2) / (float32(tex.Width) * targetScale)
 	}
 	if targetScale < 1.0 {
-		loadedWidth = int32(float32(texWidth) * targetScale)
-		// create a smaller texture
-		smallerTex, err := renderer.CreateTexture(sdl.PIXELFORMAT_RGB888,
-			sdl.TEXTUREACCESS_TARGET, loadedWidth,
-			int32(float32(texHeight)*targetScale))
-		if err == nil {
-			renderer.SetRenderTarget(smallerTex)
-			err = renderer.Copy(tex, nil, nil)
-			if err == nil {
-				tex.Destroy()
-				tex = smallerTex
-			} else {
-				loadedWidth = texWidth
-				smallerTex.Destroy()
-				log.Println(err)
-			}
-			renderer.SetRenderTarget(nil)
-		} else {
-			loadedWidth = texWidth
-			log.Println(err)
-		}
+		loadedWidth = int32(float32(tex.Width) * targetScale)
+		canvas := r.CreateCanvas(loadedWidth, int32(float32(tex.Height)*targetScale),
+			colors.RGB{R: 0, G: 0, B: 0}.AsBackground(), render.Nowhere)
+		tex.Draw(r, r.OutputSize(), 255)
+		tex = canvas.Finish()
 	} else {
-		loadedWidth = texWidth
+		loadedWidth = tex.Width
 	}
 	td.tex = tex
 	td.resourceIndex = resourceIndex
 	return
 }
 
-func (o *Overlays) calcScale(ctx api.RenderContext) {
-	winWidth, _, _ := ctx.Renderer().GetOutputSize()
-	wholeWidth := o.shownTexWidth + int32(len(o.textures)-1)*ctx.Unit()
-	if wholeWidth > winWidth*9/10 {
-		o.targetScale = float32(winWidth*9/10) / float32(o.shownTexWidth)
-		o.targetXOffset = winWidth / 20
+func (o *Overlays) calcScale(r render.Renderer) {
+	frame := r.OutputSize()
+	wholeWidth := o.shownTexWidth + int32(len(o.textures)-1)*r.Unit()
+	if wholeWidth > frame.Width*9/10 {
+		o.targetScale = float32(frame.Width*9/10) / float32(o.shownTexWidth)
+		o.targetXOffset = frame.Width / 20
 	} else {
 		o.targetScale = 1.0
-		o.targetXOffset = (winWidth - wholeWidth) / 2
+		o.targetXOffset = (frame.Width - wholeWidth) / 2
 	}
 }
 
@@ -161,9 +141,9 @@ func (o *Overlays) sendToRest() {
 }
 
 // InitTransition initializes a transition.
-func (o *Overlays) InitTransition(ctx api.RenderContext, data interface{}) time.Duration {
+func (o *Overlays) InitTransition(r render.Renderer,
+	data interface{}) time.Duration {
 	shown, ok := data.(*showRequest)
-	r := ctx.Renderer()
 	if ok {
 		o.textures = append(o.textures, textureData{})
 		var newTexture *textureData
@@ -181,12 +161,9 @@ func (o *Overlays) InitTransition(ctx api.RenderContext, data interface{}) time.
 				return -1
 			}
 		}
-		width := newTexture.loadTexture(r, shown.resource, shown.resourceIndex)
+		width := o.loadTexture(r, newTexture, shown.resource, shown.resourceIndex)
 		o.shownTexWidth += width
-		if err := newTexture.tex.SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
-			log.Println(err)
-		}
-		o.calcScale(ctx)
+		o.calcScale(r)
 		o.status = fadeIn
 	} else {
 		hide := data.(*hideRequest)
@@ -199,12 +176,8 @@ func (o *Overlays) InitTransition(ctx api.RenderContext, data interface{}) time.
 		}
 		if o.curActive != -1 {
 			o.status = fadeOut
-			if err := o.textures[o.curActive].tex.SetBlendMode(sdl.BLENDMODE_BLEND); err != nil {
-				log.Println(err)
-			}
-			_, _, texWidth, _, _ := o.textures[o.curActive].tex.Query()
-			o.shownTexWidth -= texWidth
-			o.calcScale(ctx)
+			o.shownTexWidth -= o.textures[o.curActive].tex.Width
+			o.calcScale(r)
 			o.status = fadeOut
 		} else {
 			o.sendToRest()
@@ -215,18 +188,14 @@ func (o *Overlays) InitTransition(ctx api.RenderContext, data interface{}) time.
 }
 
 // TransitionStep advances the transition.
-func (o *Overlays) TransitionStep(ctx api.RenderContext, elapsed time.Duration) {
-	pos := api.TransitionCurve{Duration: duration}.Cubic(elapsed)
+func (o *Overlays) TransitionStep(r render.Renderer, elapsed time.Duration) {
+	pos := render.TransitionCurve{Duration: duration}.Cubic(elapsed)
 	o.curInactiveScale = o.startScale + pos*(o.targetScale-o.startScale)
 	o.curXOffset = o.startXOffset + int32(pos*float32(o.targetXOffset-o.startXOffset))
 
-	active := &o.textures[o.curActive]
-	unit := ctx.Unit()
+	unit := r.Unit()
 	if o.status == fadeIn {
-		err := active.tex.SetAlphaMod(uint8(pos * 255))
-		if err != nil {
-			log.Println(err)
-		}
+		o.alphaMod = uint8(pos * 255)
 		o.curActiveScale = pos * o.targetScale
 		if o.curActive == 0 || o.curActive == len(o.textures)-1 {
 			o.activeBorderWidth = int32(pos * float32(unit))
@@ -234,10 +203,7 @@ func (o *Overlays) TransitionStep(ctx api.RenderContext, elapsed time.Duration) 
 			o.activeBorderWidth = unit/2 + int32(pos*float32(unit/2))
 		}
 	} else {
-		err := o.textures[o.curActive].tex.SetAlphaMod(255 - uint8(pos*255))
-		if err != nil {
-			log.Println(err)
-		}
+		o.alphaMod = 255 - uint8(pos*255)
 		o.curActiveScale = (1.0 - pos) * o.startScale
 		if o.curActive == 0 || o.curActive == len(o.textures)-1 {
 			o.activeBorderWidth = int32((1.0 - pos) * float32(unit))
@@ -248,55 +214,46 @@ func (o *Overlays) TransitionStep(ctx api.RenderContext, elapsed time.Duration) 
 }
 
 // FinishTransition finalizes the transition.
-func (o *Overlays) FinishTransition(ctx api.RenderContext) {
+func (o *Overlays) FinishTransition(r render.Renderer) {
 	if o.status == fadeOut {
-		_ = o.textures[o.curActive].tex.Destroy()
+		r.FreeImage(&o.textures[o.curActive].tex)
 		copy(o.textures[o.curActive:len(o.textures)-1], o.textures[o.curActive+1:len(o.textures)])
 		o.textures = o.textures[:len(o.textures)-1]
 	} else {
-		if err := o.textures[o.curActive].tex.SetBlendMode(sdl.BLENDMODE_NONE); err != nil {
-			log.Println(err)
-		}
-		if err := o.textures[o.curActive].tex.SetAlphaMod(255); err != nil {
-			log.Println(err)
-		}
+		o.alphaMod = 255
 	}
 	o.sendToRest()
 }
 
 // Render renders the module.
-func (o *Overlays) Render(ctx api.RenderContext) {
-	r := ctx.Renderer()
-	_, winHeight, _ := r.GetOutputSize()
+func (o *Overlays) Render(r render.Renderer) {
+	frame := r.OutputSize()
 	curX := o.curXOffset
 
 	for i := range o.textures {
 		cur := &o.textures[i]
-		_, _, texWidth, texHeight, _ := cur.tex.Query()
 		var targetWidth, targetHeight int32
 		if i == o.curActive {
-			targetHeight = int32(float32(texHeight)*o.curActiveScale) - 1
-			targetWidth = int32(float32(texWidth)*o.curActiveScale) - 1
+			targetHeight = int32(float32(cur.tex.Height)*o.curActiveScale) - 1
+			targetWidth = int32(float32(cur.tex.Width)*o.curActiveScale) - 1
 		} else {
-			targetHeight = int32(float32(texHeight)*o.curInactiveScale) - 1
-			targetWidth = int32(float32(texWidth)*o.curInactiveScale) - 1
+			targetHeight = int32(float32(cur.tex.Height)*o.curInactiveScale) - 1
+			targetWidth = int32(float32(cur.tex.Width)*o.curInactiveScale) - 1
 		}
-		rect := sdl.Rect{X: curX, Y: winHeight - targetHeight, W: targetWidth, H: targetHeight}
-		err := r.Copy(cur.tex, nil, &rect)
-		if err != nil {
-			log.Println(err)
-		}
+		rect := render.Rectangle{X: curX, Y: frame.Height - targetHeight,
+			Width: targetWidth, Height: targetHeight}
+		cur.tex.Draw(r, rect, o.alphaMod)
 		curX += targetWidth
 		if i == o.curActive || i+1 == o.curActive {
 			curX += o.activeBorderWidth
 		} else {
-			curX += ctx.Unit()
+			curX += r.Unit()
 		}
 	}
 }
 
 // Rebuild receives state data and config and immediately updates everything.
-func (o *Overlays) Rebuild(ctx api.ExtendedRenderContext, data interface{},
+func (o *Overlays) Rebuild(r render.Renderer, data interface{},
 	configVal interface{}) {
 	o.config = configVal.(*config)
 	if data == nil {
@@ -304,17 +261,15 @@ func (o *Overlays) Rebuild(ctx api.ExtendedRenderContext, data interface{},
 	}
 	req := data.(*fullRequest)
 	for i := range o.textures {
-		if o.textures[i].tex != nil {
-			o.textures[i].tex.Destroy()
-		}
+		r.FreeImage(&o.textures[i].tex)
 	}
 	o.shownTexWidth = 0
 	o.textures = make([]textureData, len(req.resources))
-	r := ctx.Renderer()
 	for i := range o.textures {
 		res := req.resources[i]
-		o.shownTexWidth += o.textures[i].loadTexture(r, res.resource, res.resourceIndex)
+		o.shownTexWidth += o.loadTexture(
+			r, &o.textures[i], res.resource, res.resourceIndex)
 	}
-	o.calcScale(ctx)
+	o.calcScale(r)
 	o.sendToRest()
 }

@@ -13,6 +13,9 @@ import (
 	"github.com/QuestScreen/QuestScreen/app"
 	"github.com/QuestScreen/QuestScreen/generated"
 	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/groups"
+	"github.com/QuestScreen/api/modules"
+	"github.com/QuestScreen/api/server"
 
 	"github.com/QuestScreen/QuestScreen/display"
 )
@@ -135,7 +138,7 @@ type endpointEnv struct {
 	events display.Events
 }
 
-func (env *endpointEnv) sendConfigsToDisplay() api.SendableError {
+func (env *endpointEnv) sendConfigsToDisplay() server.Error {
 	if env.qs.activeGroupIndex != -1 {
 		req, err := env.qs.display.StartRequest(env.events.ModuleConfigID, 0)
 		if err != nil {
@@ -154,13 +157,14 @@ func sendScene(qs *QuestScreen, req *display.Request) {
 	for i := app.FirstModule; i < qs.NumModules(); i++ {
 		data[i] = scene.UsesModule(i)
 		if data[i] {
-			req.SendRendererData(i, qs.data.StateOf(i).CreateRendererData())
+			req.SendRendererData(i, qs.data.StateOf(i).CreateRendererData(
+				qs.ServerContext(i)))
 		}
 	}
 	req.SendEnabledModulesList(data)
 }
 
-func propagateHeroesChange(heroes api.HeroList, action api.HeroChangeAction,
+func propagateHeroesChange(action groups.HeroChangeAction,
 	heroIndex int, qs *QuestScreen, req *display.Request) {
 	g := qs.activeGroup()
 	if g == nil {
@@ -171,11 +175,12 @@ func propagateHeroesChange(heroes api.HeroList, action api.HeroChangeAction,
 		for j := app.FirstModule; j < qs.NumModules(); j++ {
 			if scene.UsesModule(j) {
 				state := qs.data.State.StateOfScene(i, j)
-				hams, ok := state.(api.HeroAwareModuleState)
+				hams, ok := state.(modules.HeroAwareState)
 				if ok {
-					hams.HeroListChanged(heroes, action, heroIndex)
+					ctx := qs.ServerContext(j)
+					hams.HeroListChanged(ctx, action, heroIndex)
 					if i == qs.data.State.ActiveScene() {
-						req.SendRendererData(j, state.CreateRendererData())
+						req.SendRendererData(j, state.CreateRendererData(ctx))
 					}
 				}
 			}
@@ -201,7 +206,7 @@ type staticDataEndpoint struct {
 }
 
 func (sd staticDataEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	return sd.qs.communication.StaticData(sd.qs, sd.qs.plugins), nil
 }
 
@@ -227,7 +232,7 @@ type validatedStateAction struct {
 }
 
 func (vsa *validatedStateAction) UnmarshalJSON(data []byte) error {
-	if err := json.Unmarshal(data, &api.ValidatedStruct{
+	if err := json.Unmarshal(data, &server.ValidatedStruct{
 		Value: &vsa.Value}); err != nil {
 		return err
 	}
@@ -252,7 +257,7 @@ func (vsa *validatedStateAction) UnmarshalJSON(data []byte) error {
 }
 
 func (se stateEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	activeScene := -1
 	var modules interface{} = nil
 	if method == httpPost {
@@ -263,7 +268,7 @@ func (se stateEndpoint) Handle(method httpMethods, ids []string,
 		}
 		value := validatedStateAction{MaxGroups: se.qs.data.NumGroups() - 1,
 			MaxScenes: maxScenes}
-		if err := api.ReceiveData(raw, &value); err != nil {
+		if err := server.ReceiveData(raw, &value); err != nil {
 			return nil, err
 		}
 
@@ -292,7 +297,7 @@ func (se stateEndpoint) Handle(method httpMethods, ids []string,
 				}
 			case setscene:
 				if g == nil {
-					return nil, &api.BadRequest{Message: "No active group"}
+					return nil, &server.BadRequest{Message: "No active group"}
 				}
 
 				if err := se.qs.data.SetScene(value.Value.Index); err != nil {
@@ -329,7 +334,7 @@ type baseConfigEndpoint struct {
 }
 
 func (bce baseConfigEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	if method == httpPut {
 		if err := bce.qs.communication.UpdateBaseConfig(raw); err != nil {
 			return nil, err
@@ -345,10 +350,10 @@ type systemConfigEndpoint struct {
 }
 
 func (sce systemConfigEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	_, s := sce.qs.data.SystemByID(ids[0])
 	if s == nil {
-		return nil, &api.NotFound{Name: ids[0]}
+		return nil, &server.NotFound{Name: ids[0]}
 	}
 	if method == httpPut {
 		if err := sce.qs.communication.UpdateSystemConfig(raw, s); err != nil {
@@ -365,10 +370,10 @@ type groupConfigEndpoint struct {
 }
 
 func (gce groupConfigEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	_, g := gce.qs.data.GroupByID(ids[0])
 	if g == nil {
-		return nil, &api.NotFound{Name: ids[0]}
+		return nil, &server.NotFound{Name: ids[0]}
 	}
 	if method == httpPut {
 
@@ -386,14 +391,14 @@ type sceneConfigEndpoint struct {
 }
 
 func (sce sceneConfigEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	_, g := sce.qs.data.GroupByID(ids[0])
 	if g == nil {
-		return nil, &api.NotFound{Name: ids[0]}
+		return nil, &server.NotFound{Name: ids[0]}
 	}
 	_, s := g.SceneByID(ids[1])
 	if s == nil {
-		return nil, &api.NotFound{Name: ids[1]}
+		return nil, &server.NotFound{Name: ids[1]}
 	}
 	if method == httpPut {
 		if err := sce.qs.communication.UpdateSceneConfig(raw, s); err != nil {
@@ -413,10 +418,10 @@ type moduleEndpoint struct {
 }
 
 func (me *moduleEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	state := me.qs.data.State.StateOf(me.moduleIndex)
 	if state == nil {
-		return nil, &api.BadRequest{
+		return nil, &server.BadRequest{
 			Message: fmt.Sprintf("module \"%s\" not enabled for current scene",
 				me.qs.modules[me.moduleIndex].ID)}
 	}
@@ -430,10 +435,10 @@ func (me *moduleEndpoint) Handle(method httpMethods, ids []string,
 
 	var responseObj, data interface{}
 	if me.pure {
-		ep := state.(api.PureEndpointProvider).PureEndpoint(me.endpointIndex)
+		ep := state.(modules.PureEndpointProvider).PureEndpoint(me.endpointIndex)
 		responseObj, data, err = ep.Post(raw)
 	} else {
-		ep := state.(api.IDEndpointProvider).IDEndpoint(me.endpointIndex)
+		ep := state.(modules.IDEndpointProvider).IDEndpoint(me.endpointIndex)
 		responseObj, data, err = ep.Post(ids[0], raw)
 	}
 	if err != nil {
@@ -451,7 +456,7 @@ type dataEndpoint struct {
 }
 
 func (de dataEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	return de.qs.communication.ViewAll(de.qs), nil
 }
 
@@ -460,10 +465,10 @@ type systemEndpoint struct {
 }
 
 func (se systemEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	index, s := se.qs.data.SystemByID(ids[0])
 	if s == nil {
-		return nil, &api.NotFound{Name: ids[0]}
+		return nil, &server.NotFound{Name: ids[0]}
 	}
 	if method == httpPut {
 		if err := se.qs.communication.UpdateSystem(raw, s); err != nil {
@@ -482,10 +487,10 @@ type dataGroupEndpoint struct {
 }
 
 func (dge dataGroupEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	index, g := dge.qs.data.GroupByID(ids[0])
 	if g == nil {
-		return nil, &api.NotFound{Name: ids[0]}
+		return nil, &server.NotFound{Name: ids[0]}
 	}
 	if method == httpPut {
 		if err := dge.qs.communication.UpdateGroup(raw, g); err != nil {
@@ -507,9 +512,9 @@ type dataSystemsEndpoint struct {
 }
 
 func (sc dataSystemsEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
-	name := api.ValidatedString{MinLen: 1, MaxLen: -1}
-	if err := api.ReceiveData(raw, &name); err != nil {
+	raw []byte) (interface{}, server.Error) {
+	name := server.ValidatedString{MinLen: 1, MaxLen: -1}
+	if err := server.ReceiveData(raw, &name); err != nil {
 		return nil, err
 	}
 	if err := sc.qs.persistence.CreateSystem(name.Value); err != nil {
@@ -533,7 +538,7 @@ type groupCreationReceiver struct {
 
 func (gcr *groupCreationReceiver) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data,
-		&api.ValidatedStruct{Value: &gcr.data}); err != nil {
+		&server.ValidatedStruct{Value: &gcr.data}); err != nil {
 		return err
 	}
 	if gcr.data.Name == "" {
@@ -550,15 +555,15 @@ func (gcr *groupCreationReceiver) UnmarshalJSON(data []byte) error {
 }
 
 func (dge dataGroupsEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	value := groupCreationReceiver{plugins: dge.qs.plugins}
-	if err := api.ReceiveData(raw, &value); err != nil {
+	if err := server.ReceiveData(raw, &value); err != nil {
 		return nil, err
 	}
 	if err := dge.qs.persistence.CreateGroup(value.data.Name,
 		&dge.qs.plugins[value.data.PluginIndex].GroupTemplates[value.data.GroupTemplateIndex],
 		dge.qs.plugins[value.data.PluginIndex].SceneTemplates); err != nil {
-		return nil, &api.InternalError{
+		return nil, &server.InternalError{
 			Description: "while creating group", Inner: err}
 	}
 	return dge.qs.communication.ViewGroups(), nil
@@ -579,7 +584,7 @@ type sceneCreationReceiver struct {
 
 func (scr *sceneCreationReceiver) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data,
-		&api.ValidatedStruct{Value: &scr.data}); err != nil {
+		&server.ValidatedStruct{Value: &scr.data}); err != nil {
 		return err
 	}
 	if scr.data.Name == "" {
@@ -596,19 +601,19 @@ func (scr *sceneCreationReceiver) UnmarshalJSON(data []byte) error {
 }
 
 func (dse dataScenesEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	_, group := dse.qs.data.GroupByID(ids[0])
 	if group == nil {
-		return nil, &api.NotFound{Name: ids[0]}
+		return nil, &server.NotFound{Name: ids[0]}
 	}
 	value := sceneCreationReceiver{plugins: dse.qs.plugins}
-	if err := api.ReceiveData(raw, &value); err != nil {
+	if err := server.ReceiveData(raw, &value); err != nil {
 		return nil, err
 	}
 
 	if err := dse.qs.persistence.CreateScene(group, value.data.Name,
 		&dse.qs.plugins[value.data.PluginIndex].SceneTemplates[value.data.SceneTemplateIndex]); err != nil {
-		return nil, &api.InternalError{Description: "while creating group", Inner: err}
+		return nil, &server.InternalError{Description: "while creating group", Inner: err}
 	}
 	return dse.qs.communication.ViewScenes(group), nil
 }
@@ -618,14 +623,14 @@ type dataSceneEndpoint struct {
 }
 
 func (dse dataSceneEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	_, group := dse.qs.data.GroupByID(ids[0])
 	if group == nil {
-		return nil, &api.NotFound{Name: ids[0]}
+		return nil, &server.NotFound{Name: ids[0]}
 	}
 	sceneIndex, scene := group.SceneByID(ids[1])
 	if scene == nil {
-		return nil, &api.NotFound{Name: ids[1]}
+		return nil, &server.NotFound{Name: ids[1]}
 	}
 	if method == httpPut {
 		if err := dse.qs.communication.UpdateScene(raw, group, scene); err != nil {
@@ -647,18 +652,18 @@ type dataHeroesEndpoint struct {
 }
 
 func (dhe dataHeroesEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	_, group := dhe.qs.data.GroupByID(ids[0])
 	if group == nil {
-		return nil, &api.NotFound{Name: ids[0]}
+		return nil, &server.NotFound{Name: ids[0]}
 	}
 	value := struct {
-		Name        api.ValidatedString `json:"name"`
-		Description string              `json:"description"`
+		Name        server.ValidatedString `json:"name"`
+		Description string                 `json:"description"`
 	}{
-		Name: api.ValidatedString{MinLen: 1, MaxLen: -1},
+		Name: server.ValidatedString{MinLen: 1, MaxLen: -1},
 	}
-	if err := api.ReceiveData(raw, &value); err != nil {
+	if err := server.ReceiveData(raw, &value); err != nil {
 		return nil, err
 	}
 	req, err := dhe.qs.display.StartRequest(dhe.events.HeroesChangedID, 0)
@@ -666,13 +671,12 @@ func (dhe dataHeroesEndpoint) Handle(method httpMethods, ids []string,
 		return nil, err
 	}
 	defer req.Close()
-	heroes := group.ViewHeroes()
-	defer heroes.Close()
+	heroes := group.Heroes()
 	if err := dhe.qs.persistence.CreateHero(
 		group, heroes, value.Name.Value, value.Description); err != nil {
-		return nil, &api.InternalError{Description: "while creating hero", Inner: err}
+		return nil, &server.InternalError{Description: "while creating hero", Inner: err}
 	}
-	propagateHeroesChange(heroes, api.HeroAdded, heroes.NumHeroes()-1, dhe.qs,
+	propagateHeroesChange(groups.HeroAdded, heroes.NumHeroes()-1, dhe.qs,
 		&req)
 	req.Commit()
 	return dhe.qs.communication.ViewHeroes(heroes), nil
@@ -683,23 +687,22 @@ type dataHeroEndpoint struct {
 }
 
 func (dhe dataHeroEndpoint) Handle(method httpMethods, ids []string,
-	raw []byte) (interface{}, api.SendableError) {
+	raw []byte) (interface{}, server.Error) {
 	_, group := dhe.qs.data.GroupByID(ids[0])
 	if group == nil {
-		return nil, &api.NotFound{Name: ids[0]}
+		return nil, &server.NotFound{Name: ids[0]}
 	}
-	heroes := group.ViewHeroes()
-	defer heroes.Close()
+	heroes := group.Heroes()
 	heroIndex, hero := heroes.HeroByID(ids[1])
 	if hero == nil {
-		return nil, &api.NotFound{Name: ids[1]}
+		return nil, &server.NotFound{Name: ids[1]}
 	}
 	req, err := dhe.qs.display.StartRequest(dhe.events.HeroesChangedID, 0)
 	if err != nil {
 		return nil, err
 	}
 	defer req.Close()
-	var action api.HeroChangeAction
+	var action groups.HeroChangeAction
 	if method == httpPut {
 		if err := dhe.qs.communication.UpdateHero(raw, hero); err != nil {
 			return nil, err
@@ -707,12 +710,12 @@ func (dhe dataHeroEndpoint) Handle(method httpMethods, ids []string,
 		if err := dhe.qs.persistence.WriteHero(group, hero); err != nil {
 			log.Println("failed to persist hero: " + err.Error())
 		}
-		action = api.HeroModified
+		action = groups.HeroModified
 	} else {
 		dhe.qs.persistence.DeleteHero(group, heroes, heroIndex)
-		action = api.HeroDeleted
+		action = groups.HeroDeleted
 	}
-	propagateHeroesChange(heroes, action, heroIndex, dhe.qs, &req)
+	propagateHeroesChange(action, heroIndex, dhe.qs, &req)
 	req.Commit()
 
 	return dhe.qs.communication.ViewHeroes(heroes), nil

@@ -8,7 +8,9 @@ import (
 
 	"github.com/QuestScreen/QuestScreen/app"
 	"github.com/QuestScreen/QuestScreen/generated"
-	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/config"
+	"github.com/QuestScreen/api/groups"
+	"github.com/QuestScreen/api/server"
 )
 
 // Communication implements (de)serialization of data for communication to the
@@ -94,13 +96,11 @@ func (c Communication) groups() []jsonGroup {
 	for i := range c.d.groups {
 		g := c.d.groups[i]
 
-		g.heroes.mutex.Lock()
 		ret = append(ret, jsonGroup{Name: g.name,
 			ID:          g.id,
 			SystemIndex: g.systemIndex,
 			Heroes:      c.heroes(&g.heroes),
 			Scenes:      c.scenes(g)})
-		g.heroes.mutex.Unlock()
 	}
 	return ret
 }
@@ -167,7 +167,7 @@ func (c Communication) ViewBaseConfig() interface{} {
 }
 
 // UpdateBaseConfig parses the given config as JSON and updates the config data
-func (c Communication) UpdateBaseConfig(raw []byte) api.SendableError {
+func (c Communication) UpdateBaseConfig(raw []byte) server.Error {
 	if err := c.loadModuleConfigs(raw, c.d.baseConfigs); err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func (c Communication) UpdateBaseConfig(raw []byte) api.SendableError {
 
 // ViewSystemConfig returns a serializable view the config of the given system
 func (c Communication) ViewSystemConfig(s System) (interface{},
-	api.SendableError) {
+	server.Error) {
 	return c.moduleConfigs(s.(*system).modules), nil
 }
 
@@ -187,16 +187,16 @@ func (c Communication) ViewSystems() interface{} {
 }
 
 // UpdateSystemConfig parses the given config as JSON and updates the internal config
-func (c Communication) UpdateSystemConfig(raw []byte, s System) api.SendableError {
+func (c Communication) UpdateSystemConfig(raw []byte, s System) server.Error {
 	return c.loadModuleConfigs(raw, s.(*system).modules)
 }
 
 // UpdateSystem updates a system's name from a given JSON input.
-func (c Communication) UpdateSystem(raw []byte, s System) api.SendableError {
+func (c Communication) UpdateSystem(raw []byte, s System) server.Error {
 	data := struct {
-		Name api.ValidatedString `json:"name"`
-	}{Name: api.ValidatedString{MinLen: 1, MaxLen: -1}}
-	if err := api.ReceiveData(raw, &data); err != nil {
+		Name server.ValidatedString `json:"name"`
+	}{Name: server.ValidatedString{MinLen: 1, MaxLen: -1}}
+	if err := server.ReceiveData(raw, &data); err != nil {
 		return err
 	}
 	s.(*system).name = data.Name.Value
@@ -210,20 +210,20 @@ func (c Communication) ViewGroupConfig(g Group) interface{} {
 }
 
 // UpdateGroupConfig parses the given config as JSON and updates the internal config
-func (c Communication) UpdateGroupConfig(raw []byte, g Group) api.SendableError {
+func (c Communication) UpdateGroupConfig(raw []byte, g Group) server.Error {
 	return c.loadModuleConfigs(raw, g.(*group).modules)
 }
 
 // UpdateGroup updates a group's name and linked system from a given JSON input.
-func (c Communication) UpdateGroup(raw []byte, g Group) api.SendableError {
+func (c Communication) UpdateGroup(raw []byte, g Group) server.Error {
 	value := struct {
-		Name        api.ValidatedString `json:"name"`
-		SystemIndex api.ValidatedInt    `json:"systemIndex"`
+		Name        server.ValidatedString `json:"name"`
+		SystemIndex server.ValidatedInt    `json:"systemIndex"`
 	}{
-		Name:        api.ValidatedString{MinLen: 1, MaxLen: -1},
-		SystemIndex: api.ValidatedInt{Min: -1, Max: c.d.NumSystems() - 1},
+		Name:        server.ValidatedString{MinLen: 1, MaxLen: -1},
+		SystemIndex: server.ValidatedInt{Min: -1, Max: c.d.NumSystems() - 1},
 	}
-	if err := api.ReceiveData(raw, &api.ValidatedStruct{Value: &value}); err != nil {
+	if err := server.ReceiveData(raw, &server.ValidatedStruct{Value: &value}); err != nil {
 		return err
 	}
 	gr := g.(*group)
@@ -239,14 +239,14 @@ func (c Communication) ViewGroups() interface{} {
 }
 
 // UpdateHero updates a hero's name and description form a given JSON input.
-func (c Communication) UpdateHero(raw []byte, h api.Hero) api.SendableError {
+func (c Communication) UpdateHero(raw []byte, h groups.Hero) server.Error {
 	value := struct {
-		Name        api.ValidatedString `json:"name"`
-		Description string              `json:"description"`
+		Name        server.ValidatedString `json:"name"`
+		Description string                 `json:"description"`
 	}{
-		Name: api.ValidatedString{MinLen: 1, MaxLen: -1},
+		Name: server.ValidatedString{MinLen: 1, MaxLen: -1},
 	}
-	if err := api.ReceiveData(raw, &api.ValidatedStruct{Value: &value}); err != nil {
+	if err := server.ReceiveData(raw, &server.ValidatedStruct{Value: &value}); err != nil {
 		return err
 	}
 	he := h.(*hero)
@@ -257,7 +257,7 @@ func (c Communication) UpdateHero(raw []byte, h api.Hero) api.SendableError {
 
 // ViewHeroes returns a serializable view of all heroes, as it would be
 // contained in Datasets
-func (c Communication) ViewHeroes(hl api.HeroList) interface{} {
+func (c Communication) ViewHeroes(hl groups.HeroList) interface{} {
 	return c.heroes(hl.(*heroList))
 }
 
@@ -273,7 +273,7 @@ func (c Communication) ViewScenes(g Group) interface{} {
 }
 
 // UpdateSceneConfig parses the given JSON input and updates the scene's config
-func (c Communication) UpdateSceneConfig(raw []byte, s Scene) api.SendableError {
+func (c Communication) UpdateSceneConfig(raw []byte, s Scene) server.Error {
 	simpleList := make([]interface{}, c.d.owner.NumModules())
 	sc := s.(*scene)
 	for i := app.FirstModule; i < c.d.owner.NumModules(); i++ {
@@ -320,16 +320,16 @@ func isNull(msg json.RawMessage) bool {
 }
 
 // UpdateScene updates a scene's name
-func (c Communication) UpdateScene(raw []byte, g Group, s Scene) api.SendableError {
+func (c Communication) UpdateScene(raw []byte, g Group, s Scene) server.Error {
 	var modules []bool
 	data := struct {
-		Name    api.ValidatedString `json:"name"`
-		Modules api.ValidatedSlice  `json:"modules"`
-	}{Name: api.ValidatedString{MinLen: 1, MaxLen: -1},
-		Modules: api.ValidatedSlice{Data: &modules,
+		Name    server.ValidatedString `json:"name"`
+		Modules server.ValidatedSlice  `json:"modules"`
+	}{Name: server.ValidatedString{MinLen: 1, MaxLen: -1},
+		Modules: server.ValidatedSlice{Data: &modules,
 			MinItems: int(c.d.owner.NumModules()),
 			MaxItems: int(c.d.owner.NumModules())}}
-	if err := api.ReceiveData(raw, &data); err != nil {
+	if err := server.ReceiveData(raw, &data); err != nil {
 		return err
 	}
 	sc := s.(*scene)
@@ -343,12 +343,10 @@ func (c Communication) UpdateScene(raw []byte, g Group, s Scene) api.SendableErr
 
 func (c Communication) loadModuleConfigInto(
 	moduleIndex app.ModuleIndex, target interface{},
-	raw []json.RawMessage) api.SendableError {
+	raw []json.RawMessage) server.Error {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
-	heroes := c.d.owner.ViewHeroes()
-	defer heroes.Close()
-	ctx := c.d.owner.ServerContext(moduleIndex, heroes)
+	ctx := c.d.owner.ServerContext(moduleIndex)
 	for i := 0; i < targetModuleType.NumField(); i++ {
 		input := raw[i]
 		if isNull(input) {
@@ -362,29 +360,29 @@ func (c Communication) loadModuleConfigInto(
 		}
 		targetSetting := targetModule.Field(i).Interface()
 
-		if err := targetSetting.(api.ConfigItem).LoadWeb(input, ctx); err != nil {
+		if err := targetSetting.(config.Item).LoadWeb(input, ctx); err != nil {
 			if wasNil {
 				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 			}
-			return &api.BadRequest{Message: "error in JSON structure", Inner: err}
+			return &server.BadRequest{Message: "error in JSON structure", Inner: err}
 		}
 	}
 	return nil
 }
 
 func (c Communication) loadModuleConfigs(jsonInput []byte,
-	targetConfigs []interface{}) api.SendableError {
+	targetConfigs []interface{}) server.Error {
 	var raw [][]json.RawMessage
 	decoder := json.NewDecoder(bytes.NewReader(jsonInput))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&raw); err != nil {
-		return &api.BadRequest{Message: "error in JSON structure", Inner: err}
+		return &server.BadRequest{Message: "error in JSON structure", Inner: err}
 	}
 	for i := app.FirstModule; i < app.ModuleIndex(len(targetConfigs)); i++ {
 		conf := targetConfigs[i]
 		if conf == nil {
 			if raw[i] != nil {
-				return &api.BadRequest{Message: "error in JSON structure",
+				return &server.BadRequest{Message: "error in JSON structure",
 					Inner: fmt.Errorf("got non-nil value for nil module")}
 			}
 		} else {
@@ -437,11 +435,9 @@ func (c Communication) sceneConfig(config []sceneModule) []jsonModuleConfig {
 func (c Communication) ViewSceneState(a app.App) interface{} {
 	list := make([]interface{}, a.NumModules())
 	scene := c.d.State.scenes[c.d.State.activeScene]
-	heroes := c.d.owner.ViewHeroes()
-	defer heroes.Close()
 	for i := app.FirstModule; i < a.NumModules(); i++ {
 		if scene[i] != nil {
-			list[i] = scene[i].WebView(a.ServerContext(i, heroes))
+			list[i] = scene[i].WebView(a.ServerContext(i))
 		}
 	}
 	return list

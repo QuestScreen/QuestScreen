@@ -19,12 +19,17 @@ import (
 	"github.com/QuestScreen/QuestScreen/display"
 	"github.com/QuestScreen/QuestScreen/generated"
 	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/fonts"
+	"github.com/QuestScreen/api/groups"
+	"github.com/QuestScreen/api/modules"
+	"github.com/QuestScreen/api/resources"
+	"github.com/QuestScreen/api/server"
 
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
 
-// implements api.Resource
+// implements resources.Resource
 type resourceFile struct {
 	name string
 	path string
@@ -45,7 +50,7 @@ type ownedResourceFile struct {
 }
 
 type moduleData struct {
-	*api.Module
+	*modules.Module
 	pluginIndex int
 }
 
@@ -54,11 +59,11 @@ type moduleData struct {
 type QuestScreen struct {
 	config
 	dataDir             string
-	fonts               []api.FontFamily
+	fonts               []LoadedFontFamily
 	modules             []moduleData
 	plugins             []*api.Plugin
 	resourceCollections [][][]ownedResourceFile
-	textures            []api.Resource
+	textures            []resources.Resource
 	data                data.Data
 	persistence         data.Persistence
 	communication       data.Communication
@@ -67,6 +72,7 @@ type QuestScreen struct {
 	activeSystemIndex   int
 	messages            []app.Message
 	html, js, css       []byte
+	context             sdl.GLContext
 }
 
 // implements api.MessageSender
@@ -86,7 +92,7 @@ func (mc *messageCollector) Error(text string) {
 }
 
 // MessageSenderFor creates a new message sender for the given index.
-func (qs *QuestScreen) MessageSenderFor(index app.ModuleIndex) api.MessageSender {
+func (qs *QuestScreen) MessageSenderFor(index app.ModuleIndex) server.MessageSender {
 	return &messageCollector{moduleIndex: index, owner: qs}
 }
 
@@ -98,7 +104,7 @@ func appendAssets(buffer []byte, paths ...string) []byte {
 	return buffer
 }
 
-func (qs *QuestScreen) loadPlugins(renderer *sdl.Renderer) {
+func (qs *QuestScreen) loadPlugins() {
 	pluginPath := filepath.Join(qs.dataDir, "plugins")
 	if _, err := os.Stat(pluginPath); os.IsNotExist(err) {
 		return
@@ -125,7 +131,7 @@ func (qs *QuestScreen) loadPlugins(renderer *sdl.Renderer) {
 			log.Printf("%s: QSPlugin object missing\n", pluginPath)
 			continue
 		}
-		if err = qs.registerPlugin(o.(*api.Plugin), renderer); err != nil {
+		if err = qs.registerPlugin(o.(*api.Plugin)); err != nil {
 			panic(err)
 		}
 	}
@@ -191,6 +197,9 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 		return
 	}
 
+	setGLAttributes()
+	sdl.GLSetAttribute(sdl.GL_DOUBLEBUFFER, 1)
+
 	// create window and renderer
 	var flags uint32 = sdl.WINDOW_OPENGL | sdl.WINDOW_ALLOW_HIGHDPI
 	if qs.config.fullscreen {
@@ -202,14 +211,13 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 		panic(err)
 	}
 
-	renderer, err := sdl.CreateRenderer(window, -1,
-		sdl.RENDERER_ACCELERATED|sdl.RENDERER_TARGETTEXTURE)
+	qs.context, err = window.GLCreateContext()
 	if err != nil {
-		window.Destroy()
 		panic(err)
 	}
+	sdl.GLSetSwapInterval(0)
 
-	_, oHeight, _ := renderer.GetOutputSize()
+	_, oHeight := window.GLGetDrawableSize()
 
 	fontSizeMap := [6]int32{oHeight / 37, oHeight / 27, oHeight / 19,
 		oHeight / 13, oHeight / 8, oHeight / 4}
@@ -230,10 +238,10 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 		"web/js/datasets.js", "web/js/config.js", "web/js/info.js",
 		"web/js/app.js", "web/js/state.js", "web/js/configitems.js")
 	qs.css = appendAssets(qs.css, "web/css/style.css", "web/css/color.css")
-	if err = qs.registerPlugin(&base.Base, renderer); err != nil {
+	if err = qs.registerPlugin(&base.Base); err != nil {
 		panic(err)
 	}
-	qs.loadPlugins(renderer)
+	qs.loadPlugins()
 	qs.html = appendAssets(qs.html, "web/html/index-bottom.html")
 	qs.js = appendAssets(qs.js, "web/js/init.js")
 
@@ -257,7 +265,7 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 
 	if err := qs.display.Init(
 		qs, events, qs.config.fullscreen, qs.config.port, qs.config.keyActions,
-		window, renderer); err != nil {
+		window); err != nil {
 		panic(err)
 	}
 }
@@ -269,11 +277,11 @@ func (qs *QuestScreen) DataDir(subdirs ...string) string {
 }
 
 // ModuleAt returns the module at the given index
-func (qs *QuestScreen) ModuleAt(index app.ModuleIndex) *api.Module {
+func (qs *QuestScreen) ModuleAt(index app.ModuleIndex) *modules.Module {
 	return qs.modules[index].Module
 }
 
-func (qs *QuestScreen) moduleByID(id string) (index int, module *api.Module) {
+func (qs *QuestScreen) moduleByID(id string) (index int, module *modules.Module) {
 	for i := range qs.modules {
 		if qs.modules[i].Module.ID == id {
 			return i, qs.modules[i].Module
@@ -300,11 +308,10 @@ func (qs *QuestScreen) Messages() []app.Message {
 type moduleContext struct {
 	*QuestScreen
 	moduleIndex app.ModuleIndex
-	heroes      api.HeroList
 }
 
 // GetResources filters resources by current group and system.
-func (mc *moduleContext) GetResources(index api.ResourceCollectionIndex) []api.Resource {
+func (mc *moduleContext) GetResources(index resources.CollectionIndex) []resources.Resource {
 	return mc.QuestScreen.GetResources(mc.moduleIndex, index)
 }
 
@@ -312,17 +319,9 @@ func (mc *moduleContext) FontFamilyName(index int) string {
 	return mc.fonts[index].Name()
 }
 
-func (mc *moduleContext) NumHeroes() int {
-	return mc.heroes.NumHeroes()
-}
-
-func (mc *moduleContext) HeroID(index int) string {
-	return mc.heroes.Hero(index).ID()
-}
-
 type emptyHeroList struct{}
 
-func (emptyHeroList) Hero(index int) api.Hero {
+func (emptyHeroList) Hero(index int) groups.Hero {
 	panic("out of range!")
 }
 
@@ -332,21 +331,13 @@ func (emptyHeroList) NumHeroes() int {
 
 func (emptyHeroList) Close() {}
 
-func (emptyHeroList) HeroByID(id string) (index int, h api.Hero) {
+func (emptyHeroList) HeroByID(id string) (index int, h groups.Hero) {
 	return -1, nil
 }
 
 // ServerContext returns a server context for the module at the given index
-func (qs *QuestScreen) ServerContext(moduleIndex app.ModuleIndex,
-	heroes api.HeroList) api.ServerContext {
-	var h api.HeroList
-	if heroes == nil {
-		h = emptyHeroList{}
-	} else {
-		h = heroes
-	}
-
-	return &moduleContext{QuestScreen: qs, moduleIndex: moduleIndex, heroes: h}
+func (qs *QuestScreen) ServerContext(moduleIndex app.ModuleIndex) server.Context {
+	return &moduleContext{QuestScreen: qs, moduleIndex: moduleIndex}
 }
 
 // NumPlugins returns the number of registered plugins
@@ -360,7 +351,7 @@ func (qs *QuestScreen) Plugin(index int) *api.Plugin {
 }
 
 func appendBySelector(resources []ownedResourceFile, basePath string,
-	selector api.ResourceSelector, group int, system int) []ownedResourceFile {
+	selector resources.Selector, group int, system int) []ownedResourceFile {
 	if selector.Name == "" {
 		if _, err := os.Stat(basePath); os.IsNotExist(err) {
 			return resources
@@ -414,7 +405,7 @@ func appendBySelector(resources []ownedResourceFile, basePath string,
 // listFiles queries the list of all files matching the given selector.
 // Never returns directories.
 func (qs *QuestScreen) listFiles(
-	id string, selector api.ResourceSelector) []ownedResourceFile {
+	id string, selector resources.Selector) []ownedResourceFile {
 	resources := make([]ownedResourceFile, 0, 64)
 	for i := 0; i < qs.data.NumGroups(); i++ {
 		group := qs.data.Group(i)
@@ -434,7 +425,7 @@ func (qs *QuestScreen) listFiles(
 var forbiddenNames = [7]string{"scenes", "heroes", "fonts", "textures",
 	"plugins", "config.yaml", "state.yaml"}
 
-func (qs *QuestScreen) registerModule(descr *api.Module) error {
+func (qs *QuestScreen) registerModule(descr *modules.Module) error {
 	for i := range forbiddenNames {
 		if descr.ID == forbiddenNames[i] {
 			return fmt.Errorf("module id may not be one of %v", forbiddenNames)
@@ -444,7 +435,7 @@ func (qs *QuestScreen) registerModule(descr *api.Module) error {
 	return nil
 }
 
-func (qs *QuestScreen) registerPlugin(plugin *api.Plugin, renderer *sdl.Renderer) error {
+func (qs *QuestScreen) registerPlugin(plugin *api.Plugin) error {
 	log.Println("Loading plugin", plugin.Name)
 	if js := plugin.AdditionalJS; js != nil {
 		qs.js = append(qs.js, '\n')
@@ -488,9 +479,14 @@ func (qs *QuestScreen) activeGroup() data.Group {
 	return qs.data.Group(qs.activeGroupIndex)
 }
 
+// ActiveGroup returns the currently active group, or nil if no group is active.
+func (qs *QuestScreen) ActiveGroup() groups.Group {
+	return qs.activeGroup()
+}
+
 // Font returns the font face of the selected font.
 func (qs *QuestScreen) Font(
-	fontFamily int, style api.FontStyle, size api.FontSize) *ttf.Font {
+	fontFamily int, style fonts.Style, size fonts.Size) *ttf.Font {
 	return qs.fonts[fontFamily].Styled(style).Font(size)
 }
 
@@ -510,9 +506,9 @@ func (qs *QuestScreen) NumFontFamilies() int {
 
 // GetResources filters resources by current group and system.
 func (qs *QuestScreen) GetResources(
-	moduleIndex app.ModuleIndex, index api.ResourceCollectionIndex) []api.Resource {
+	moduleIndex app.ModuleIndex, index resources.CollectionIndex) []resources.Resource {
 	complete := qs.resourceCollections[moduleIndex][index]
-	ret := make([]api.Resource, 0, len(complete))
+	ret := make([]resources.Resource, 0, len(complete))
 	for i := range complete {
 		if (complete[i].group == -1 || complete[i].group == qs.activeGroupIndex) &&
 			(complete[i].system == -1 || complete[i].system == qs.activeSystemIndex) {
@@ -527,16 +523,8 @@ func (qs *QuestScreen) GetResources(
 }
 
 // GetTextures filters textures by current group and system.
-func (qs *QuestScreen) GetTextures() []api.Resource {
+func (qs *QuestScreen) GetTextures() []resources.Resource {
 	return qs.textures
-}
-
-// ViewHeroes returns a view of the heroes of the active group
-func (qs *QuestScreen) ViewHeroes() app.HeroView {
-	if qs.activeGroupIndex == -1 {
-		return emptyHeroList{}
-	}
-	return qs.activeGroup().ViewHeroes()
 }
 
 func (qs *QuestScreen) pathToState() string {
@@ -548,7 +536,7 @@ func (qs *QuestScreen) pathToState() string {
 // it loads the state of that group into all modules.
 //
 // Returns the index of the currently active scene inside the group
-func (qs *QuestScreen) setActiveGroup(index int) (int, api.SendableError) {
+func (qs *QuestScreen) setActiveGroup(index int) (int, server.Error) {
 	qs.activeGroupIndex = index
 	if index == -1 {
 		qs.activeSystemIndex = -1
@@ -558,12 +546,13 @@ func (qs *QuestScreen) setActiveGroup(index int) (int, api.SendableError) {
 	qs.activeSystemIndex = group.SystemIndex()
 	groupState, err := qs.persistence.LoadState(group, qs.pathToState())
 	if err != nil {
-		return -1, &api.InternalError{
+		return -1, &server.InternalError{
 			Description: "Failed to set active group", Inner: err}
 	}
 	return groupState.ActiveScene(), nil
 }
 
 func (qs *QuestScreen) destroy() {
+	sdl.GLDeleteContext(qs.context)
 	qs.display.Destroy()
 }

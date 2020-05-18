@@ -4,6 +4,10 @@ import (
 	"net/http"
 
 	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/fonts"
+	"github.com/QuestScreen/api/modules"
+	"github.com/QuestScreen/api/resources"
+	"github.com/QuestScreen/api/server"
 	"github.com/veandco/go-sdl2/ttf"
 )
 
@@ -12,14 +16,6 @@ type ModuleIndex int
 
 // FirstModule is the index of the first module
 const FirstModule ModuleIndex = 0
-
-// HeroView is a exclusive view on the heroes of a group.
-// it must be closed via Close() after acquiring it to release the mutex.
-type HeroView interface {
-	api.HeroList
-	HeroByID(id string) (index int, h api.Hero)
-	Close()
-}
 
 // Message is a warning or an error that should be displayed on the starting
 // screen of the client.
@@ -36,26 +32,20 @@ type Message struct {
 type App interface {
 	DataDir(subdirs ...string) string
 	NumModules() ModuleIndex
-	ModuleAt(index ModuleIndex) *api.Module
+	ModuleAt(index ModuleIndex) *modules.Module
 	ModulePluginIndex(index ModuleIndex) int
 	NumPlugins() int
 	Plugin(index int) *api.Plugin
-	// ServerContext builds an api.ServerContext with the given moduleIndex and
-	// hero list. The list may be queried by ViewHeroes (and closed afterwards).
-	//
-	// The list needs to be given separately so that a ServerContext can also be
-	// created for a not currently active group (by querying the hero list from
-	// the Group object).
-	ServerContext(moduleIndex ModuleIndex, heroes api.HeroList) api.ServerContext
+	// ServerContext builds an api.ServerContext with the given moduleIndex.
+	ServerContext(moduleIndex ModuleIndex) server.Context
 	GetResources(moduleIndex ModuleIndex,
-		index api.ResourceCollectionIndex) []api.Resource
-	GetTextures() []api.Resource
-	Font(fontFamily int, style api.FontStyle, size api.FontSize) *ttf.Font
+		index resources.CollectionIndex) []resources.Resource
+	GetTextures() []resources.Resource
+	Font(fontFamily int, style fonts.Style, size fonts.Size) *ttf.Font
 	NumFontFamilies() int
 	FontNames() []string
-	ViewHeroes() HeroView
 	Messages() []Message
-	MessageSenderFor(index ModuleIndex) api.MessageSender
+	MessageSenderFor(index ModuleIndex) server.MessageSender
 }
 
 // TooManyRequests is an error that is issued if the server receives more data

@@ -1,7 +1,9 @@
 package herolist
 
 import (
-	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/groups"
+	"github.com/QuestScreen/api/modules"
+	"github.com/QuestScreen/api/server"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,13 +26,14 @@ type heroEndpoint struct {
 	*state
 }
 
-func newState(input *yaml.Node, ctx api.ServerContext,
-	ms api.MessageSender) (api.ModuleState, error) {
-	s := &state{heroVisible: make([]bool, ctx.NumHeroes()),
+func newState(input *yaml.Node, ctx server.Context,
+	ms server.MessageSender) (modules.State, error) {
+	h := ctx.ActiveGroup().Heroes()
+	s := &state{heroVisible: make([]bool, h.NumHeroes()),
 		heroIDToIndex: make(map[string]int)}
-	for i := 0; i < ctx.NumHeroes(); i++ {
+	for i := 0; i < h.NumHeroes(); i++ {
 		s.heroVisible[i] = true
-		s.heroIDToIndex[ctx.HeroID(i)] = i
+		s.heroIDToIndex[h.Hero(i).ID()] = i
 	}
 	if input == nil {
 		s.globalVisible = true
@@ -45,8 +48,8 @@ func newState(input *yaml.Node, ctx api.ServerContext,
 		}
 		for i := range tmp.HeroVisible {
 			found := false
-			for j := 0; j < ctx.NumHeroes(); j++ {
-				if tmp.HeroVisible[i] == ctx.HeroID(j) {
+			for j := 0; j < h.NumHeroes(); j++ {
+				if tmp.HeroVisible[i] == h.Hero(j).ID() {
 					found = true
 					s.heroVisible[j] = true
 					break
@@ -61,29 +64,35 @@ func newState(input *yaml.Node, ctx api.ServerContext,
 	return s, nil
 }
 
-func (s *state) CreateRendererData() interface{} {
-	states := make([]bool, len(s.heroVisible))
-	copy(states, s.heroVisible)
+func (s *state) CreateRendererData(ctx server.Context) interface{} {
+	hl := ctx.ActiveGroup().Heroes()
+	states := make([]heroData, len(s.heroVisible))
+	for i := range states {
+		h := hl.Hero(i)
+		states[i] = heroData{name: h.Name(), desc: h.Description(),
+			visible: s.heroVisible[i]}
+	}
 	return &fullRequest{heroes: states, global: s.globalVisible}
 }
 
-func (s *state) HeroListChanged(heroes api.HeroList, action api.HeroChangeAction, heroIndex int) {
+func (s *state) HeroListChanged(ctx server.Context, action groups.HeroChangeAction, heroIndex int) {
 	switch action {
-	case api.HeroAdded:
+	case groups.HeroAdded:
 		s.heroVisible = append(s.heroVisible, true)
-	case api.HeroModified:
+	case groups.HeroModified:
 		break
-	case api.HeroDeleted:
+	case groups.HeroDeleted:
 		copy(s.heroVisible[heroIndex:], s.heroVisible[heroIndex+1:])
 		s.heroVisible = s.heroVisible[:len(s.heroVisible)-1]
 	}
 }
 
-func (s *state) visibleHeroesList(ctx api.ServerContext) []string {
+func (s *state) visibleHeroesList(ctx server.Context) []string {
 	ret := make([]string, 0, len(s.heroVisible))
+	hl := ctx.ActiveGroup().Heroes()
 	for i := range s.heroVisible {
 		if s.heroVisible[i] {
-			ret = append(ret, ctx.HeroID(i))
+			ret = append(ret, hl.Hero(i).ID())
 		}
 	}
 	return ret
@@ -96,25 +105,25 @@ type webState struct {
 
 // WebView returns a structure containing the global flag and a list containing
 // boolean flags for each hero
-func (s *state) WebView(ctx api.ServerContext) interface{} {
+func (s *state) WebView(ctx server.Context) interface{} {
 	return webState{Global: s.globalVisible, Heroes: s.heroVisible}
 }
 
 // PersistingView returns a structure containing the `global` flag and a list
 // containing each visible hero as ID
-func (s *state) PersistingView(ctx api.ServerContext) interface{} {
+func (s *state) PersistingView(ctx server.Context) interface{} {
 	return persistedState{GlobalVisible: s.globalVisible,
 		HeroVisible: s.visibleHeroesList(ctx)}
 }
 
-func (s *state) PureEndpoint(index int) api.ModulePureEndpoint {
+func (s *state) PureEndpoint(index int) modules.PureEndpoint {
 	if index != 0 {
 		panic("Endpoint index out of range")
 	}
 	return globalEndpoint{s}
 }
 
-func (s *state) IDEndpoint(index int) api.ModuleIDEndpoint {
+func (s *state) IDEndpoint(index int) modules.IDEndpoint {
 	if index != 1 {
 		panic("Endpoint index out of range")
 	}
@@ -122,9 +131,9 @@ func (s *state) IDEndpoint(index int) api.ModuleIDEndpoint {
 }
 
 func (e globalEndpoint) Post(payload []byte) (interface{}, interface{},
-	api.SendableError) {
+	server.Error) {
 	var value bool
-	if err := api.ReceiveData(payload, &value); err != nil {
+	if err := server.ReceiveData(payload, &value); err != nil {
 		return nil, nil, err
 	}
 	e.globalVisible = value
@@ -132,13 +141,13 @@ func (e globalEndpoint) Post(payload []byte) (interface{}, interface{},
 }
 
 func (e heroEndpoint) Post(id string, payload []byte) (interface{}, interface{},
-	api.SendableError) {
+	server.Error) {
 	hIndex, ok := e.heroIDToIndex[id]
 	if !ok {
-		return nil, nil, &api.NotFound{Name: id}
+		return nil, nil, &server.NotFound{Name: id}
 	}
 	var value bool
-	if err := api.ReceiveData(payload, &value); err != nil {
+	if err := server.ReceiveData(payload, &value); err != nil {
 		return nil, nil, err
 	}
 	e.heroVisible[hIndex] = value

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"os"
 	"runtime"
 
@@ -38,9 +37,6 @@ func main() {
 	events := display.GenEvents()
 	var qs QuestScreen
 	qs.Init(*fullscreenFlag, *width, *height, events, *port)
-	if err := sdl.GLSetSwapInterval(-1); err != nil {
-		log.Println("Could not set swap interval to -1")
-	}
 
 	server := startServer(&qs, events, qs.config.port)
 

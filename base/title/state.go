@@ -1,7 +1,8 @@
 package title
 
 import (
-	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/modules"
+	"github.com/QuestScreen/api/server"
 	"gopkg.in/yaml.v3"
 )
 
@@ -13,8 +14,8 @@ type endpoint struct {
 	*state
 }
 
-func newState(input *yaml.Node, ctx api.ServerContext,
-	ms api.MessageSender) (api.ModuleState, error) {
+func newState(input *yaml.Node, ctx server.Context,
+	ms server.MessageSender) (modules.State, error) {
 	s := &state{}
 
 	if input == nil {
@@ -28,22 +29,22 @@ func newState(input *yaml.Node, ctx api.ServerContext,
 	return s, nil
 }
 
-func (s *state) CreateRendererData() interface{} {
+func (s *state) CreateRendererData(ctx server.Context) interface{} {
 	ret := &changeRequest{caption: s.caption}
 	return ret
 }
 
 // WebView returns the current caption of the title as string.
-func (s *state) WebView(ctx api.ServerContext) interface{} {
+func (s *state) WebView(ctx server.Context) interface{} {
 	return s.caption
 }
 
 // PersistingView returns the current caption of the title as string.
-func (s *state) PersistingView(ctx api.ServerContext) interface{} {
+func (s *state) PersistingView(ctx server.Context) interface{} {
 	return s.caption
 }
 
-func (s *state) PureEndpoint(index int) api.ModulePureEndpoint {
+func (s *state) PureEndpoint(index int) modules.PureEndpoint {
 	if index != 0 {
 		panic("Endpoint index out of range")
 	}
@@ -51,9 +52,9 @@ func (s *state) PureEndpoint(index int) api.ModulePureEndpoint {
 }
 
 func (e endpoint) Post(payload []byte) (interface{}, interface{},
-	api.SendableError) {
+	server.Error) {
 	var value string
-	if err := api.ReceiveData(payload, &value); err != nil {
+	if err := server.ReceiveData(payload, &value); err != nil {
 		return nil, nil, err
 	}
 	e.caption = value

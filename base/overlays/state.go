@@ -1,13 +1,15 @@
 package overlays
 
 import (
-	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/modules"
+	"github.com/QuestScreen/api/resources"
+	"github.com/QuestScreen/api/server"
 	"gopkg.in/yaml.v3"
 )
 
 type state struct {
-	visible   []bool
-	resources []api.Resource
+	visible []bool
+	items   []resources.Resource
 }
 
 type endpoint struct {
@@ -16,10 +18,10 @@ type endpoint struct {
 
 type persistentState []string
 
-func newState(input *yaml.Node, ctx api.ServerContext,
-	ms api.MessageSender) (api.ModuleState, error) {
-	s := &state{resources: ctx.GetResources(0)}
-	s.visible = make([]bool, len(s.resources))
+func newState(input *yaml.Node, ctx server.Context,
+	ms server.MessageSender) (modules.State, error) {
+	s := &state{items: ctx.GetResources(0)}
+	s.visible = make([]bool, len(s.items))
 	if input != nil {
 		var tmp persistentState
 		if err := input.Decode(&tmp); err != nil {
@@ -27,8 +29,8 @@ func newState(input *yaml.Node, ctx api.ServerContext,
 		}
 		for i := range tmp {
 			found := false
-			for j := range s.resources {
-				if s.resources[j].Name() == tmp[i] {
+			for j := range s.items {
+				if s.items[j].Name() == tmp[i] {
 					found = true
 					s.visible[j] = true
 					break
@@ -43,11 +45,11 @@ func newState(input *yaml.Node, ctx api.ServerContext,
 	return s, nil
 }
 
-func (s *state) CreateRendererData() interface{} {
-	resources := make([]showRequest, 0, len(s.resources))
-	for i := range s.resources {
+func (s *state) CreateRendererData(ctx server.Context) interface{} {
+	resources := make([]showRequest, 0, len(s.items))
+	for i := range s.items {
 		if s.visible[i] {
-			resources = append(resources, showRequest{s.resources[i], i})
+			resources = append(resources, showRequest{s.items[i], i})
 		}
 	}
 	return &fullRequest{resources: resources}
@@ -61,27 +63,27 @@ type webStateItem struct {
 type webState []webStateItem
 
 // WebView returns a list of resources descriptors (name & visible)
-func (s *state) WebView(ctx api.ServerContext) interface{} {
-	ret := make(webState, len(s.resources))
-	for i := range s.resources {
-		ret[i].Name = s.resources[i].Name()
+func (s *state) WebView(ctx server.Context) interface{} {
+	ret := make(webState, len(s.items))
+	for i := range s.items {
+		ret[i].Name = s.items[i].Name()
 		ret[i].Selected = s.visible[i]
 	}
 	return ret
 }
 
 // PersistingView returns a list of selected resource names
-func (s *state) PersistingView(ctx api.ServerContext) interface{} {
-	ret := make([]string, 0, len(s.resources))
+func (s *state) PersistingView(ctx server.Context) interface{} {
+	ret := make([]string, 0, len(s.items))
 	for i := range s.visible {
 		if s.visible[i] {
-			ret = append(ret, s.resources[i].Name())
+			ret = append(ret, s.items[i].Name())
 		}
 	}
 	return ret
 }
 
-func (s *state) PureEndpoint(index int) api.ModulePureEndpoint {
+func (s *state) PureEndpoint(index int) modules.PureEndpoint {
 	if index != 0 {
 		panic("Endpoint index out of range")
 	}
@@ -89,19 +91,19 @@ func (s *state) PureEndpoint(index int) api.ModulePureEndpoint {
 }
 
 func (e endpoint) Post(payload []byte) (interface{},
-	interface{}, api.SendableError) {
+	interface{}, server.Error) {
 	value := struct {
-		ResourceIndex api.ValidatedInt `json:"resourceIndex"`
-		Visible       bool             `json:"visible"`
-	}{ResourceIndex: api.ValidatedInt{Min: 0, Max: len(e.resources) - 1}}
-	if err := api.ReceiveData(payload,
-		&api.ValidatedStruct{Value: &value}); err != nil {
+		ResourceIndex server.ValidatedInt `json:"resourceIndex"`
+		Visible       bool                `json:"visible"`
+	}{ResourceIndex: server.ValidatedInt{Min: 0, Max: len(e.items) - 1}}
+	if err := server.ReceiveData(payload,
+		&server.ValidatedStruct{Value: &value}); err != nil {
 		return nil, nil, err
 	}
 	e.visible[value.ResourceIndex.Value] = value.Visible
 	if value.Visible {
 		return value.Visible, &showRequest{
-			resource:      e.resources[value.ResourceIndex.Value],
+			resource:      e.items[value.ResourceIndex.Value],
 			resourceIndex: value.ResourceIndex.Value}, nil
 	}
 	return value.Visible, &hideRequest{resourceIndex: value.ResourceIndex.Value}, nil

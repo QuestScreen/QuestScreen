@@ -15,6 +15,10 @@ import (
 
 	"github.com/QuestScreen/QuestScreen/app"
 	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/config"
+	"github.com/QuestScreen/api/groups"
+	"github.com/QuestScreen/api/modules"
+	"github.com/QuestScreen/api/server"
 	"gopkg.in/yaml.v3"
 )
 
@@ -95,7 +99,7 @@ func yamlName(f reflect.StructField) string {
 	return name
 }
 
-func (p Persistence) loadModuleConfigInto(heroes api.HeroList,
+func (p Persistence) loadModuleConfigInto(heroes groups.HeroList,
 	moduleIndex app.ModuleIndex, target interface{},
 	values map[string]yaml.Node, moduleName string) bool {
 	targetModule := reflect.ValueOf(target).Elem()
@@ -115,10 +119,10 @@ func (p Persistence) loadModuleConfigInto(heroes api.HeroList,
 				targetModule.Field(i).Set(reflect.New(targetModuleType.Field(i).Type.Elem()))
 				wasNil = true
 			}
-			targetSetting := targetModule.Field(i).Interface().(api.ConfigItem)
+			targetSetting := targetModule.Field(i).Interface().(config.Item)
 
 			if err := targetSetting.LoadPersisted(&inValue,
-				p.d.owner.ServerContext(moduleIndex, heroes)); err != nil {
+				p.d.owner.ServerContext(moduleIndex)); err != nil {
 				if wasNil {
 					targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 				}
@@ -134,7 +138,7 @@ func (p Persistence) loadModuleConfigInto(heroes api.HeroList,
 	return true
 }
 
-func findModule(owner app.App, id string) (*api.Module, app.ModuleIndex) {
+func findModule(owner app.App, id string) (*modules.Module, app.ModuleIndex) {
 	for i := app.FirstModule; i < owner.NumModules(); i++ {
 		module := owner.ModuleAt(i)
 		if module.ID == id {
@@ -144,7 +148,7 @@ func findModule(owner app.App, id string) (*api.Module, app.ModuleIndex) {
 	return nil, -1
 }
 
-func configType(mod *api.Module) reflect.Type {
+func configType(mod *modules.Module) reflect.Type {
 	defaultType := reflect.TypeOf(mod.DefaultConfig)
 	if defaultType.Kind() != reflect.Ptr ||
 		defaultType.Elem().Kind() != reflect.Struct {
@@ -154,7 +158,7 @@ func configType(mod *api.Module) reflect.Type {
 	return defaultType.Elem()
 }
 
-func (p Persistence) loadModuleConfigs(heroes api.HeroList,
+func (p Persistence) loadModuleConfigs(heroes groups.HeroList,
 	raw map[string]map[string]yaml.Node) ([]interface{}, error) {
 	ret := make([]interface{}, p.d.owner.NumModules())
 	unknowns := ""
@@ -185,7 +189,7 @@ func (p Persistence) loadModuleConfigs(heroes api.HeroList,
 	return ret, nil
 }
 
-func (p Persistence) persistingModuleConfigs(heroes api.HeroList,
+func (p Persistence) persistingModuleConfigs(heroes groups.HeroList,
 	moduleConfigs []interface{}) map[string]map[string]interface{} {
 	ret := make(map[string]map[string]interface{})
 	for i := app.FirstModule; i < p.d.owner.NumModules(); i++ {
@@ -213,8 +217,8 @@ func (p Persistence) persistingModuleConfigs(heroes api.HeroList,
 					fields = make(map[string]interface{})
 				}
 				fields[fieldName] =
-					fieldVal.Interface().(api.ConfigItem).PersistingView(
-						p.d.owner.ServerContext(i, heroes))
+					fieldVal.Interface().(config.Item).PersistingView(
+						p.d.owner.ServerContext(i))
 			}
 		}
 		if fields != nil {
@@ -306,7 +310,7 @@ func (p Persistence) createSystem(tmpl *api.SystemTemplate) (*system, error) {
 }
 
 // CreateSystem creates a new system with the given name.
-func (p Persistence) CreateSystem(name string) api.SendableError {
+func (p Persistence) CreateSystem(name string) server.Error {
 	id := genID(name, "system", systemIDs{p.d.systems})
 	s := &system{name: name, id: id, modules: make([]interface{}, p.d.owner.NumModules())}
 
@@ -316,7 +320,7 @@ func (p Persistence) CreateSystem(name string) api.SendableError {
 	}
 
 	if err := p.WriteSystem(s); err != nil {
-		return &api.InternalError{
+		return &server.InternalError{
 			Description: "failed to write system", Inner: err}
 	}
 	p.d.systems = append(p.d.systems, s)
@@ -327,10 +331,10 @@ func (p Persistence) CreateSystem(name string) api.SendableError {
 // DeleteSystem deletes the system with the given ID.
 //
 // Groups linked to this system will have that link removed.
-func (p Persistence) DeleteSystem(index int) api.SendableError {
+func (p Persistence) DeleteSystem(index int) server.Error {
 	s := p.d.systems[index]
 	if index < p.d.numPluginSystems {
-		return &api.BadRequest{
+		return &server.BadRequest{
 			Message: "cannot delete plugin-provided system " + s.id}
 	}
 	for j := range p.d.groups {
@@ -463,7 +467,7 @@ func (p Persistence) DeleteGroup(index int) {
 	p.d.groups = p.d.groups[:len(p.d.groups)-1]
 }
 
-func (p Persistence) loadScene(heroes api.HeroList, id string,
+func (p Persistence) loadScene(heroes groups.HeroList, id string,
 	input inputProvider) (scene, error) {
 	var data persistedScene
 	if err := strictUnmarshalYAML(input, &data); err != nil {
@@ -514,8 +518,7 @@ func (p Persistence) WriteScene(g Group, s Scene) error {
 func (p Persistence) CreateScene(g Group, name string, tmpl *api.SceneTemplate) error {
 	gr := g.(*group)
 	id := genID(name, "scene", sceneIDs{gr.scenes})
-	heroes := g.ViewHeroes()
-	defer heroes.Close()
+	heroes := g.Heroes()
 	s, err := p.loadScene(heroes, id, byteInput(tmpl.Config))
 	if err != nil {
 		return err
@@ -548,7 +551,7 @@ func (p Persistence) DeleteScene(g Group, index int) error {
 // CreateHero creates a new hero in the given group with the given name and
 // description. It takes the heroes as separate parameter even though they are
 // contained in the group, to ensure the caller locked the hero list.
-func (p Persistence) CreateHero(g Group, heroes api.HeroList,
+func (p Persistence) CreateHero(g Group, heroes groups.HeroList,
 	name string, description string) error {
 	gr := g.(*group)
 	hl := heroes.(*heroList)
@@ -585,12 +588,12 @@ func (p Persistence) writeHero(g *group, h *hero) error {
 }
 
 // WriteHero writes the given hero of the given group to the file system
-func (p Persistence) WriteHero(g Group, h api.Hero) error {
+func (p Persistence) WriteHero(g Group, h groups.Hero) error {
 	return p.writeHero(g.(*group), h.(*hero))
 }
 
 // DeleteHero deletes the hero with the given index from the given group.
-func (p Persistence) DeleteHero(g Group, heroes api.HeroList, index int) error {
+func (p Persistence) DeleteHero(g Group, heroes groups.HeroList, index int) error {
 	gr := g.(*group)
 	hl := heroes.(*heroList)
 	if index < 0 || index >= len(hl.data) {
@@ -759,7 +762,7 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 		data.ActiveScene = g.Scene(0).ID()
 	}
 	p.d.State.activeScene = -1
-	p.d.State.scenes = make([][]api.ModuleState, g.NumScenes())
+	p.d.State.scenes = make([][]modules.State, g.NumScenes())
 	p.d.State.path = path
 	p.d.State.a = p.d.owner
 	p.d.State.group = g
@@ -776,15 +779,13 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 	}
 	a := p.d.owner
 	sceneLoaded := make([]bool, g.NumScenes())
-	heroes := g.ViewHeroes()
-	defer heroes.Close()
 	for sceneName, sceneValue := range data.Scenes {
 		sceneFound := false
 		for i := 0; i < g.NumScenes(); i++ {
 			sceneDescr := g.Scene(i)
 			if sceneName == sceneDescr.ID() {
 				sceneFound = true
-				sceneData := make([]api.ModuleState, a.NumModules())
+				sceneData := make([]modules.State, a.NumModules())
 				moduleLoaded := make([]bool, a.NumModules())
 				for modName, modRaw := range sceneValue {
 					moduleFound := false
@@ -799,7 +800,7 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 							}
 
 							state, err := module.CreateState(&modRaw,
-								a.ServerContext(j, heroes), p.d.owner.MessageSenderFor(j))
+								a.ServerContext(j), p.d.owner.MessageSenderFor(j))
 							if err != nil {
 								log.Printf(
 									"Scene \"%s\": Could not load state for module %s: %s\n",
@@ -822,7 +823,7 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 							"Scene \"%s\": Missing data for module %s, loading default\n",
 							sceneName, module.ID)
 						state, err := module.CreateState(
-							nil, a.ServerContext(j, heroes), p.d.owner.MessageSenderFor(j))
+							nil, a.ServerContext(j), p.d.owner.MessageSenderFor(j))
 						if err != nil {
 							panic("Failed to create state with default values for module " +
 								module.ID)
@@ -844,11 +845,11 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 			sceneDescr := g.Scene(i)
 			log.Printf("Missing data for scene \"%s\", loading default\n",
 				sceneDescr.ID())
-			sceneData := make([]api.ModuleState, a.NumModules())
+			sceneData := make([]modules.State, a.NumModules())
 			for j := app.FirstModule; j < a.NumModules(); j++ {
 				if sceneDescr.UsesModule(j) {
 					module := a.ModuleAt(j)
-					state, err := module.CreateState(nil, a.ServerContext(j, heroes),
+					state, err := module.CreateState(nil, a.ServerContext(j),
 						p.d.owner.MessageSenderFor(j))
 					if err != nil {
 						panic("Failed to create state with default values for module " +
@@ -867,15 +868,13 @@ func (s *State) buildYaml() ([]byte, error) {
 	structure := persistingGroupState{
 		ActiveScene: s.group.Scene(s.activeScene).ID(),
 		Scenes:      make(map[string]map[string]interface{})}
-	heroes := s.group.ViewHeroes()
-	defer heroes.Close()
 	for i := 0; i < s.group.NumScenes(); i++ {
 		sceneDescr := s.group.Scene(i)
 		data := make(map[string]interface{})
 		for j := app.FirstModule; j < s.a.NumModules(); j++ {
 			if sceneDescr.UsesModule(j) {
 				data[s.a.ModuleAt(j).ID] =
-					s.scenes[i][j].PersistingView(s.a.ServerContext(j, heroes))
+					s.scenes[i][j].PersistingView(s.a.ServerContext(j))
 			}
 		}
 		structure.Scenes[sceneDescr.ID()] = data
