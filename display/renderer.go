@@ -52,8 +52,6 @@ func (r *renderer) clear() {
 // square (0,0) -- (1,1) in a coordinate system where the screen is
 // (-1.0, -1.0) -- (1.0, 1.0) (the OpenGL viewport).
 func (d *Display) toInternalCoords(t render.Transform, flip bool) render.Transform {
-	log.Printf("outer transform:\n  ((%f, %f, %f)\n   (%f, %f, %f))\n",
-		t[0], t[2], t[4], t[1], t[3], t[5])
 	ret := render.Identity().Translate(-1.0, -1.0).Scale(
 		2.0/float32(d.r.width), 2.0/float32(d.r.height)).Compose(t)
 	if flip {
@@ -80,16 +78,33 @@ func (d *Display) FillRect(t render.Transform, color colors.RGBA) {
 func (r *renderer) surfaceToTexture(surface *sdl.Surface) (render.Image, error) {
 	var glFormat C.GLenum
 	switch surface.Format.Format {
+	case sdl.PIXELFORMAT_ABGR8888:
+		glFormat = C.GL_RGBA
+		log.Println("surface format: ABGR")
 	case sdl.PIXELFORMAT_RGBA8888:
 		glFormat = C.GL_RGBA
-	case sdl.PIXELFORMAT_BGRA8888:
-		glFormat = C.GL_BGRA
+		rgba, err := surface.ConvertFormat(sdl.PIXELFORMAT_ABGR8888, 0)
+		surface.Free()
+		if err != nil {
+			return render.EmptyImage(), err
+		}
+		surface = rgba
+		log.Println("surface format: RGBA (did convert to ABGR)")
+	case sdl.PIXELFORMAT_BGR888:
+		glFormat = C.GL_RGB
+		log.Println("surface format: BGR")
 	case sdl.PIXELFORMAT_RGB888:
 		glFormat = C.GL_RGB
-	case sdl.PIXELFORMAT_BGR888:
-		glFormat = C.GL_BGR
+		rgba, err := surface.ConvertFormat(sdl.PIXELFORMAT_BGR888, 0)
+		surface.Free()
+		if err != nil {
+			return render.EmptyImage(), err
+		}
+		surface = rgba
+		log.Println("surface format: RBG (did convert to BGR)")
 	default:
-		rgba, err := surface.ConvertFormat(sdl.PIXELFORMAT_RGBA8888, 0)
+		log.Printf("surface format: converting to ABGR from %d\n", surface.Format.Format)
+		rgba, err := surface.ConvertFormat(sdl.PIXELFORMAT_ABGR8888, 0)
 		surface.Free()
 		if err != nil {
 			return render.EmptyImage(), err
@@ -103,7 +118,7 @@ func (r *renderer) surfaceToTexture(surface *sdl.Surface) (render.Image, error) 
 		C.GLsizei(surface.H), unsafe.Pointer(&surface.Pixels()[0])))
 	ret.Width = surface.W
 	ret.Height = surface.H
-	ret.Flipped = true
+	ret.Flipped = false
 	surface.Free()
 	return ret, nil
 }
@@ -223,13 +238,14 @@ type canvas struct {
 	prevW, prevH int32
 }
 
-func (c *canvas) Finish() render.Image {
+func (c *canvas) Finish() (ret render.Image) {
 	C.finish_canvas(&c.renderer.engine, c.fb, c.prevFb)
 	c.fb = 0
+	ret = render.Image{Width: c.width, Height: c.height, TextureID: uint32(c.tex),
+		Flipped: true}
 	c.renderer.width = c.prevW
 	c.renderer.height = c.prevH
-	return render.Image{Width: c.width, Height: c.height,
-		TextureID: uint32(c.tex), Flipped: false}
+	return
 }
 
 func (c *canvas) Close() {
@@ -268,6 +284,10 @@ func (d *Display) CreateCanvas(innerWidth, innerHeight int32,
 		panic("failed to create canvas")
 	}
 	d.r.width, d.r.height = width, height
+
+	log.Printf("canvas: (%d, %d); content: (%d, %d) -- (%d, %d)\n",
+		width, height, content.X, content.Y, content.X+content.Width,
+		content.Y+content.Height)
 
 	// TODO: proper background
 	content.Fill(d, bg.Primary)

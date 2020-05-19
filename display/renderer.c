@@ -146,6 +146,13 @@ bool engine_init(engine_t *e) {
   safeGetLocation(Attrib, rect, position, "a_position");
   safeGetLocation(Uniform, rect, color, "u_color");
 
+  glDisable(GL_DEPTH_TEST);
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  glDepthMask(false);
+
   return true;
 }
 
@@ -165,7 +172,7 @@ uint32_t gen_texture(engine_t *e, GLenum format, GLint bytesPerPixel,
   if (pixels != NULL) {
     glPixelStorei(GL_UNPACK_ALIGNMENT, bytesPerPixel);
   }
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+  glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE,
       pixels);
   return ret;
 }
@@ -191,13 +198,7 @@ void draw_image(
 void draw_rect(engine_t *e, float transform[6],
     uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
 
-  puts("draw_rect");
-  printf("  ((%f, %f, %f)\n"
-         "   (%f, %f, %f))\n",
-         transform[0], transform[2], transform[4],
-         transform[1], transform[3], transform[5]);
-  printf("  canvas == %u\n  ", (unsigned int)e->canvas_count);
-  debug_matrix(transform);
+  //debug_matrix(transform);
 
   glBindBuffer(GL_ARRAY_BUFFER, e->vbo);
   glUseProgram(e->rect.id);
@@ -236,11 +237,11 @@ void create_canvas(engine_t *e, GLsizei w, GLsizei h,
   glDrawBuffers(1, db);
 #endif
 
-  glClearColor(.0f, .0f, .0f, 1.0f);
-  glClear(GL_COLOR_BUFFER_BIT);
   switch (glCheckFramebufferStatus(GL_FRAMEBUFFER)) {
     case GL_FRAMEBUFFER_COMPLETE:
       ++e->canvas_count;
+      glClearColor(.0f, .0f, .0f, 1.0f);
+      glClear(GL_COLOR_BUFFER_BIT);
       return;
     renderFbFailure(GL_FRAMEBUFFER_UNDEFINED);
     renderFbFailure(GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT);

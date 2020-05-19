@@ -116,8 +116,6 @@ func (d *Display) render(cur time.Time, popup bool) {
 		}
 	}
 
-	/*frame.Position(frame.Width/2, frame.Height/2, render.Center, render.Top).Fill(
-	d, colors.RGBA{R: 255, G: 0, B: 0, A: 255})*/
 	if popup && !d.popupTexture.IsEmpty() {
 		d.popupTexture.Draw(d, frame, 255)
 	}

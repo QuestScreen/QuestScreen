@@ -70,8 +70,7 @@ func (d *Display) genWelcome(frame render.Rectangle, port uint16) error {
 		render.Center, render.Middle)
 	heightWithMargin := logoArea.Height + 4*d.r.unit
 	if heightWithMargin > logoRow.Height {
-		logoArea.Shrink(heightWithMargin-logoRow.Height,
-			heightWithMargin-logoRow.Height)
+		logoArea = logoArea.Scale(float32(logoRow.Height) / float32(heightWithMargin))
 	}
 	logoTex.Draw(d, logoArea, 255)
 

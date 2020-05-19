@@ -1,6 +1,7 @@
 package title
 
 import (
+	"log"
 	"time"
 
 	"github.com/QuestScreen/api/colors"
@@ -53,21 +54,29 @@ var Descriptor = modules.Module{
 
 func (t *Title) genTitleTexture(r render.Renderer, text string) render.Image {
 	tex := r.RenderText(text, *t.titleConfig.Font)
+	if tex.IsEmpty() {
+		log.Println("failed to render title text")
+		return tex
+	}
 	defer r.FreeImage(&tex)
 
 	window := r.OutputSize()
 	resWidth, resHeight := tex.Width, tex.Height
-	scaleFactor := 1.0
 	if resWidth > window.Width*2/3 {
-		scaleFactor = float64(resWidth) / float64(window.Width*2/3)
-		resHeight = int32(float64(resHeight) * scaleFactor)
+		scaleFactor := float32(window.Width*2/3) / float32(resWidth)
+		resHeight = int32(float32(resHeight) * scaleFactor)
 		resWidth = window.Width * 2 / 3
 	}
 	unit := r.Unit()
-	canvas := r.CreateCanvas(resWidth+4*unit, resHeight,
+	canvas := r.CreateCanvas(resWidth+2*unit, resHeight,
 		*t.titleConfig.Background, render.West|render.East|render.South)
-	tex.Draw(r, r.OutputSize(), 255)
-	return canvas.Finish()
+	//frame := r.OutputSize().Position(
+	//	resWidth, resHeight, render.Center, render.Middle)
+	//tex.Draw(r, frame, 255)
+
+	ret := canvas.Finish()
+	log.Printf("res dim: (%d, %d); title dim: (%d, %d)\n", resWidth, resHeight, ret.Width, ret.Height)
+	return ret
 }
 
 // InitTransition initializes a transition.
