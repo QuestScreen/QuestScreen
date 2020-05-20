@@ -70,9 +70,9 @@ func (t *Title) genTitleTexture(r render.Renderer, text string) render.Image {
 	unit := r.Unit()
 	canvas := r.CreateCanvas(resWidth+2*unit, resHeight,
 		*t.titleConfig.Background, render.West|render.East|render.South)
-	//frame := r.OutputSize().Position(
-	//	resWidth, resHeight, render.Center, render.Middle)
-	//tex.Draw(r, frame, 255)
+	frame := r.OutputSize().Position(
+		resWidth, resHeight, render.Center, render.Middle)
+	tex.Draw(r, frame, 255)
 
 	ret := canvas.Finish()
 	log.Printf("res dim: (%d, %d); title dim: (%d, %d)\n", resWidth, resHeight, ret.Width, ret.Height)
@@ -96,7 +96,7 @@ func (t *Title) TransitionStep(r render.Renderer, elapsed time.Duration) {
 	if elapsed < time.Second/3 {
 		if !t.curTitle.IsEmpty() {
 			pos := render.TransitionCurve{Duration: singleDuration}.Cubic(elapsed)
-			t.curYOffset = int32(pos * float32(t.curTitle.Height))
+			t.curYOffset = int32(pos * float32(t.curTitle.Height) * 1.1)
 		}
 	} else if elapsed < time.Second/3+time.Millisecond*100 {
 		if !t.curTitle.IsEmpty() {
@@ -113,7 +113,7 @@ func (t *Title) TransitionStep(r render.Renderer, elapsed time.Duration) {
 			pos := render.TransitionCurve{Duration: singleDuration}.Cubic(
 				elapsed - singleDuration - waitTime)
 			t.curYOffset =
-				int32((1.0 - pos) * float32(t.curTitle.Height))
+				int32((1.0 - pos) * float32(t.curTitle.Height) * 1.1)
 		}
 	}
 }
@@ -128,7 +128,8 @@ func (t *Title) Render(r render.Renderer) {
 	if !t.curTitle.IsEmpty() {
 		window := r.OutputSize()
 		frame := window.Position(t.curTitle.Width,
-			t.curTitle.Height-2*t.curYOffset, render.Center, render.Top)
+			t.curTitle.Height, render.Center, render.Top)
+		frame.Y += t.curYOffset
 		t.curTitle.Draw(r, frame, 255)
 	}
 }

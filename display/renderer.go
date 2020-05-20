@@ -239,19 +239,26 @@ type canvas struct {
 }
 
 func (c *canvas) Finish() (ret render.Image) {
+	if c.fb == 0 {
+		panic("tried to finish already closed canvas")
+	}
 	C.finish_canvas(&c.renderer.engine, c.fb, c.prevFb)
 	c.fb = 0
 	ret = render.Image{Width: c.width, Height: c.height, TextureID: uint32(c.tex),
 		Flipped: true}
 	c.renderer.width = c.prevW
 	c.renderer.height = c.prevH
+	C.glViewport(0, 0, C.GLsizei(c.width), C.GLsizei(c.height))
 	return
 }
 
 func (c *canvas) Close() {
 	if c.fb != 0 {
-		C.destroy_canvas(&c.renderer.engine, c.fb, c.tex, c.prevFb)
 		c.fb = 0
+		c.renderer.width = c.prevW
+		c.renderer.height = c.prevH
+		C.glViewport(0, 0, C.GLsizei(c.width), C.GLsizei(c.height))
+		C.destroy_canvas(&c.renderer.engine, c.fb, c.tex, c.prevFb)
 	}
 }
 
@@ -284,6 +291,8 @@ func (d *Display) CreateCanvas(innerWidth, innerHeight int32,
 		panic("failed to create canvas")
 	}
 	d.r.width, d.r.height = width, height
+
+	C.glViewport(0, 0, C.GLsizei(width), C.GLsizei(height))
 
 	log.Printf("canvas: (%d, %d); content: (%d, %d) -- (%d, %d)\n",
 		width, height, content.X, content.Y, content.X+content.Width,
