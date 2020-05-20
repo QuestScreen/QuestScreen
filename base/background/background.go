@@ -59,12 +59,14 @@ func (bg *Background) genTexture(
 	texRatio := float32(tex.Width) / float32(tex.Height)
 	winRatio := float32(window.Width) / float32(window.Height)
 	if texRatio > winRatio {
-		scaleFactor = winRatio
+		scaleFactor = float32(window.Width) / float32(tex.Width)
 	} else {
-		scaleFactor = texRatio
+		scaleFactor = float32(window.Height) / float32(tex.Height)
 	}
-	trans := window.Transformation().Scale(scaleFactor, scaleFactor)
-	renderer.DrawImage(tex, trans, 255)
+	resW := int32(scaleFactor * float32(tex.Width))
+	resH := int32(scaleFactor * float32(tex.Height))
+	frame := window.Position(resW, resH, render.Center, render.Middle)
+	tex.Draw(renderer, frame, 255)
 
 	return canvas.Finish()
 }
