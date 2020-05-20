@@ -53,7 +53,7 @@ func (bg *Background) genTexture(
 	defer renderer.FreeImage(&tex)
 
 	window := renderer.OutputSize()
-	canvas := renderer.CreateCanvas(window.Width, window.Height,
+	canvas, _ := renderer.CreateCanvas(window.Width, window.Height,
 		colors.RGB{R: 0, G: 0, B: 0}.AsBackground(), render.Nowhere)
 	scaleFactor := float32(1.0)
 	texRatio := float32(tex.Width) / float32(tex.Height)

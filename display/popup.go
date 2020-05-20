@@ -79,7 +79,7 @@ func (d *Display) genPopup(frame render.Rectangle, actions []KeyAction) {
 	if d.owner.NumFontFamilies() == 0 {
 		return
 	}
-	canvas := d.CreateCanvas(frame.Width, frame.Height,
+	canvas, _ := d.CreateCanvas(frame.Width, frame.Height,
 		colors.RGBA{R: 0, G: 0, B: 0, A: 127}.AsBackground(), render.Nowhere)
 	defer canvas.Close()
 

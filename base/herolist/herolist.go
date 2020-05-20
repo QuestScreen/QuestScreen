@@ -97,15 +97,14 @@ func (l *HeroList) boxHeight(borderWidth int32) int32 {
 
 func (l *HeroList) buildHeroBox(r render.Renderer, h heroData) render.Image {
 	unit := r.Unit()
-	canvas := r.CreateCanvas(l.boxWidth(unit)-unit,
+	canvas, frame := r.CreateCanvas(l.boxWidth(unit)-unit,
 		l.boxHeight(unit)-2*unit, *l.config.Background,
 		render.North|render.East|render.South)
+	_, frame = frame.Carve(render.West, 2*unit)
 	nameImg := r.RenderText(h.name, *l.config.Font)
 	defer r.FreeImage(&nameImg)
 	descrImg := r.RenderText(h.desc, *l.config.Font)
 	defer r.FreeImage(&descrImg)
-	frame := r.OutputSize()
-	frame = frame.Shrink(4*unit, 2*unit) // margin
 	nameFrame := frame.Position(nameImg.Width, nameImg.Height, render.Left,
 		render.Top)
 	nameImg.Draw(r, nameFrame, 255)

@@ -24,17 +24,17 @@ bool engine_init(engine_t *e);
 
 void engine_close(engine_t *e);
 
-uint32_t gen_texture(engine_t *e, GLenum format, GLint bytesPerPixel,
-    GLsizei w, GLsizei h, void *pixels);
+uint32_t gen_texture(engine_t *e, GLenum format, GLsizei w, GLsizei h,
+    void *pixels);
 
-void draw_image(
-  engine_t *e, GLuint texture, float  transform[6], uint8_t alpha);
+void draw_image(engine_t *e, GLuint texture, float  transform[6],
+    uint8_t alpha, bool texHasAlpha);
 
 void draw_rect(
-  engine_t *e, float transform[6], uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+  engine_t *e, float transform[6], uint8_t color[4], bool copyAlpha);
 
 void create_canvas(engine_t *e, GLsizei w, GLsizei h,
-    GLuint *oldFb, GLuint *targetFb, GLuint *targetTex);
+    GLuint *oldFb, GLuint *targetFb, GLuint *targetTex, bool withAlpha);
 void destroy_canvas(
   engine_t *e, GLuint targetFb, GLuint targetTex, GLuint prevFb);
 void finish_canvas(engine_t *e, GLuint targetFb, GLuint prevFb);

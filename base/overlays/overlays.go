@@ -107,9 +107,10 @@ func (o *Overlays) loadTexture(r render.Renderer, td *textureData,
 	}
 	if targetScale < 1.0 {
 		loadedWidth = int32(float32(tex.Width) * targetScale)
-		canvas := r.CreateCanvas(loadedWidth, int32(float32(tex.Height)*targetScale),
+		canvas, frame := r.CreateCanvas(loadedWidth,
+			int32(float32(tex.Height)*targetScale),
 			colors.RGB{R: 0, G: 0, B: 0}.AsBackground(), render.Nowhere)
-		tex.Draw(r, r.OutputSize(), 255)
+		tex.Draw(r, frame, 255)
 		tex = canvas.Finish()
 	} else {
 		loadedWidth = tex.Width

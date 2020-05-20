@@ -55,7 +55,7 @@ func (d *Display) renderIPHint(font fonts.Config, ip string,
 }
 
 func (d *Display) genWelcome(frame render.Rectangle, port uint16) error {
-	c := d.CreateCanvas(frame.Width, frame.Height,
+	c, _ := d.CreateCanvas(frame.Width, frame.Height,
 		colors.RGBA{R: 255, G: 255, B: 255, A: 255}.AsBackground(),
 		render.Nowhere)
 	defer c.Close()

@@ -147,11 +147,9 @@ bool engine_init(engine_t *e) {
   safeGetLocation(Uniform, rect, color, "u_color");
 
   glDisable(GL_DEPTH_TEST);
-
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
   glDepthMask(false);
+
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   return true;
 }
@@ -161,8 +159,8 @@ void engine_close(engine_t *e) {
   glDeleteVertexArrays(1, &e->vao);
 }
 
-uint32_t gen_texture(engine_t *e, GLenum format, GLint bytesPerPixel,
-    GLsizei w, GLsizei h, void *pixels) {
+uint32_t gen_texture(engine_t *e, GLenum format, GLsizei w, GLsizei h,
+    void *pixels) {
   GLuint ret;
   (void)e;
   glGenTextures(1, &ret);
@@ -170,7 +168,18 @@ uint32_t gen_texture(engine_t *e, GLenum format, GLint bytesPerPixel,
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   if (pixels != NULL) {
-    glPixelStorei(GL_UNPACK_ALIGNMENT, bytesPerPixel);
+    switch (format) {
+      case GL_RGBA:
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        break;
+      case GL_RGB:
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 3);
+        break;
+      default:
+        fputs("error: unsupported texture format!\n", stderr);
+        break;
+    }
+
   }
   glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE,
       pixels);
@@ -178,7 +187,12 @@ uint32_t gen_texture(engine_t *e, GLenum format, GLint bytesPerPixel,
 }
 
 void draw_image(
-    engine_t *e, GLuint texture, float transform[6], uint8_t alpha) {
+    engine_t *e, GLuint texture, float transform[6], uint8_t alpha,
+    bool texHasAlpha) {
+  if ( alpha != 255 || texHasAlpha) {
+    glEnable(GL_BLEND);
+  }
+
   glBindBuffer(GL_ARRAY_BUFFER, e->vbo);
   glBindVertexArray(e->vao);
   glUseProgram(e->image.id);
@@ -193,12 +207,20 @@ void draw_image(
   glUniformMatrix3x2fv(e->image.transform, 1, GL_FALSE, transform);
 
   glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+  if ( alpha != 255 || texHasAlpha) {
+    glDisable(GL_BLEND);
+  }
 }
 
-void draw_rect(engine_t *e, float transform[6],
-    uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+void draw_rect(
+    engine_t *e, float transform[6], uint8_t color[4], bool copyAlpha) {
 
   //debug_matrix(transform);
+
+  if (!copyAlpha && color[3] != 255) {
+    glEnable(GL_BLEND);
+  }
 
   glBindBuffer(GL_ARRAY_BUFFER, e->vbo);
   glUseProgram(e->rect.id);
@@ -207,11 +229,13 @@ void draw_rect(engine_t *e, float transform[6],
       GL_FALSE, 2 * sizeof(GLfloat), 0);
   glEnableVertexAttribArray(e->rect.position);
 
-  glUniform4f(e->rect.color, (float)r / 255.0, (float)g / 255.0,
-      (float)b / 255.0, (float)a / 255.0);
+  glUniform4f(e->rect.color, (float)color[0] / 255.0, (float)color[1] / 255.0,
+      (float)color[2] / 255.0, (float)color[3] / 255.0);
   glUniformMatrix3x2fv(e->rect.transform, 1, GL_FALSE, transform);
 
   glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+  glDisable(GL_BLEND);
 }
 
 #define renderFbFailure(_name)\
@@ -220,8 +244,8 @@ void draw_rect(engine_t *e, float transform[6],
     break
 
 void create_canvas(engine_t *e, GLsizei w, GLsizei h,
-    GLuint *oldFb, GLuint *targetFb, GLuint *targetTex) {
-  *targetTex = gen_texture(e, GL_RGBA, 4, w, h, NULL);
+    GLuint *oldFb, GLuint *targetFb, GLuint *targetTex, bool withAlpha) {
+  *targetTex = gen_texture(e, withAlpha ? GL_RGBA : GL_RGB, w, h, NULL);
 
   GLint tmpOldFb;
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &tmpOldFb);
@@ -241,7 +265,7 @@ void create_canvas(engine_t *e, GLsizei w, GLsizei h,
     case GL_FRAMEBUFFER_COMPLETE:
       ++e->canvas_count;
       glClearColor(.0f, .0f, .0f, 1.0f);
-      glClear(GL_COLOR_BUFFER_BIT);
+		  glClear(GL_COLOR_BUFFER_BIT);
       return;
     renderFbFailure(GL_FRAMEBUFFER_UNDEFINED);
     renderFbFailure(GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT);

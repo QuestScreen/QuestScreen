@@ -16,6 +16,11 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+func toArr(c colors.RGBA) [4]C.uint8_t {
+	return [4]C.uint8_t{
+		C.uint8_t(c.R), C.uint8_t(c.G), C.uint8_t(c.B), C.uint8_t(c.A)}
+}
+
 // this struct contains data used for implementing api.Renderer within Display.
 type renderer struct {
 	engine        C.engine_t
@@ -70,9 +75,8 @@ func (d *Display) OutputSize() render.Rectangle {
 // specified color. The rectangle is positions via the given transformation.
 func (d *Display) FillRect(t render.Transform, color colors.RGBA) {
 	t = d.toInternalCoords(t, false)
-	C.draw_rect(&d.r.engine, (*C.float)(&t[0]),
-		C.uint8_t(color.R), C.uint8_t(color.G), C.uint8_t(color.B),
-		C.uint8_t(color.A))
+	cArr := toArr(color)
+	C.draw_rect(&d.r.engine, (*C.float)(&t[0]), &cArr[0], false)
 }
 
 func (r *renderer) surfaceToTexture(surface *sdl.Surface) (render.Image, error) {
@@ -113,8 +117,21 @@ func (r *renderer) surfaceToTexture(surface *sdl.Surface) (render.Image, error) 
 		glFormat = C.GL_RGBA
 	}
 	var ret render.Image
-	ret.TextureID = uint32(C.gen_texture(&r.engine, glFormat,
-		C.GLint(surface.Format.BytesPerPixel), C.GLsizei(surface.W),
+	var expectedPixelBytes uint8
+	switch glFormat {
+	case C.GL_RGBA:
+		expectedPixelBytes = 4
+		ret.HasAlpha = true
+	case C.GL_RGB:
+		expectedPixelBytes = 3
+		ret.HasAlpha = false
+	default:
+		panic("unexpected format")
+	}
+	if surface.Format.BytesPerPixel != expectedPixelBytes {
+		panic("surface has wrong number of BytesPerPixel")
+	}
+	ret.TextureID = uint32(C.gen_texture(&r.engine, glFormat, C.GLsizei(surface.W),
 		C.GLsizei(surface.H), unsafe.Pointer(&surface.Pixels()[0])))
 	ret.Width = surface.W
 	ret.Height = surface.H
@@ -161,7 +178,7 @@ func (d *Display) FreeImage(i *render.Image) {
 func (d *Display) DrawImage(image render.Image, t render.Transform, alpha uint8) {
 	t = d.toInternalCoords(t, image.Flipped)
 	C.draw_image(&d.r.engine, C.GLuint(image.TextureID),
-		(*C.float)(&t[0]), C.uint8_t(alpha))
+		(*C.float)(&t[0]), C.uint8_t(alpha), C.bool(image.HasAlpha))
 }
 
 // Unit is the scaled smallest unit in pixels.
@@ -235,6 +252,7 @@ type canvas struct {
 	*renderer
 	prevFb       C.GLuint
 	fb, tex      C.GLuint
+	alpha        bool
 	prevW, prevH int32
 }
 
@@ -245,7 +263,7 @@ func (c *canvas) Finish() (ret render.Image) {
 	C.finish_canvas(&c.renderer.engine, c.fb, c.prevFb)
 	c.fb = 0
 	ret = render.Image{Width: c.width, Height: c.height, TextureID: uint32(c.tex),
-		Flipped: true}
+		Flipped: true, HasAlpha: c.alpha}
 	c.renderer.width = c.prevW
 	c.renderer.height = c.prevH
 	C.glViewport(0, 0, C.GLsizei(c.width), C.GLsizei(c.height))
@@ -265,10 +283,10 @@ func (c *canvas) Close() {
 // CreateCanvas creates a canvas to draw content into, and fills it with the
 // given background.
 func (d *Display) CreateCanvas(innerWidth, innerHeight int32,
-	bg colors.Background, borders render.Directions) render.Canvas {
+	bg colors.Background, borders render.Directions) (c render.Canvas, content render.Rectangle) {
 	ret := &canvas{renderer: &d.r, prevW: d.r.width, prevH: d.r.height}
 	width, height := innerWidth, innerHeight
-	content := render.Rectangle{
+	content = render.Rectangle{
 		X: 0, Y: 0, Width: innerWidth, Height: innerHeight}
 	if borders&render.East != 0 {
 		width += d.r.unit
@@ -284,9 +302,11 @@ func (d *Display) CreateCanvas(innerWidth, innerHeight int32,
 		height += d.r.unit
 		content.Y += d.r.unit
 	}
+	ret.alpha = bg.Primary.A != 255 ||
+		(bg.TextureIndex != -1 && bg.Secondary.A != 255)
 
 	C.create_canvas(&d.r.engine, C.GLsizei(width), C.GLsizei(height),
-		&ret.prevFb, &ret.fb, &ret.tex)
+		&ret.prevFb, &ret.fb, &ret.tex, C.bool(ret.alpha))
 	if ret.fb == 0 {
 		panic("failed to create canvas")
 	}
@@ -294,14 +314,15 @@ func (d *Display) CreateCanvas(innerWidth, innerHeight int32,
 
 	C.glViewport(0, 0, C.GLsizei(width), C.GLsizei(height))
 
-	log.Printf("canvas: (%d, %d); content: (%d, %d) -- (%d, %d)\n",
-		width, height, content.X, content.Y, content.X+content.Width,
-		content.Y+content.Height)
+	// TODO
+	/*if bg.TextureIndex == -1 {*/
+	t := d.toInternalCoords(content.Transformation(), false)
+	pArr := toArr(bg.Primary)
+	C.draw_rect(&d.r.engine, (*C.float)(&t[0]), &pArr[0], true)
+	/*}*/
 
-	// TODO: proper background
-	content.Fill(d, bg.Primary)
-
-	return ret
+	c = ret
+	return
 }
 
 func (r *renderer) canvasCount() uint8 {
