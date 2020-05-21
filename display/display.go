@@ -169,10 +169,10 @@ func (d *Display) RenderLoop() int {
 		}
 		var event sdl.Event
 		if d.numTransitions > 0 {
-			waitTime := (time.Second / 80) - time.Now().Sub(curTime)
+			/*waitTime := (time.Second / 80) - time.Now().Sub(curTime)
 			if waitTime > 0 {
 				event = sdl.WaitEventTimeout(int(waitTime / time.Millisecond))
-			}
+			}*/
 		} else {
 			render = false
 			event = sdl.WaitEvent()

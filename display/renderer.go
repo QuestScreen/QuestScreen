@@ -1,9 +1,6 @@
 package display
 
-// #ifdef __APPLE__
-// #cgo LDFLAGS: -framework OpenGL
-// #endif
-// #include "renderer.h"
+// #include <renderer.h>
 import "C"
 import (
 	"log"

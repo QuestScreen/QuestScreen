@@ -23,7 +23,10 @@ typedef struct {
     GLuint id;
     GLint transform, position, color;
   } rect;
-  GLuint vao, vbo;
+#ifdef __APPLE__
+  GLuint vao;
+#endif
+  GLuint vbo;
   uint8_t canvas_count;
 } engine_t;
 

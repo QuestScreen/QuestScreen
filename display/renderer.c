@@ -2,68 +2,100 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static const char *image_vshader_src =
-    "#version 150                \n"
-    "uniform mat3x2 u_transform; \n"
+#define mat_mult(_m, _v) "vec2(" #_m "[0].x * " #_v ".x + " #_m "[1].x * " \
+    #_v ".y + " #_m "[2].x, " #_m "[0].y * " #_v ".x + " #_m "[1].y * " \
+    #_v ".y + " #_m "[2].y)"
+
+#ifdef __APPLE__
+#define glslversion "#version 150\n"
+#define texture(_s, _v) "texture(" #_s ", " #_v ")"
+#define fragColor "fragColor"
+#else
+#define glslversion "#version 100\n"
+#define texture(_s, _v) "texture2D(" #_s ", " #_v ")"
+#define fragColor "gl_FragColor"
+#endif
+
+static const char *image_vshader_src = glslversion
+    "uniform vec2 u_transform[3];\n"
+#ifdef __APPLE__
     "in vec2 a_position;         \n"
     "out vec2 v_texCoord;        \n"
+#else
+    "attribute vec2 a_position;  \n"
+    "varying vec2 v_texCoord;    \n"
+#endif
     "void main()  {              \n"
-    "  gl_Position = vec4(u_transform*vec3(a_position,1), 0, 1); \n"
-    "  v_texCoord = vec2(a_position.x, 1-a_position.y);  \n"
+    "  gl_Position = vec4(" mat_mult(u_transform, a_position) ", 0, 1); \n"
+    "  v_texCoord = vec2(a_position.x, 1.0-a_position.y);  \n"
     "}";
 
-static const char *image_fshader_src =
-    "#version 150                   \n"
+static const char *image_fshader_src = glslversion
     "precision mediump float;       \n"
+#ifdef __APPLE__
     "in vec2 v_texCoord;            \n"
     "out vec4 fragColor;            \n"
+#else
+    "varying vec2 v_texCoord;       \n"
+#endif
     "uniform sampler2D s_texture;   \n"
     "uniform float u_alpha;         \n"
     "void main()  {                 \n"
-    "  vec4 c = texture(s_texture, v_texCoord); \n" // -> texture2D, gl_FragColor
-    "  fragColor = vec4(c.rgb, u_alpha * c.a);  \n"
+    "  vec4 c = " texture(s_texture, v_texCoord) "; \n"
+    "  " fragColor " = vec4(c.rgb, u_alpha * c.a);  \n"
     "}";
 
-static const char *masking_vshader_src =
-    "#version 150               \n"
-    "uniform mat3x2 u_posTrans; \n"
-    "uniform mat3x2 u_texTrans; \n"
+static const char *masking_vshader_src = glslversion
+    "uniform vec2 u_posTrans[3];\n"
+    "uniform vec2 u_texTrans[3];\n"
+#ifdef __APPLE__
     "in vec2 a_position;        \n"
     "out vec2 v_texCoord;       \n"
+#else
+    "attribute vec2 a_position; \n"
+    "varying vec2 v_texCoord;   \n"
+#endif
     "void main()  {             \n"
-    "  gl_Position = vec4(u_posTrans*vec3(a_position,1), 0, 1);        \n"
-    "  v_texCoord =  u_texTrans*vec3(a_position.x, 1-a_position.y, 1); \n"
+    "  gl_Position = vec4(" mat_mult(u_posTrans, a_position) ", 0, 1); \n"
+    "  vec2 flipped = vec2(a_position.x, 1.0-a_position.y);            \n"
+    "  v_texCoord = " mat_mult(u_texTrans, flipped) "; \n"
     "}";
 
-static const char *masking_fshader_src =
-    "#version 150                   \n"
+static const char *masking_fshader_src = glslversion
     "precision mediump float;       \n"
+#ifdef __APPLE__
     "in vec2 v_texCoord;            \n"
     "out vec4 fragColor;            \n"
+#else
+    "varying vec2 v_texCoord;       \n"
+#endif
     "uniform sampler2D s_texture;   \n"
     "uniform vec4 u_primary;        \n"
     "uniform vec4 u_secondary;      \n"
     "void main()  {                 \n"
-    "  float a = texture(s_texture, v_texCoord).r;      \n"
-    "  fragColor = a * u_primary + (1-a) * u_secondary; \n"
+    "  float a = " texture(s_texture, v_texCoord) ".r;      \n"
+    "  " fragColor " = a * u_primary + (1.0-a) * u_secondary; \n"
     "}";
 
-static const char *rect_vshader_src =
-    "#version 150                \n"
-    "uniform mat3x2 u_transform; \n"
+static const char *rect_vshader_src = glslversion
+    "uniform vec2 u_transform[3];\n"
+#ifdef __APPLE__
     "in vec2 a_position;         \n"
+#else
+    "attribute vec2 a_position;  \n"
+#endif
     "void main() {               \n"
-    "  gl_Position = vec4(u_transform*vec3(a_position, 1), 0, 1);\n"
+    "  gl_Position = vec4(" mat_mult(u_transform, a_position) ", 0, 1);\n"
     "}";
 
-// TODO: alpha blending
-static const char *rect_fshader_src =
-    "#version 150              \n"
+static const char *rect_fshader_src = glslversion
     "precision mediump float;  \n"
     "uniform vec4 u_color;     \n"
+#ifdef __APPLE__
     "out vec4 fragColor;       \n"
+#endif
     "void main() {             \n"
-    "  fragColor = u_color;    \n"
+    "  " fragColor "= u_color; \n"
     "}";
 
 GLuint load_shader(const char *shaderSrc, GLenum type) {
@@ -84,6 +116,9 @@ GLuint load_shader(const char *shaderSrc, GLenum type) {
       char* infoLog = malloc(sizeof(char) * infoLen);
       glGetShaderInfoLog(shader, infoLen, NULL, infoLog);
       puts("Error compiling shader:");
+      puts("-----------------------");
+      puts(shaderSrc);
+      puts("-----------------------");
       puts(infoLog);
       free(infoLog);
     } else puts("Unknown problem compiling shader!");
@@ -170,8 +205,10 @@ bool engine_init(engine_t *e) {
   glBindBuffer(GL_ARRAY_BUFFER, e->vbo);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
+#ifdef __APPLE__
   glGenVertexArrays(1, &e->vao);
   glBindVertexArray(e->vao);
+#endif
 
   e->canvas_count = 0;
 
@@ -211,7 +248,9 @@ bool engine_init(engine_t *e) {
 
 void engine_close(engine_t *e) {
   glDeleteBuffers(1, &e->vbo);
+#ifdef __APPLE__
   glDeleteVertexArrays(1, &e->vao);
+#endif
 }
 
 uint32_t gen_texture(engine_t *e, GLenum format, GLsizei w, GLsizei h,
@@ -255,7 +294,9 @@ void draw_image(
   }
 
   glBindBuffer(GL_ARRAY_BUFFER, e->vbo);
+#ifdef __APPLE__
   glBindVertexArray(e->vao);
+#endif
   glUseProgram(e->image.id);
 
   glVertexAttribPointer(e->image.position, 2, GL_FLOAT,
@@ -266,7 +307,7 @@ void draw_image(
   glBindTexture(GL_TEXTURE_2D, texture);
   glUniform1i(e->image.texture, 0);
   glUniform1f(e->image.alpha, (float)alpha / 255.0f);
-  glUniformMatrix3x2fv(e->image.transform, 1, GL_FALSE, transform);
+  glUniform2fv(e->image.transform, 3, transform);
 
   glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
@@ -283,7 +324,9 @@ void setUniformColor(GLint id, uint8_t color[4]) {
 void draw_masked(engine_t *e, GLuint texture, float posTrans[6],
     float texTrans[6], uint8_t primary[4], uint8_t secondary[4]) {
   glBindBuffer(GL_ARRAY_BUFFER, e->vbo);
+#ifdef __APPLE__
   glBindVertexArray(e->vao);
+#endif
   glUseProgram(e->mask.id);
 
   glVertexAttribPointer(e->mask.position, 2, GL_FLOAT,
@@ -293,8 +336,8 @@ void draw_masked(engine_t *e, GLuint texture, float posTrans[6],
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, texture);
   glUniform1i(e->mask.texture, 0);
-  glUniformMatrix3x2fv(e->mask.posTrans, 1, GL_FALSE, posTrans);
-  glUniformMatrix3x2fv(e->mask.texTrans, 1, GL_FALSE, texTrans);
+  glUniform2fv(e->mask.posTrans, 3, posTrans);
+  glUniform2fv(e->mask.texTrans, 3, texTrans);
   setUniformColor(e->mask.primary, primary);
   setUniformColor(e->mask.secondary, secondary);
 
@@ -318,7 +361,7 @@ void draw_rect(
   glEnableVertexAttribArray(e->rect.position);
 
   setUniformColor(e->rect.color, color);
-  glUniformMatrix3x2fv(e->rect.transform, 1, GL_FALSE, transform);
+  glUniform2fv(e->rect.transform, 3, transform);
 
   glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
@@ -335,7 +378,11 @@ void create_canvas(engine_t *e, GLsizei w, GLsizei h,
   *targetTex = gen_texture(e, withAlpha ? GL_RGBA : GL_RGB, w, h, NULL);
 
   GLint tmpOldFb;
+#ifdef __APPLE__
   glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &tmpOldFb);
+#else
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &tmpOldFb);
+#endif
   *oldFb = (GLuint)tmpOldFb;
 
   glGenFramebuffers(1, targetFb);
@@ -354,14 +401,20 @@ void create_canvas(engine_t *e, GLsizei w, GLsizei h,
       glClearColor(.0f, .0f, .0f, 1.0f);
 		  glClear(GL_COLOR_BUFFER_BIT);
       return;
+#ifdef __APPLE__
     renderFbFailure(GL_FRAMEBUFFER_UNDEFINED);
+#endif
     renderFbFailure(GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT);
     renderFbFailure(GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT);
+#ifdef __APPLE__
     renderFbFailure(GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER);
     renderFbFailure(GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER);
+#endif
     renderFbFailure(GL_FRAMEBUFFER_UNSUPPORTED);
+#ifdef __APPLE__
     renderFbFailure(GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE);
     renderFbFailure(GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS);
+#endif
   }
   glBindFramebuffer(GL_FRAMEBUFFER, *oldFb);
   glDeleteTextures(1, targetTex);
