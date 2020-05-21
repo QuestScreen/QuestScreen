@@ -180,36 +180,35 @@ func (l *HeroList) FinishTransition(r render.Renderer) {
 
 // Render renders the current state of the HeroList
 func (l *HeroList) Render(r render.Renderer) {
-	shown := int32(0)
-	additionalYOffset := int32(0)
 	if !l.curGlobalVisible && l.status == resting {
 		return
 	}
 	unit := r.Unit()
-	winHeight := r.OutputSize().Height
+
+	frame := r.OutputSize()
+	_, frame = frame.Carve(render.North, frame.Height/7)
+	frame, _ = frame.Carve(render.West, l.boxWidth(unit))
+
 	for i := range l.heroes {
 		if !l.heroes[i].visible && (l.curHero != int32(i) ||
 			(l.status != showingHero && l.status != hidingHero)) {
 			continue
 		}
-		xOffset := int32(0)
+		var targetRect render.Rectangle
+		targetRect, frame = frame.Carve(render.North, l.boxHeight(unit))
+
 		if l.status == showingAll || l.status == hidingAll ||
 			((l.status == showingHero || l.status == hidingHero) && l.curHero == int32(i)) {
-			xOffset = l.curXOffset
+			targetRect.X -= l.curXOffset
+			_, frame = frame.Carve(render.North, l.curYOffset-l.boxHeight(unit))
+		} else {
+			_, frame = frame.Carve(render.North, unit*4)
 		}
-		targetRect := render.Rectangle{X: -xOffset, Y: winHeight/10 +
-			(l.boxHeight(unit)+l.contentHeight/4)*shown + additionalYOffset,
-			Width: l.boxWidth(unit), Height: l.boxHeight(unit)}
-		if xOffset == 0 {
+
+		if targetRect.X == 0 {
 			l.heroes[i].box.Draw(r, targetRect, 255)
 		} else {
 			l.heroes[i].box.Draw(r, targetRect, l.alphaMod)
-		}
-
-		if (l.status == showingHero || l.status == hidingHero) && l.curHero == int32(i) {
-			additionalYOffset = l.curYOffset
-		} else {
-			shown++
 		}
 	}
 }

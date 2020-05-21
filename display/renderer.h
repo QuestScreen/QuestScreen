@@ -13,7 +13,7 @@
 typedef struct {
   struct {
     GLuint id;
-    GLint transform, position, texture;
+    GLint transform, position, texture, alpha;
   } image;
   struct {
     GLuint id;

@@ -12,15 +12,16 @@ static const char *image_vshader_src =
     "  v_texCoord = vec2(a_position.x, 1-a_position.y);  \n"
     "}";
 
-// TODO: alpha blending
 static const char *image_fshader_src =
     "#version 150                   \n"
     "precision mediump float;       \n"
     "in vec2 v_texCoord;            \n"
     "out vec4 fragColor;            \n"
     "uniform sampler2D s_texture;   \n"
+    "uniform float u_alpha;         \n"
     "void main()  {                 \n"
-    "  fragColor = texture(s_texture, v_texCoord); \n" // -> texture2D, gl_FragColor
+    "  vec4 c = texture(s_texture, v_texCoord); \n" // -> texture2D, gl_FragColor
+    "  fragColor = vec4(c.rgb, u_alpha * c.a);  \n"
     "}";
 
 static const char *masking_vshader_src =
@@ -32,7 +33,6 @@ static const char *masking_vshader_src =
     "void main()  {             \n"
     "  gl_Position = vec4(u_posTrans*vec3(a_position,1), 0, 1);        \n"
     "  v_texCoord =  u_texTrans*vec3(a_position.x, 1-a_position.y, 1); \n"
-    //"  v_texCoord = vec2(a_position.x, 1-a_position.y);  \n" // DEBUG
     "}";
 
 static const char *masking_fshader_src =
@@ -181,6 +181,7 @@ bool engine_init(engine_t *e) {
   safeGetLocation(Uniform, image, transform, "u_transform");
   safeGetLocation(Attrib, image, position, "a_position");
   safeGetLocation(Uniform, image, texture, "s_texture");
+  safeGetLocation(Uniform, image, alpha, "u_alpha");
 
   if ((e->mask.id = link_program(masking_vshader_src, masking_fshader_src)) == 0) {
     return false;
@@ -264,6 +265,7 @@ void draw_image(
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, texture);
   glUniform1i(e->image.texture, 0);
+  glUniform1f(e->image.alpha, (float)alpha / 255.0f);
   glUniformMatrix3x2fv(e->image.transform, 1, GL_FALSE, transform);
 
   glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
