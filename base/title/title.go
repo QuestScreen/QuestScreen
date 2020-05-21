@@ -75,7 +75,6 @@ func (t *Title) genTitleTexture(r render.Renderer, text string) render.Image {
 	tex.Draw(r, frame, 255)
 
 	ret := canvas.Finish()
-	log.Printf("res dim: (%d, %d); title dim: (%d, %d)\n", resWidth, resHeight, ret.Width, ret.Height)
 	return ret
 }
 

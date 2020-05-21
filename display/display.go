@@ -65,7 +65,7 @@ func (d *Display) Init(
 	sdl.ShowCursor(sdl.DISABLE)
 
 	width, height := window.GLGetDrawableSize()
-	d.r.init(width, height)
+	d.r.init(width, height, len(owner.GetTextures()))
 	d.numTransitions = 0
 
 	dRect := d.OutputSize()
@@ -169,7 +169,7 @@ func (d *Display) RenderLoop() int {
 		}
 		var event sdl.Event
 		if d.numTransitions > 0 {
-			waitTime := (time.Second / 60) - time.Now().Sub(curTime)
+			waitTime := (time.Second / 80) - time.Now().Sub(curTime)
 			if waitTime > 0 {
 				event = sdl.WaitEventTimeout(int(waitTime / time.Millisecond))
 			}

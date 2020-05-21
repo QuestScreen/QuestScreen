@@ -23,13 +23,37 @@ static const char *image_fshader_src =
     "  fragColor = texture(s_texture, v_texCoord); \n" // -> texture2D, gl_FragColor
     "}";
 
+static const char *masking_vshader_src =
+    "#version 150               \n"
+    "uniform mat3x2 u_posTrans; \n"
+    "uniform mat3x2 u_texTrans; \n"
+    "in vec2 a_position;        \n"
+    "out vec2 v_texCoord;       \n"
+    "void main()  {             \n"
+    "  gl_Position = vec4(u_posTrans*vec3(a_position,1), 0, 1);        \n"
+    "  v_texCoord =  u_texTrans*vec3(a_position.x, 1-a_position.y, 1); \n"
+    //"  v_texCoord = vec2(a_position.x, 1-a_position.y);  \n" // DEBUG
+    "}";
+
+static const char *masking_fshader_src =
+    "#version 150                   \n"
+    "precision mediump float;       \n"
+    "in vec2 v_texCoord;            \n"
+    "out vec4 fragColor;            \n"
+    "uniform sampler2D s_texture;   \n"
+    "uniform vec4 u_primary;        \n"
+    "uniform vec4 u_secondary;      \n"
+    "void main()  {                 \n"
+    "  float a = texture(s_texture, v_texCoord).r;      \n"
+    "  fragColor = a * u_primary + (1-a) * u_secondary; \n"
+    "}";
+
 static const char *rect_vshader_src =
     "#version 150                \n"
     "uniform mat3x2 u_transform; \n"
     "in vec2 a_position;         \n"
     "void main() {               \n"
     "  gl_Position = vec4(u_transform*vec3(a_position, 1), 0, 1);\n"
-    //"  gl_Position = vec4(a_position, 0, 1);\n"
     "}";
 
 // TODO: alpha blending
@@ -77,6 +101,26 @@ static void debug_matrix(float transform[6]) {
 
   printf("resulting rectangle: (%f, %f) -- (%f, %f)\n", x1, y1, x2, y2);
 }
+
+#define error_case(_name) case _name: fputs("  " #_name "\n", stderr); break
+
+static void debug_check_error(int line, const char *lastCall) {
+  GLenum err = glGetError();
+  if (err != GL_NO_ERROR) {
+    fprintf(stderr, "renderer.c(%d): OpenGL Error during call to %s:\n",
+        line, lastCall);
+    switch (err) {
+      error_case(GL_INVALID_ENUM);
+      error_case(GL_INVALID_VALUE);
+      error_case(GL_INVALID_OPERATION);
+      error_case(GL_OUT_OF_MEMORY);
+      error_case(GL_INVALID_FRAMEBUFFER_OPERATION);
+      default: fputs("  unknown GL error!\n", stderr);
+    }
+  }
+}
+
+#define check_error(_lastCall) debug_check_error(__LINE__, _lastCall)
 
 #define ensure_load_shader(_name, _type, _src) \
   if ((_name = load_shader(_src, _type)) == 0) return 0
@@ -138,6 +182,16 @@ bool engine_init(engine_t *e) {
   safeGetLocation(Attrib, image, position, "a_position");
   safeGetLocation(Uniform, image, texture, "s_texture");
 
+  if ((e->mask.id = link_program(masking_vshader_src, masking_fshader_src)) == 0) {
+    return false;
+  }
+  safeGetLocation(Uniform, mask, posTrans, "u_posTrans");
+  safeGetLocation(Uniform, mask, texTrans, "u_texTrans");
+  safeGetLocation(Attrib, mask, position, "a_position");
+  safeGetLocation(Uniform, mask, texture, "s_texture");
+  safeGetLocation(Uniform, mask, primary, "u_primary");
+  safeGetLocation(Uniform, mask, secondary, "u_secondary");
+
   if ((e->rect.id = link_program(rect_vshader_src, rect_fshader_src)) == 0) {
     glDeleteProgram(e->image.id);
     return false;
@@ -167,6 +221,9 @@ uint32_t gen_texture(engine_t *e, GLenum format, GLsizei w, GLsizei h,
   glBindTexture(GL_TEXTURE_2D, ret);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  // only used for mask, no reason to set something else for others.
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
   if (pixels != NULL) {
     switch (format) {
       case GL_RGBA:
@@ -174,6 +231,9 @@ uint32_t gen_texture(engine_t *e, GLenum format, GLsizei w, GLsizei h,
         break;
       case GL_RGB:
         glPixelStorei(GL_UNPACK_ALIGNMENT, 3);
+        break;
+      case GL_SINGLE_VALUE_COLOR:
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         break;
       default:
         fputs("error: unsupported texture format!\n", stderr);
@@ -213,6 +273,32 @@ void draw_image(
   }
 }
 
+void setUniformColor(GLint id, uint8_t color[4]) {
+  glUniform4f(id, (float)color[0] / 255.0, (float)color[1] / 255.0,
+      (float)color[2] / 255.0, (float)color[3] / 255.0);
+}
+
+void draw_masked(engine_t *e, GLuint texture, float posTrans[6],
+    float texTrans[6], uint8_t primary[4], uint8_t secondary[4]) {
+  glBindBuffer(GL_ARRAY_BUFFER, e->vbo);
+  glBindVertexArray(e->vao);
+  glUseProgram(e->mask.id);
+
+  glVertexAttribPointer(e->mask.position, 2, GL_FLOAT,
+      GL_FALSE, 2 * sizeof(GLfloat), 0);
+  glEnableVertexAttribArray(e->mask.position);
+
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, texture);
+  glUniform1i(e->mask.texture, 0);
+  glUniformMatrix3x2fv(e->mask.posTrans, 1, GL_FALSE, posTrans);
+  glUniformMatrix3x2fv(e->mask.texTrans, 1, GL_FALSE, texTrans);
+  setUniformColor(e->mask.primary, primary);
+  setUniformColor(e->mask.secondary, secondary);
+
+  glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+}
+
 void draw_rect(
     engine_t *e, float transform[6], uint8_t color[4], bool copyAlpha) {
 
@@ -229,8 +315,7 @@ void draw_rect(
       GL_FALSE, 2 * sizeof(GLfloat), 0);
   glEnableVertexAttribArray(e->rect.position);
 
-  glUniform4f(e->rect.color, (float)color[0] / 255.0, (float)color[1] / 255.0,
-      (float)color[2] / 255.0, (float)color[3] / 255.0);
+  setUniformColor(e->rect.color, color);
   glUniformMatrix3x2fv(e->rect.transform, 1, GL_FALSE, transform);
 
   glDrawArrays(GL_TRIANGLE_FAN, 0, 4);

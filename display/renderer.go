@@ -26,9 +26,10 @@ type renderer struct {
 	engine        C.engine_t
 	width, height int32
 	unit          int32
+	textureCache  []render.Image
 }
 
-func (r *renderer) init(width int32, height int32) {
+func (r *renderer) init(width int32, height int32, numTextures int) {
 	if !C.engine_init(&r.engine) {
 		panic("couldn't initialize rendering engine")
 	}
@@ -40,6 +41,7 @@ func (r *renderer) init(width int32, height int32) {
 		r.unit = height / 144
 	}
 	C.glViewport(0, 0, C.GLsizei(width), C.GLsizei(height))
+	r.textureCache = make([]render.Image, numTextures)
 }
 
 func (r *renderer) close() {
@@ -186,50 +188,6 @@ func (d *Display) Unit() int32 {
 	return d.r.unit
 }
 
-// UpdateMask is deprecated and will soon be removed
-func (d *Display) UpdateMask(target *render.Image, bg colors.Background) {
-	d.FreeImage(target)
-	// TODO: rewrite
-	/*if bg.TextureIndex != -1 {
-		textures := r.owner.GetTextures()
-		path := textures[bg.TextureIndex].Path()
-		surface, err := img.Load(path)
-		if err != nil {
-			log.Printf("unable to load %s: %s\n", path, err.Error())
-			return
-		}
-		if surface.Format.Format != sdl.PIXELFORMAT_INDEX8 {
-			grayscale, err := surface.ConvertFormat(sdl.PIXELFORMAT_INDEX8, 0)
-			if err != nil {
-				log.Printf("could not convert %s to grayscale: %s\n", path,
-					err.Error())
-				return
-			}
-			surface.Free()
-			surface = grayscale
-		}
-		colorSurface, err := sdl.CreateRGBSurfaceWithFormat(0, surface.W,
-			surface.H, 32, uint32(sdl.PIXELFORMAT_RGBA32))
-		grayPixels := surface.Pixels()
-		colorPixels := colorSurface.Pixels()
-		color := bg.Secondary
-		for y := int32(0); y < colorSurface.H; y++ {
-			for x := int32(0); x < colorSurface.W; x++ {
-				offset := (y*colorSurface.W + x)
-				cOffset := offset * 4
-				copy(colorPixels[cOffset:cOffset+4], []byte{color.Red, color.Green,
-					color.Blue, 255 - grayPixels[offset]})
-			}
-		}
-		surface.Free()
-		*target, err = rc.Display.Backend.CreateTextureFromSurface(colorSurface)
-		colorSurface.Free()
-		if err != nil {
-			log.Printf("unable to create texture from %s: %s\n", path, err.Error())
-		}
-	}*/
-}
-
 // RenderText renders the given text with the given font into an image with
 // transparent background.
 // Returns an empty image if it wasn't able to create the texture.
@@ -280,6 +238,50 @@ func (c *canvas) Close() {
 	}
 }
 
+func (d *Display) drawMasked(
+	bg colors.Background, content render.Rectangle) bool {
+	if bg.TextureIndex == -1 {
+		return false
+	}
+	loadedTexture := &d.r.textureCache[bg.TextureIndex]
+	if loadedTexture.IsEmpty() {
+		path := d.owner.GetTextures()[bg.TextureIndex].Path()
+		surface, err := img.Load(path)
+		if err != nil {
+			log.Printf("unable to load %s: %s\n", path, err.Error())
+			return false
+		}
+		if surface.Format.Format != sdl.PIXELFORMAT_INDEX8 {
+			grayscale, err := surface.ConvertFormat(sdl.PIXELFORMAT_INDEX8, 0)
+			if err != nil {
+				log.Printf("could not convert %s to grayscale: %s\n", path,
+					err.Error())
+				return false
+			}
+			surface.Free()
+			surface = grayscale
+		}
+		if surface.Format.BytesPerPixel != 1 {
+			panic("grayscale image has wrong number of bytes per pixel")
+		}
+		*loadedTexture = render.Image{
+			TextureID: uint32(C.gen_texture(&d.r.engine, C.GL_SINGLE_VALUE_COLOR,
+				C.GLsizei(surface.W), C.GLsizei(surface.H),
+				unsafe.Pointer(&surface.Pixels()[0]))),
+			Width: surface.W, Height: surface.H, Flipped: false, HasAlpha: true}
+		surface.Free()
+	}
+	posTrans := d.toInternalCoords(content.Transformation(), false)
+	texTrans := render.Identity().Scale(
+		float32(d.r.width)/float32(loadedTexture.Width),
+		float32(d.r.height)/float32(loadedTexture.Height))
+	pColor := toArr(bg.Primary)
+	sColor := toArr(bg.Secondary)
+	C.draw_masked(&d.r.engine, C.GLuint(loadedTexture.TextureID),
+		(*C.float)(&posTrans[0]), (*C.float)(&texTrans[0]), &pColor[0], &sColor[0])
+	return true
+}
+
 // CreateCanvas creates a canvas to draw content into, and fills it with the
 // given background.
 func (d *Display) CreateCanvas(innerWidth, innerHeight int32,
@@ -314,12 +316,11 @@ func (d *Display) CreateCanvas(innerWidth, innerHeight int32,
 
 	C.glViewport(0, 0, C.GLsizei(width), C.GLsizei(height))
 
-	// TODO
-	/*if bg.TextureIndex == -1 {*/
-	t := d.toInternalCoords(content.Transformation(), false)
-	pArr := toArr(bg.Primary)
-	C.draw_rect(&d.r.engine, (*C.float)(&t[0]), &pArr[0], true)
-	/*}*/
+	if !d.drawMasked(bg, content) {
+		t := d.toInternalCoords(content.Transformation(), false)
+		pArr := toArr(bg.Primary)
+		C.draw_rect(&d.r.engine, (*C.float)(&t[0]), &pArr[0], true)
+	}
 
 	c = ret
 	return
