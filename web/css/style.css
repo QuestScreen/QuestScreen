@@ -278,15 +278,25 @@ nav#mainmenu > div > a > i.fas {
 	flex: 0 0 2em;
 	position: relative;
 	margin: 0;
-	padding: .5em 1em;
+	padding: .5em 0;
 	box-sizing: border-box;
-	text-align: center;
+}
+
+div#title-buttons {
+	position: absolute;
+	top: .5em;
+	left: .5em;
+	right: .5em;
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: baseline;
+	z-index: 1;
 }
 
 #back-button {
-	position: absolute;
-	left: .5em;
-	top: .5em;
+	flex: 0 0 auto;
+	position: relative;
 	padding-right: .2em;
 	text-decoration: none !important;
 	color: inherit !important;
@@ -300,7 +310,7 @@ nav#mainmenu > div > a > i.fas {
 }
 
 #back-button.empty {
-	display: none;
+	visibility: hidden;
 }
 
 #back-button > i {
@@ -311,13 +321,16 @@ nav#mainmenu > div > a > i.fas {
 }
 
 #header-toggle {
-	position: absolute;
-	right: 0;
-	top: 0;
-	padding: .5em;
+	flex: 0 0 auto;
 	cursor: pointer;
 }
 
+p#title-content {
+	margin: 0;
+	padding-left: 4em;
+	padding-right: 4em;
+	text-align: center;
+}
 
 #title {
 	margin: 0;
@@ -336,6 +349,17 @@ nav#pagemenu .submenu-parent-name {
 }
 
 @media screen and (max-width: 35.5em) {
+	div#title-buttons {
+		position: static;
+		padding-left: .5em;
+		padding-right: .5em;
+		padding-bottom: .5em;
+	}
+
+	p#title-content {
+		padding: 0;
+	}
+
 	#subtitle {
 		display: none;
 	}
@@ -355,7 +379,7 @@ nav#pagemenu .submenu-parent-name {
 	flex: 1 1 auto;
 	display: flex;
 	flex-direction: row;
-	height: 100%;
+	align-items: stretch;
 }
 
 #pagemenu-wrapper {
