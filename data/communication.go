@@ -122,7 +122,7 @@ func (c Communication) modules(a app.App) []jsonModuleDesc {
 		for j := 0; j < modValue.NumField(); j++ {
 			cur.Config = append(cur.Config, jsonModuleSetting{
 				Name: modValue.Type().Field(j).Name,
-				Type: modValue.Type().Field(j).Type.Elem().Name()})
+				Type: modValue.Field(j).Interface().(config.Item).Name()})
 		}
 		ret = append(ret, cur)
 	}

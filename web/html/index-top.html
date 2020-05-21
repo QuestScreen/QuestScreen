@@ -274,16 +274,27 @@
 </template>
 
 <template id="tmpl-config-selectable-background">
-	<div class="config-item-fragment">
-		<label for="primary">Primary</label>
-		<input type="color" name="primary" required />
-	</div>
+	<table class="config-item-table">
+		<thead>
+			<tr>
+				<th></th><th>Primary</th><th>Secondary</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<th>Color</th>
+				<td><input type="color" name="primary-color" required /></td>
+				<td><input type="color" name="secondary-color" required /></td>
+			</tr>
+			<tr>
+				<th>Opacity</th>
+				<td><input type="range" name="primary-opacity" min="0" max="255" step="1" required /></td>
+				<td><input type="range" name="secondary-opacity" min="0" max="255" step="1" required /></td>
+			</tr>
+		</tbody>
+	</table>
 	<div class="config-item-fragment">
 		<label for="texture">Texture</label><!-- texture dropdown injected here -->
-	</div>
-	<div class="config-item-fragment">
-		<label for="secondary">Secondary</label>
-		<input type="color" name="secondary" required />
 	</div>
 </template>
 

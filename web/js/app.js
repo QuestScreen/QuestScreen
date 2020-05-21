@@ -168,8 +168,8 @@ class App {
 		this.stateControllers[controller.id] = controller;
 	}
 
-	registerConfigItemController(controller) {
-		this.configItemControllers[controller.name] = controller;
+	registerConfigItemController(name, controller) {
+		this.configItemControllers[name] = controller;
 	}
 
 	static async fetch(url, method, content) {

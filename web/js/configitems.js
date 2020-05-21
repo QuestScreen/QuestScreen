@@ -115,27 +115,35 @@ class SelectableTexturedBackground {
 	}
 
 	reset() {
-		this.primary.value = this.cur.primary;
-		this.secondary.value = this.cur.secondary;
+		this.decodeData(this.primary, this.cur.primary);
+		this.decodeData(this.secondary, this.cur.secondary);
 		this.textures.setIndex(this.cur.textureIndex);
 	}
 
 	ui(app, data, editHandler) {
 		this.node = tmpl.config.items.selectableBackground.render();
-		this.primary = this.node.querySelector('input[name=primary]');
-		this.secondary = this.node.querySelector('input[name="secondary"]');
+		this.primary = {
+			color: this.node.querySelector('input[name="primary-color"]'),
+			opacity: this.node.querySelector('input[name="primary-opacity"]')
+		};
+		this.secondary = {
+			color: this.node.querySelector('input[name="secondary-color"]'),
+			opacity: this.node.querySelector('input[name="secondary-opacity"]')
+		};
 		if (data != null) {
 			this.cur = data;
 		} else {
-			this.cur = {primary: "#ffffff", textureIndex: -1, secondary: "#000000"};
+			this.cur = {primary: "#ffffffff", textureIndex: -1, secondary: "#000000ff"};
 		}
 		this.textures = new TextureSelector(this.cur.textureIndex, editHandler);
 		const texLabel = this.node.querySelector('label[for="texture"]');
 		texLabel.parentNode.insertBefore(this.textures.ui(this.cur.textureIndex,
 			app.textures), texLabel.nextSibling);
 
-		this.primary.addEventListener("changed", editHandler);
-		this.secondary.addEventListener("changed", editHandler);
+		this.primary.color.addEventListener("change", editHandler);
+		this.primary.opacity.addEventListener("change", editHandler);
+		this.secondary.color.addEventListener("change", editHandler);
+		this.secondary.opacity.addEventListener("change", editHandler);
 
 		this.reset();
 		return this.node;
@@ -147,13 +155,24 @@ class SelectableTexturedBackground {
 		this.textures.setEnabled(value);
 	}
 
+	encodeData(set) {
+		let aHex = Number(set.opacity.value).toString(16);
+		if (aHex.length == 1) aHex = "0" + aHex;
+		return set.color.value + aHex;
+	}
+
+	decodeData(set, value) {
+		set.color.value = value.substring(0, 7);
+		set.opacity.value = parseInt(value.substring(7), 16);
+	}
+
 	getData() {
-		this.cur.primary = this.primary.value;
-		this.cur.secondary = this.secondary.value;
+		this.cur.primary = this.encodeData(this.primary);
+		this.cur.secondary = this.encodeData(this.secondary);
 		this.cur.textureIndex = this.textures.index;
 		return this.cur;
 	}
 }
 
-app.registerConfigItemController(SelectableFont);
-app.registerConfigItemController(SelectableTexturedBackground);
+app.registerConfigItemController("core:Font", SelectableFont);
+app.registerConfigItemController("core:Background", SelectableTexturedBackground);

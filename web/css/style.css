@@ -502,8 +502,28 @@ article {
 	margin: 0;
 }
 
-.config-item-fragment > input[type="color"] {
+.config-item-table input[type="color"] {
 	height: 2em;
+	display: block;
+}
+
+.config-item-table input[type="range"] {
+	width: 6em;
+}
+
+.config-item-table > thead th {
+	text-align: left;
+	font-weight: normal;
+}
+
+.config-item-table > tbody th {
+	text-align: right;
+	font-weight: normal;
+}
+
+.config-item-table th,
+.config-item-table td {
+	padding: .25em;
 }
 
 .config-view-controls {
