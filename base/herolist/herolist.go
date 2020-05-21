@@ -33,7 +33,8 @@ const (
 )
 
 type config struct {
-	Font       *fonts.Config      `yaml:"font"`
+	NameFont   *fonts.Config      `yaml:"nameFont"`
+	DescrFont  *fonts.Config      `yaml:"descrFont"`
 	Background *colors.Background `yaml:"background"`
 }
 
@@ -80,8 +81,12 @@ var Descriptor = modules.Module{
 	ID:                  "herolist",
 	ResourceCollections: nil,
 	EndpointPaths:       []string{"", "/"},
-	DefaultConfig: &config{Font: &fonts.Config{
-		FamilyIndex: 0, Size: fonts.Content, Style: fonts.Regular},
+	DefaultConfig: &config{NameFont: &fonts.Config{
+		FamilyIndex: 0, Size: fonts.Content, Style: fonts.Regular,
+		Color: colors.RGBA{R: 0, G: 0, B: 0, A: 255}},
+		DescrFont: &fonts.Config{
+			FamilyIndex: 0, Size: fonts.Content, Style: fonts.Regular,
+			Color: colors.RGBA{R: 0, G: 0, B: 0, A: 255}},
 		Background: colors.NewBackground(
 			colors.RGBA{R: 255, G: 255, B: 255, A: 255})},
 	CreateRenderer: newRenderer, CreateState: newState,
@@ -101,9 +106,9 @@ func (l *HeroList) buildHeroBox(r render.Renderer, h heroData) render.Image {
 		l.boxHeight(unit)-2*unit, *l.config.Background,
 		render.North|render.East|render.South)
 	_, frame = frame.Carve(render.West, 2*unit)
-	nameImg := r.RenderText(h.name, *l.config.Font)
+	nameImg := r.RenderText(h.name, *l.config.NameFont)
 	defer r.FreeImage(&nameImg)
-	descrImg := r.RenderText(h.desc, *l.config.Font)
+	descrImg := r.RenderText(h.desc, *l.config.DescrFont)
 	defer r.FreeImage(&descrImg)
 	nameFrame := frame.Position(nameImg.Width, nameImg.Height, render.Left,
 		render.Top)

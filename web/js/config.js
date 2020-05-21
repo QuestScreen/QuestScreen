@@ -99,20 +99,11 @@ class ModuleDesc {
 }
 
 class ConfigView {
-	swapButton(button, indicator) {
-		if (button.classList.contains("pure-button-active")) {
-			button.classList.remove("pure-button-active");
-		} else {
-			button.classList.add("pure-button-active");
-		}
-		indicator.classList.add("edited");
-	}
 
 	constructor(app, data, url, controllers) {
 		this.app = app;
 		this.url = url;
 		this.controllers = controllers;
-		this.buttonHandler = this.swapButton.bind(this);
 		this.moduleDescs = [];
 		for (let i = 0; i < app.modules.length; i++) {
 			if (data[i] == null) {

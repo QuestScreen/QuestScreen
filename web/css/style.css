@@ -502,12 +502,11 @@ article {
 	margin: 0;
 }
 
-.config-item-table input[type="color"] {
+input[type="color"] {
 	height: 2em;
-	display: block;
 }
 
-.config-item-table input[type="range"] {
+input[type="range"] {
 	width: 6em;
 }
 

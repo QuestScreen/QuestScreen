@@ -33,6 +33,7 @@ class SelectableFont {
 		} else {
 			this.styles.querySelector(".bold").classList.remove("pure-button-active");
 		}
+		this.color.value = this.color.value.substring(0, 7);
 	}
 
 	ui(app, data, editHandler) {
@@ -40,11 +41,17 @@ class SelectableFont {
 		this.families = this.node.querySelector(".font-families");
 		this.sizes = this.node.querySelector(".font-size");
 		this.styles = this.node.querySelector(".pure-button-group");
+		this.color = this.node.querySelector('input[name="font-color"]');
 
 		for (const button of this.styles.querySelectorAll("button")) {
-			button.addEventListener("click", () => {
-				this.cfg.buttonHandler.bind(this.cfg, button);
+			button.addEventListener("click", function(e) {
+				if (this.classList.contains("pure-button-active")) {
+					this.classList.remove("pure-button-active");
+				} else {
+					this.classList.add("pure-button-active");
+				}
 				editHandler();
+				e.preventDefault();
 			});
 		}
 		this.families.addEventListener("change", editHandler);
@@ -52,7 +59,7 @@ class SelectableFont {
 
 		if (data == null) {
 			this.cur = {
-				familyIndex: 0, size: 1, style: 0
+				familyIndex: 0, size: 1, style: 0, color: "#000000ff"
 			}
 		} else {
 			this.cur = data;
@@ -87,6 +94,7 @@ class SelectableFont {
 		if (this.styles.querySelector(".italic.pure-button-active") != null) {
 			this.cur.style += 2;
 		}
+		this.cur.color = this.color.value + "ff";
 		return this.cur;
 	}
 }
