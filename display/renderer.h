@@ -28,6 +28,7 @@ typedef struct {
 #endif
   GLuint vbo;
   uint8_t canvas_count;
+  GLint maxTexSize;
 } engine_t;
 
 bool engine_init(engine_t *e);

@@ -78,42 +78,30 @@ func (d *Display) FillRect(t render.Transform, color colors.RGBA) {
 	C.draw_rect(&d.r.engine, (*C.float)(&t[0]), &cArr[0], false)
 }
 
-func (r *renderer) surfaceToTexture(surface *sdl.Surface) (render.Image, error) {
+func (d *Display) surfaceToTexture(
+	surface *sdl.Surface, scaleDownToOutput bool) (render.Image, error) {
+	// determine whether we need to convert the pixel format.
+	// we do this before potential scaling, because if we need to do scaling *and*
+	// conversion, we can do it in one step.
+	needsConversionTo := uint32(sdl.PIXELFORMAT_UNKNOWN)
 	var glFormat C.GLenum
 	switch surface.Format.Format {
 	case sdl.PIXELFORMAT_ABGR8888:
 		glFormat = C.GL_RGBA
-		log.Println("surface format: ABGR")
 	case sdl.PIXELFORMAT_RGBA8888:
 		glFormat = C.GL_RGBA
-		rgba, err := surface.ConvertFormat(sdl.PIXELFORMAT_ABGR8888, 0)
-		surface.Free()
-		if err != nil {
-			return render.EmptyImage(), err
-		}
-		surface = rgba
-		log.Println("surface format: RGBA (did convert to ABGR)")
+		needsConversionTo = sdl.PIXELFORMAT_ABGR8888
+		log.Println("surface format: RGBA (convert to ABGR)")
 	case sdl.PIXELFORMAT_BGR888:
 		glFormat = C.GL_RGB
-		log.Println("surface format: BGR")
 	case sdl.PIXELFORMAT_RGB888:
 		glFormat = C.GL_RGB
-		rgba, err := surface.ConvertFormat(sdl.PIXELFORMAT_BGR888, 0)
-		surface.Free()
-		if err != nil {
-			return render.EmptyImage(), err
-		}
-		surface = rgba
-		log.Println("surface format: RBG (did convert to BGR)")
+		needsConversionTo = sdl.PIXELFORMAT_BGR888
+		log.Println("surface format: RBG (convert to BGR)")
 	default:
-		log.Printf("surface format: converting to ABGR from %d\n", surface.Format.Format)
-		rgba, err := surface.ConvertFormat(sdl.PIXELFORMAT_ABGR8888, 0)
-		surface.Free()
-		if err != nil {
-			return render.EmptyImage(), err
-		}
-		surface = rgba
 		glFormat = C.GL_RGBA
+		needsConversionTo = sdl.PIXELFORMAT_ABGR8888
+		log.Printf("surface format: converting to ABGR from %d\n", surface.Format.Format)
 	}
 	var ret render.Image
 	var expectedPixelBytes uint8
@@ -127,10 +115,62 @@ func (r *renderer) surfaceToTexture(surface *sdl.Surface) (render.Image, error) 
 	default:
 		panic("unexpected format")
 	}
+
+	maxW := int32(d.r.engine.maxTexSize)
+	maxH := int32(d.r.engine.maxTexSize)
+	if scaleDownToOutput {
+		// don't use d.r.with/height because we may be in a Canvas.
+		oW, oH := d.Window.GLGetDrawableSize()
+		if oW < maxW {
+			maxW = oW
+		}
+		if oH < maxH {
+			maxH = oH
+		}
+	}
+	scaleFactor := float32(maxW) / float32(surface.W)
+	if surface.H > maxH {
+		tmp := float32(maxH) / float32(surface.H)
+		if tmp < scaleFactor {
+			scaleFactor = tmp
+		}
+	}
+	if scaleFactor < 1.0 {
+		dims := sdl.Rect{X: 0, Y: 0, W: int32(float32(surface.W) * scaleFactor),
+			H: int32(float32(surface.H) * scaleFactor)}
+		var scaled *sdl.Surface
+		var err error
+		if needsConversionTo == sdl.PIXELFORMAT_UNKNOWN {
+			scaled, err = sdl.CreateRGBSurface(
+				0, dims.W, dims.H,
+				int32(surface.Format.BitsPerPixel), surface.Format.Rmask,
+				surface.Format.Gmask, surface.Format.Bmask, surface.Format.Amask)
+		} else {
+			scaled, err = sdl.CreateRGBSurfaceWithFormat(
+				0, dims.W, dims.H, int32(expectedPixelBytes)*8, needsConversionTo)
+		}
+		if err != nil {
+			panic("failed to create surface for scaling: " + err.Error())
+		}
+		if err = surface.BlitScaled(nil, scaled, &dims); err != nil {
+			panic("failed to scale surface: " + err.Error())
+		}
+		surface.Free()
+		surface = scaled
+	} else if needsConversionTo != sdl.PIXELFORMAT_UNKNOWN {
+		converted, err := surface.ConvertFormat(sdl.PIXELFORMAT_ABGR8888, 0)
+		surface.Free()
+		if err != nil {
+			return render.EmptyImage(), err
+		}
+		surface = converted
+	}
+
 	if surface.Format.BytesPerPixel != expectedPixelBytes {
 		panic("surface has wrong number of BytesPerPixel")
 	}
-	ret.TextureID = uint32(C.gen_texture(&r.engine, glFormat, C.GLsizei(surface.W),
+	ret.TextureID = uint32(C.gen_texture(
+		&d.r.engine, glFormat, C.GLsizei(surface.W),
 		C.GLsizei(surface.H), unsafe.Pointer(&surface.Pixels()[0])))
 	ret.Width = surface.W
 	ret.Height = surface.H
@@ -141,17 +181,19 @@ func (r *renderer) surfaceToTexture(surface *sdl.Surface) (render.Image, error) 
 
 // LoadImageFile loads an image file from the specified path.
 // if an error is returned, the returned image is empty.
-func (d *Display) LoadImageFile(path string) (render.Image, error) {
+func (d *Display) LoadImageFile(
+	path string, scaleDownToOutput bool) (render.Image, error) {
 	surface, err := img.Load(path)
 	if err != nil {
 		return render.EmptyImage(), err
 	}
-	return d.r.surfaceToTexture(surface)
+	return d.surfaceToTexture(surface, scaleDownToOutput)
 }
 
 // LoadImageMem loads an image from data in memory.
 // if an error is returned, the returned image is empty.
-func (d *Display) LoadImageMem(data []byte) (render.Image, error) {
+func (d *Display) LoadImageMem(
+	data []byte, scaleDownToOutput bool) (render.Image, error) {
 	logoStream, err := sdl.RWFromMem(data)
 	if err != nil {
 		panic(err)
@@ -160,7 +202,7 @@ func (d *Display) LoadImageMem(data []byte) (render.Image, error) {
 	if err != nil {
 		panic(err)
 	}
-	return d.r.surfaceToTexture(logo)
+	return d.surfaceToTexture(logo, scaleDownToOutput)
 }
 
 // FreeImage destroys the texture associated with the image (if one exists)
@@ -190,13 +232,16 @@ func (d *Display) Unit() int32 {
 // Returns an empty image if it wasn't able to create the texture.
 func (d *Display) RenderText(text string, font fonts.Config) render.Image {
 	face := d.owner.Font(font.FamilyIndex, font.Style, font.Size)
+	// we give R,G,B intentionally in the wrong order because SDL_ttf renders
+	// the text in ARGB format, but we need ABGR for OpenGL ES.
 	bottomText, err := face.RenderUTF8Blended(
-		text, sdl.Color{R: font.Color.R, G: font.Color.G, B: font.Color.B,
+		text, sdl.Color{R: font.Color.B, G: font.Color.G, B: font.Color.R,
 			A: font.Color.A})
 	if err != nil {
 		panic(err)
 	}
-	ret, err := d.r.surfaceToTexture(bottomText)
+	bottomText.Format.Format = sdl.PIXELFORMAT_ABGR8888
+	ret, err := d.surfaceToTexture(bottomText, true)
 	if err != nil {
 		panic(err)
 	}

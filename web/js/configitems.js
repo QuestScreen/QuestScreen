@@ -33,7 +33,7 @@ class SelectableFont {
 		} else {
 			this.styles.querySelector(".bold").classList.remove("pure-button-active");
 		}
-		this.color.value = this.color.value.substring(0, 7);
+		this.color.value = this.cur.color.substring(0, 7);
 	}
 
 	ui(app, data, editHandler) {
@@ -56,6 +56,7 @@ class SelectableFont {
 		}
 		this.families.addEventListener("change", editHandler);
 		this.sizes.addEventListener("change", editHandler);
+		this.color.addEventListener("change", editHandler);
 
 		if (data == null) {
 			this.cur = {

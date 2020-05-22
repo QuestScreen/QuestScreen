@@ -62,7 +62,7 @@ func (d *Display) genWelcome(frame render.Rectangle, port uint16) error {
 
 	logoRow, frame := frame.Carve(render.North, frame.Height/3)
 	logoTex, err := d.LoadImageMem(
-		generated.MustAsset("web/favicon/android-chrome-512x512.png"))
+		generated.MustAsset("web/favicon/android-chrome-512x512.png"), true)
 	if err != nil {
 		panic("while generating welcome screen: " + err.Error())
 	}

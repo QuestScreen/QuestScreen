@@ -243,6 +243,7 @@ bool engine_init(engine_t *e) {
 
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &e->maxTexSize);
   return true;
 }
 

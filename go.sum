@@ -68,6 +68,8 @@ github.com/QuestScreen/api v0.3.1-0.20200520181133-eab8e341e394 h1:r6NK4XeKUiR4o
 github.com/QuestScreen/api v0.3.1-0.20200520181133-eab8e341e394/go.mod h1:sqrXQiANC4U60mUEzEvpGD4VUhIeshQE0fNlvUsnQxA=
 github.com/QuestScreen/api v0.3.1-0.20200521101017-6d89eccad097 h1:3D2hXtyFa+B4idkOqqRnLJjl5+XriD5vSGLb5Q1N6yE=
 github.com/QuestScreen/api v0.3.1-0.20200521101017-6d89eccad097/go.mod h1:sqrXQiANC4U60mUEzEvpGD4VUhIeshQE0fNlvUsnQxA=
+github.com/QuestScreen/api v0.3.1-0.20200522161834-3e279e6d7a1e h1:lKNZSjDrha3c02MGIwAWUrah25kzm9ljD2kWYdRW9S4=
+github.com/QuestScreen/api v0.3.1-0.20200522161834-3e279e6d7a1e/go.mod h1:sqrXQiANC4U60mUEzEvpGD4VUhIeshQE0fNlvUsnQxA=
 github.com/go-bindata/go-bindata v1.0.0 h1:DZ34txDXWn1DyWa+vQf7V9ANc2ILTtrEjtlsdJRF26M=
 github.com/go-bindata/go-bindata v3.1.2+incompatible h1:5vjJMVhowQdPzjE1LdxyFF7YFTXg5IgGVW4gBr5IbvE=
 github.com/go-bindata/go-bindata v3.1.2+incompatible/go.mod h1:xK8Dsgwmeed+BBsSy2XTopBn/8uK2HWuGSnA11C3Joo=

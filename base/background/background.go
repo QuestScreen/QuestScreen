@@ -45,7 +45,7 @@ var Descriptor = modules.Module{
 
 func (bg *Background) genTexture(
 	renderer render.Renderer, file resources.Resource) render.Image {
-	tex, err := renderer.LoadImageFile(file.Path())
+	tex, err := renderer.LoadImageFile(file.Path(), true)
 	if err != nil {
 		log.Println(err)
 		return render.Image{}
