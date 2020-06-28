@@ -1,0 +1,31 @@
+<a:package name="core">
+  <a:component name="GroupMenuItem" params="title string">
+    <a:handler>Clicked</a:handler>
+    <li class="pure-menu-item group-list-item">
+      <a class="pure-menu-link" href="#" a:assign="prop(textContent)= title" a:capture="click:Clicked"></a>
+    </li>
+  </a:component>
+
+  <a:component name="PageMenuEntry" params="name string, parent string">
+    <a:handler>Clicked</a:handler>
+    <li class="pure-menu-item">
+      <a class="pure-menu-link" href="#" a:assign="class(submenu-link)= parent != ``" a:capture="click:Clicked"><span class="submenu-parent-name"> <a:text expr="parent"></a:text> –</span> <a:text expr="name"></a:text><i class="fas fa-sort"></i></a>
+    </li>
+  </a:component>
+
+  <a:component name="DataMenu">
+    <ul class="pure-menu-list">
+      <a:embed name="Base" type="PageMenuEntry" args="`Base`, ``"></a:embed>
+      <li class="pure-menu-heading config-menu-system-heading">
+        <!-- this is an <a> so that it can include padding as the surrounding <li>
+             needs `padding: 0;` to support hiding responsively. -->
+        <a class="pure-menu-dummy-link">Systems</a>
+      </li>
+      <a:embed name="Systems" list type="PageMenuEntry"></a:embed>
+      <li class="pure-menu-heading config-menu-group-heading">
+        <a class="pure-menu-dummy-link">Groups</a>
+      </li>
+      <a:embed name="Groups" list type="PageMenuEntry"></a:embed>
+    </ul>
+  </a:component>
+</a:package>
