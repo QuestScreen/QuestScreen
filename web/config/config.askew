@@ -1,0 +1,110 @@
+<a:import>
+  "github.com/QuestScreen/QuestScreen/web/controls"
+</a:import>
+
+<a:component name="Item">
+	<fieldset>
+		<label class="config-item-header">
+			<input type="checkbox" class="config-item-checkbox"/>
+			<span class="config-item-name"></span>
+			<i class="fas fa-edit config-edit-indicator"></i>
+		</label>
+		<div class="config-item-container">
+			<a:embed optional name="Content"></a:embed>
+		</div>
+	</fieldset>
+</a:component>
+
+<a:component name="Module" params="name string">
+	<section class="pure-g config-module">
+		<div class="pure-u-1 pure-u-md-1-5 config-module-header"><h3 class="config-module-name" a:assign="prop(textContent)=name"></h3></div>
+		<div class="pure-u-1 pure-u-md-4-5 config-module-content">
+			<a:embed list name="Items" type="Item"></a:embed>
+		</div>
+	</section>
+</a:component>
+
+<a:component name="View">
+	<article>
+		<form class="pure-form">
+			<a:embed list type="Module" name="Modules"></a:embed>
+			<fieldset class="config-view-controls">
+				<button type="reset" class="pure-button">Reset</button>
+				<button type="submit" class="pure-button pure-button-primary">Save</button>
+			</fieldset>
+		</form>
+	</article>
+</a:component>
+
+<a:component name="Font" params="families []string">
+	<a:handlers>
+	  toggleBold()
+		toggleItalic()
+	</a:handlers>
+	<div class="config-item-fragment">
+		<label for="font-family">Family</label>
+		<select name="font-family" class="font-families" a:bindings="prop(value):Family">
+			<option a:for="index, name := range families"
+							a:assign="prop(value) = index, prop(textContent) = name"></option>
+		</select>
+	</div>
+	<div class="config-item-fragment">
+		<label for="font-size">Size</label>
+		<select name="font-size" class="font-size" a:bindings="prop(value):Size">
+			<option value="0">Small</option>
+			<option value="1">Content</option>
+			<option value="2">Medium</option>
+			<option value="3">Heading</option>
+			<option value="4">Large</option>
+			<option value="5">Huge</option>
+		</select>
+	</div>
+	<div class="config-item-fragment">
+		<label for="font-style">Style</label>
+		<div class="pure-button-group" role="group" aria-label="Font Faces" style="display: inline">
+			<button class="pure-button font-style-selector"
+					a:capture="click:toggleBold"
+					a:bindings="class(pure-button-active):Bold"><i class="fas fa-bold"></i></button>
+			<button class="pure-button font-style-selector"
+					a:capture="click:toggleItalic"
+					a:bindings="class(pure-button-active):Italic"><i class="fas fa-italic"></i></button>
+		</div>
+	</div>
+	<div class="config-item-fragment">
+		<label for="font-color">Color</label>
+		<input type="color" name="font-color" required
+				a:bindings="prop(value):Color" />
+	</div>
+</a:component>
+
+<a:component name="Background">
+	<table class="config-item-table">
+		<thead>
+			<tr>
+				<th></th><th>Primary</th><th>Secondary</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<th>Color</th>
+				<td><input type="color" name="primary-color" required
+						a:bindings="prop(value):PrimaryColor"/></td>
+				<td><input type="color" name="secondary-color" required
+						a:bindings="prop(value):SecondaryColor"/></td>
+			</tr>
+			<tr>
+				<th>Opacity</th>
+				<td><input type="range" name="primary-opacity"
+						min="0" max="255" step="1" required
+						a:bindings="prop(value):PrimaryOpacity"/></td>
+				<td><input type="range" name="secondary-opacity"
+						min="0" max="255" step="1" required
+						a:bindings="prop(value):SecondaryOpacity"/></td>
+			</tr>
+		</tbody>
+	</table>
+	<div class="config-item-fragment">
+		<label for="texture">Texture</label>
+		<a:embed name="Texture" type="controls.Dropdown" args="controls.SelectSingle"></a:embed>
+	</div>
+</a:component>

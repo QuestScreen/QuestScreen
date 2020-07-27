@@ -1,6 +1,7 @@
 package herolist
 
 import (
+	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
 	"github.com/QuestScreen/api/groups"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/server"
@@ -98,15 +99,10 @@ func (s *state) visibleHeroesList(ctx server.Context) []string {
 	return ret
 }
 
-type webState struct {
-	Global bool   `json:"global"`
-	Heroes []bool `json:"heroes"`
-}
-
 // WebView returns a structure containing the global flag and a list containing
 // boolean flags for each hero
 func (s *state) WebView(ctx server.Context) interface{} {
-	return webState{Global: s.globalVisible, Heroes: s.heroVisible}
+	return shared.HerolistState{Global: s.globalVisible, Heroes: s.heroVisible}
 }
 
 // PersistingView returns a structure containing the `global` flag and a list

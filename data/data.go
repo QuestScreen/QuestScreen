@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/QuestScreen/QuestScreen/app"
+	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/api/groups"
 )
 
@@ -58,7 +59,7 @@ type sceneModule struct {
 type Scene interface {
 	Name() string
 	ID() string
-	UsesModule(moduleIndex app.ModuleIndex) bool
+	UsesModule(moduleIndex shared.ModuleIndex) bool
 }
 
 type scene struct {
@@ -75,7 +76,7 @@ func (s *scene) ID() string {
 	return s.id
 }
 
-func (s *scene) UsesModule(moduleIndex app.ModuleIndex) bool {
+func (s *scene) UsesModule(moduleIndex shared.ModuleIndex) bool {
 	return s.modules[moduleIndex].enabled
 }
 
@@ -253,7 +254,7 @@ func confValue(conf interface{}) *reflect.Value {
 //
 // systemIndex may be -1 (for groups without a defined system), groupIndex and
 // sceneIndex may not.
-func (d *Data) MergeConfig(moduleIndex app.ModuleIndex,
+func (d *Data) MergeConfig(moduleIndex shared.ModuleIndex,
 	systemIndex int, groupIndex int, sceneIndex int) interface{} {
 	var configStack [5]*reflect.Value
 	module := d.owner.ModuleAt(moduleIndex)

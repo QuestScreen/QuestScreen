@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/QuestScreen/QuestScreen/app"
+	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/config"
 	"github.com/QuestScreen/api/groups"
@@ -100,7 +101,7 @@ func yamlName(f reflect.StructField) string {
 }
 
 func (p Persistence) loadModuleConfigInto(heroes groups.HeroList,
-	moduleIndex app.ModuleIndex, target interface{},
+	moduleIndex shared.ModuleIndex, target interface{},
 	values map[string]yaml.Node, moduleName string) bool {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
@@ -138,8 +139,8 @@ func (p Persistence) loadModuleConfigInto(heroes groups.HeroList,
 	return true
 }
 
-func findModule(owner app.App, id string) (*modules.Module, app.ModuleIndex) {
-	for i := app.FirstModule; i < owner.NumModules(); i++ {
+func findModule(owner app.App, id string) (*modules.Module, shared.ModuleIndex) {
+	for i := shared.FirstModule; i < owner.NumModules(); i++ {
 		module := owner.ModuleAt(i)
 		if module.ID == id {
 			return module, i
@@ -177,7 +178,7 @@ func (p Persistence) loadModuleConfigs(heroes groups.HeroList,
 			ret[index] = target
 		}
 	}
-	for i := app.FirstModule; i < p.d.owner.NumModules(); i++ {
+	for i := shared.FirstModule; i < p.d.owner.NumModules(); i++ {
 		if ret[i] == nil {
 			mod := p.d.owner.ModuleAt(i)
 			ret[i] = reflect.New(configType(mod)).Interface()
@@ -192,7 +193,7 @@ func (p Persistence) loadModuleConfigs(heroes groups.HeroList,
 func (p Persistence) persistingModuleConfigs(heroes groups.HeroList,
 	moduleConfigs []interface{}) map[string]map[string]interface{} {
 	ret := make(map[string]map[string]interface{})
-	for i := app.FirstModule; i < p.d.owner.NumModules(); i++ {
+	for i := shared.FirstModule; i < p.d.owner.NumModules(); i++ {
 		var fields map[string]interface{}
 
 		moduleConfig := moduleConfigs[i]
@@ -314,7 +315,7 @@ func (p Persistence) CreateSystem(name string) server.Error {
 	id := genID(name, "system", systemIDs{p.d.systems})
 	s := &system{name: name, id: id, modules: make([]interface{}, p.d.owner.NumModules())}
 
-	for i := app.FirstModule; i < p.d.owner.NumModules(); i++ {
+	for i := shared.FirstModule; i < p.d.owner.NumModules(); i++ {
 		mod := p.d.owner.ModuleAt(i)
 		s.modules[i] = reflect.New(configType(mod)).Interface()
 	}
@@ -491,7 +492,7 @@ func (p Persistence) loadScene(heroes groups.HeroList, id string,
 func (p Persistence) writeScene(g *group, value *scene) error {
 	data := persistingScene{
 		Name: value.name, Modules: make(map[string]persistingSceneModule)}
-	for i := app.FirstModule; i < p.d.owner.NumModules(); i++ {
+	for i := shared.FirstModule; i < p.d.owner.NumModules(); i++ {
 		moduleDesc := p.d.owner.ModuleAt(i)
 		moduleData := &value.modules[i]
 		data.Modules[moduleDesc.ID] = persistingSceneModule{
@@ -789,7 +790,7 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 				moduleLoaded := make([]bool, a.NumModules())
 				for modName, modRaw := range sceneValue {
 					moduleFound := false
-					for j := app.FirstModule; j < a.NumModules(); j++ {
+					for j := shared.FirstModule; j < a.NumModules(); j++ {
 						module := a.ModuleAt(j)
 						if modName == module.ID {
 							moduleFound = true
@@ -816,7 +817,7 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 							sceneName, modName)
 					}
 				}
-				for j := app.FirstModule; j < a.NumModules(); j++ {
+				for j := shared.FirstModule; j < a.NumModules(); j++ {
 					if sceneDescr.UsesModule(j) && !moduleLoaded[j] {
 						module := a.ModuleAt(j)
 						log.Printf(
@@ -846,7 +847,7 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 			log.Printf("Missing data for scene \"%s\", loading default\n",
 				sceneDescr.ID())
 			sceneData := make([]modules.State, a.NumModules())
-			for j := app.FirstModule; j < a.NumModules(); j++ {
+			for j := shared.FirstModule; j < a.NumModules(); j++ {
 				if sceneDescr.UsesModule(j) {
 					module := a.ModuleAt(j)
 					state, err := module.CreateState(nil, a.ServerContext(j),
@@ -871,7 +872,7 @@ func (s *State) buildYaml() ([]byte, error) {
 	for i := 0; i < s.group.NumScenes(); i++ {
 		sceneDescr := s.group.Scene(i)
 		data := make(map[string]interface{})
-		for j := app.FirstModule; j < s.a.NumModules(); j++ {
+		for j := shared.FirstModule; j < s.a.NumModules(); j++ {
 			if sceneDescr.UsesModule(j) {
 				data[s.a.ModuleAt(j).ID] =
 					s.scenes[i][j].PersistingView(s.a.ServerContext(j))

@@ -705,3 +705,8 @@ table.message-list .text {
 	border-radius: .125em;
 	box-sizing: border-box;
 }
+
+.herolist-switch-all.pure-button-primary .show-all,
+.herolist-switch-all:not(.pure-button-primary) .hide-all {
+	display: none;
+}

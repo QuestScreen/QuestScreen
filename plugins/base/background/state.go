@@ -3,6 +3,7 @@ package background
 import (
 	"errors"
 
+	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/resources"
 	"github.com/QuestScreen/api/server"
@@ -50,14 +51,9 @@ func (s *state) CreateRendererData(ctx server.Context) interface{} {
 	return &request{file: s.resources[s.curIndex]}
 }
 
-type webState struct {
-	CurIndex int      `json:"curIndex"`
-	Items    []string `json:"items"`
-}
-
 // WebView returns the list of all available resources plus the current index
 func (s *state) WebView(env server.Context) interface{} {
-	return webState{CurIndex: s.curIndex, Items: resources.Names(s.resources)}
+	return shared.BackgroundState{CurIndex: s.curIndex, Items: resources.Names(s.resources)}
 }
 
 // PersistingView returns the name of the currently selected resource

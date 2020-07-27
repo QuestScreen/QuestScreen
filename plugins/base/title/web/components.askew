@@ -1,0 +1,17 @@
+<a:component name="Widget" params="caption string">
+  <a:controller>
+	  update(caption string) string
+	</a:controller>
+	<a:handlers>
+	  submit(caption string)
+	</a:handlers>
+  <form class="pure-form">
+	  <input type="text" name="caption" class="title-state-text"
+		    a:bindings="prop(textContent):Caption"
+		    a:assign="prop(textContent)=caption" />
+	  <button type="submit" class="title-state-text-btn pure-button pure-button-primary"
+		    a:capture="click:submit(caption=form(caption)){preventDefault}">Update</button>
+	  <button type="reset" class="title-state-text-btn pure-button"
+		    a:capture="click:submit(caption=``){preventDefault}>Clear</button>
+  </form>
+</a:component>

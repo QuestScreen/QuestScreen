@@ -1,0 +1,44 @@
+
+<a:component name="Switch">
+  <a:controller>Swapped(value bool)</a:controller>
+  <label class="switch">
+    <input type="checkbox" a:capture="change:Swapped(value=prop(value))">
+    <span class="slider"></span>
+  </label>
+</a:component>
+
+<a:component name="DropdownItem" params="showVisible bool, itemName string, itemIndex int">
+  <a:controller>
+    click(index int)
+  </a:controller>
+  <li class="pure-menu-item" a:bindings="class(pure-menu-selected):Selected">
+    <a href="#" class="pure-menu-link" a:assign="data(index)=itemIndex"
+        a:capture="click:click{preventDefault}">
+      <i a:if="showVisible" class="fas fa-eye dropdown-visible"></i>
+      <i a:if="!showVisible" class="fas fa-eye-slash dropdown-invisible"></i>
+      <span a:assign="prop(textContent)=itemName" a:bindings="prop(textContent):caption"></span>
+    </a>
+  </li>
+</a:component>
+
+<a:component name="Dropdown" init params="kind SelectorKind">
+  <a:controller>
+    ItemClicked(index int) bool
+  </a:controller>
+  <a:data>
+    kind SelectorKind
+  </a:data>
+  <div class="pure-menu pure-menu-horizontal dropdown-container">
+    <ul class="pure-menu-list">
+      <li class="pure-menu-item pure-menu-has-children dropdown-selector">
+        <a href="#" class="pure-menu-link">
+          <span a:bindings="prop(textContent):caption"></span>
+          <i class="fas fa-caret-down"></i>
+        </a>
+        <ul class="pure-menu-children">
+          <a:embed name="Items" list type="DropdownItem" control></a:embed>
+        </ul>
+      </li>
+    </ul>
+  </div>
+</a:component>

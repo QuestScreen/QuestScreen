@@ -1,0 +1,56 @@
+<a:macro name="modulePath">
+	<span class="plugin-name" a:assign="prop(textContent)=plugin"></span>
+	<i class="fas fa-angle-right"></i>
+	<span class="module-name" a:assign="prop(textContent)=moduleName"></span>
+</a:macro>
+
+<a:component name="Module" params="plugin string, moduleName string, moduleID string">
+	<tr>
+		<td class="module-path">
+			<a:include name="modulePath"></a:include>
+		</td>
+		<td class="module-id" a:assign="prop(textContent)=moduleID"></td>
+	</tr>
+</a:component>
+
+<!-- give empty plugin name for core messages, which will ignore moduleName and moduleID. -->
+<a:component name="Message" params="plugin string, moduleName string, moduleID string, message string, isError bool">
+	<tr a:assign="class(error)=isError,class(warning)=!isError">
+		<td><i class="fas" a:assign="class(fa-times-circle)=isError,class(fa-exclamation-triangle)=!isError"></i></td>
+		<td a:if="plugin == ``">Core</td>
+		<td a:if="plugin != ``">
+			<a:include name="modulePath"></a:include>
+		</td>
+		<td class="text"></td>
+	</tr>
+</a:component>
+
+<a:component name="MessageContainer">
+	<section class="messages">
+		<h4 class="message-list-header">Messages</h4>
+		<table class="message-list">
+			<tbody>
+				<a:embed list type="Message" name="Items"></a:embed>
+			</tbody>
+		</table>
+	</section>
+</a:component>
+
+<a:component name="Page">
+	<section class="data-sheet">
+		<h4 class="data-sheet-header"><i class="fas fa-film"></i> Loaded Modules</h4>
+		<table class="module-list">
+			<thead>
+				<tr><th>Name</th><th>ID</th></tr>
+			</thead>
+			<tbody>
+				<a:embed list type="Module" name="Modules"></a:embed>
+			</tbody>
+		</table>
+	</section>
+	<a:embed optional type="MessageContainer" name="Messages"></a:embed>
+	<footer class="version-info">
+		<p>QuestScreen <span class="app-version"></span></p>
+		<p>This app is free software, distributed under the terms of the GNU GPL v3.</p>
+	</footer>
+</a:component>

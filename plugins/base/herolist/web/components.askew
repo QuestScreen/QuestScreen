@@ -1,0 +1,18 @@
+<a:import>"github.com/QuestScreen/QuestScreen/web/controls"</a:import>
+
+<a:component name="Widget" params="allState bool">
+	<a:controller>
+		switchAll() bool
+		switchHero(index int) bool
+	</a:controller>
+	<a:handlers>
+		allClicked()
+	</a:handlers>
+	<div class="herolist-container">
+		<button class="herolist-switch-all pure-button"
+		    a:assign="class(pure-button-primary)=allState"
+				a:bindings="class(pure-button-primary):allState"
+				a:capture="click:allClicked{preventDefault}"><span class="hide-all">Hide All</span><span class="show-all">Show All</span></button>
+		<a:embed name="Heroes" type="controls.Dropdown" args="controls.SelectMultiple" control></a:embed>
+	</div>
+</a:component>

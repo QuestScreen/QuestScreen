@@ -1,6 +1,7 @@
 package overlays
 
 import (
+	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/resources"
 	"github.com/QuestScreen/api/server"
@@ -55,16 +56,9 @@ func (s *state) CreateRendererData(ctx server.Context) interface{} {
 	return &fullRequest{resources: resources}
 }
 
-type webStateItem struct {
-	Name     string `json:"name"`
-	Selected bool   `json:"selected"`
-}
-
-type webState []webStateItem
-
 // WebView returns a list of resources descriptors (name & visible)
 func (s *state) WebView(ctx server.Context) interface{} {
-	ret := make(webState, len(s.items))
+	ret := make(shared.OverlayState, len(s.items))
 	for i := range s.items {
 		ret[i].Name = s.items[i].Name()
 		ret[i].Selected = s.visible[i]

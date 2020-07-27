@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/QuestScreen/QuestScreen/app"
+	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/server"
 )
@@ -35,13 +36,13 @@ func (s *State) ActiveScene() int {
 }
 
 // StateOf returns the module state for the given module in the active scene
-func (s *State) StateOf(moduleIndex app.ModuleIndex) modules.State {
+func (s *State) StateOf(moduleIndex shared.ModuleIndex) modules.State {
 	return s.scenes[s.activeScene][moduleIndex]
 }
 
 // StateOfScene returns the module state for the given module in the given
 // scene
 func (s *State) StateOfScene(
-	sceneIndex int, moduleIndex app.ModuleIndex) modules.State {
+	sceneIndex int, moduleIndex shared.ModuleIndex) modules.State {
 	return s.scenes[sceneIndex][moduleIndex]
 }

@@ -1,0 +1,170 @@
+<a:import>
+  "github.com/QuestScreen/QuestScreen/web/controls"
+</a:import>
+
+<a:component name="ListItem" params="name string, removable bool, index int">
+	<a:handlers>clicked(index int)</a:handlers>
+	<div class="data-list-item">
+		<span class="data-list-text" a:assign="prop(textContent) = name"></span>
+		<a class="data-list-link"
+				a:assign="class(delete) = removable, data(index) = index"
+				a:capture="click:clicked">
+			<i class="fas fa-minus-square" a:if="removable"></i>
+			<i class="fas fa-cubes" a:if="!removable"></i>
+		</a>
+	</div>
+</a:component>
+
+<a:component name="Base">
+	<article>
+		<section class="data-sheet">
+			<h4 class="data-sheet-header"><i class="fas fa-book"></i> Systems</h4>
+			<div class="data-list systems">
+				<a:embed name="Systems" type="ListItem" list></a:embed>
+				<a class="data-list-link create">
+					<i class="fas fa-plus-square"></i>
+				</a>
+			</div>
+		</section>
+		<section class="data-sheet">
+			<h4 class="data-sheet-header"><i class="fas fa-users"></i> Groups</h4>
+			<div class="data-list groups">
+				<a:embed name="Groups" type="ListItem" list></a:embed>
+				<a class="data-list-link create">
+					<i class="fas fa-plus-square"></i>
+				</a>
+			</div>
+		</section>
+	</article>
+</a:component>
+
+<a:macro name="dataSheet">
+	<section class="data-sheet">
+		<h4 class="data-sheet-header"><i class="fas fa-file-alt"></i> General</h4>
+		<form class="pure-form pure-form-aligned">
+			<fieldset>
+				<div class="pure-control-group">
+						<label>Name</label>
+						<input type="text" name="name" required />
+						<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
+				</div>
+				<a:slot name="value"></a:slot>
+
+				<div class="pure-controls">
+					<span class="hfill"></span>
+					<button type="reset" class="pure-button">Reset</button>
+					<button type="submit" class="pure-button pure-button-primary">Save</button>
+				</div>
+			</fieldset>
+		</form>
+	</section>
+</a:macro>
+
+<a:component name="System">
+	<article>
+		<a:include name="dataSheet"></a:include>
+	</article>
+</a:component>
+
+<a:component name="EditableText" params="title string">
+	<a:handlers>setEdited()</a:handlers>
+	<div class="pure-control-group">
+		<label a:assign="prop(textContent) = title"></label>
+		<input type="text" name="name" required
+				a:bindings="prop(value):Value" a:capture="input:setEdited" />
+		<span class="pure-form-message-inline"
+				a:bindings="class(edited):Edited"><i class="fas fa-edit"></i></span>
+	</div>
+</a:component>
+
+<a:component name="Hero">
+	<section class="data-sheet">
+		<h4 class="data-sheet-header"><i class="fas fa-mask"></i> Hero</h4>
+		<form class="pure-form pure-form-aligned">
+			<fieldset>
+				<a:embed name="Name" type="EditableText" args="`Name`"></a:embed>
+				<a:embed name="Description" type="EditableText" args="`Description`"></a:embed>
+				<div class="pure-controls">
+					<button class="pure-button delete"><i class="fas fa-trash-alt"></i> Delete</button>
+					<span class="hfill"></span>
+					<button type="reset" class="pure-button">Reset</button>
+					<button type="submit" class="pure-button pure-button-primary">Save</button>
+				</div>
+			</fieldset>
+		</form>
+	</section>
+</a:component>
+
+<a:component name="Group">
+	<article>
+		<a:include name="dataSheet">
+			<div class="pure-control-group" a:slot="value">
+				<label>System</label>
+				<a:embed name="Systems" type="controls.Dropdown" args="controls.SelectSingle"></a:embed>
+				<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
+			</div>
+		</a:include>
+		<section class="data-sheet">
+			<h4 class="data-sheet-header"><i class="fas fa-image"></i> Scenes</h4>
+			<div class="data-list scenes">
+				<a:embed name="Scenes" type="ListItem" list></a:embed>
+				<a class="data-list-link create">
+					<i class="fas fa-plus-square"></i>
+				</a>
+			</div>
+		</section>
+		<h3>Heroes</h3>
+		<a:embed name="Heroes" type="Hero" list></a:embed>
+	</article>
+</a:component>
+
+<a:component name="SceneModule" params="pluginName string, moduleName string">
+	<div class="data-list-item">
+		<span class="data-list-text">
+			<span a:assign="prop(textContent) = pluginName"></span>
+			<i class="fas fa-angle-right"></i>
+			<span a:assign="prop(textContent) = moduleName"></span>
+		</span>
+		<span class="module-toggle">
+			<a:embed name="Toggle" type="controls.Switch"></a:embed>
+		</span>
+		<span class="data-list-text edited"><i class="fas fa-edit"></i></span>
+	</div>
+</a:component>
+
+<a:component name="Scene">
+	<article>
+		<a:include name="dataSheet">
+			<div class="pure-control-group" a:slot="value">
+				<label>Modules</label>
+				<div class="data-list modules">
+				</div>
+			</div>
+		</a:include>
+	</article>
+</a:component>
+
+<a:component name="SelectableTemplate"
+		params="pluginName string, templateName string, descr string">
+	<li class="pure-menu-item template-item">
+		<a class="pure-menu-link" href="#">
+			<div class="template-container">
+				<p class="template-identifier">
+					<span a:assign="prop(textContent) = pluginName"></span>
+					<i class="fas fa-angle-right"></i>
+					<span a:assign="prop(textContent) = templateName"></span>
+				</p>
+				<p class="template-descr" a:assign="prop(textContent) = descr"></p>
+			</div>
+			<i class="fas fa-sort"></i>
+		</a>
+	</li>
+</a:component>
+
+<a:component name="TemplatePopup">
+	<div class="pure-menu template-list">
+		<ul class="pure-menu-list">
+			<a:embed name="Templates" type="SelectableTemplate" list></a:embed>
+		</ul>
+	</div>
+</a:component>

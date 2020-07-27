@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuestScreen/QuestScreen/app"
 	"github.com/QuestScreen/QuestScreen/generated"
+	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/api/config"
 	"github.com/QuestScreen/api/groups"
 	"github.com/QuestScreen/api/server"
@@ -19,84 +20,45 @@ type Communication struct {
 	d *Data
 }
 
-type jsonModuleConfig []interface{}
-
-type jsonSystem struct {
-	Name string `json:"name"`
-	ID   string `json:"id"`
-}
-
-type jsonHero struct {
-	Name        string `json:"name"`
-	ID          string `json:"id"`
-	Description string `json:"description"`
-}
-
-type jsonScene struct {
-	Name    string `json:"name"`
-	ID      string `json:"id"`
-	Modules []bool `json:"modules"`
-}
-
-type jsonGroup struct {
-	Name        string      `json:"name"`
-	ID          string      `json:"id"`
-	SystemIndex int         `json:"systemIndex"`
-	Heroes      []jsonHero  `json:"heroes"`
-	Scenes      []jsonScene `json:"scenes"`
-}
-
-type jsonModuleSetting struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
-}
-
-type jsonModuleDesc struct {
-	Name        string              `json:"name"`
-	ID          string              `json:"id"`
-	Config      []jsonModuleSetting `json:"config"`
-	PluginIndex int                 `json:"pluginIndex"`
-}
-
-func (c Communication) systems() []jsonSystem {
-	ret := make([]jsonSystem, 0, len(c.d.systems))
+func (c Communication) systems() []shared.System {
+	ret := make([]shared.System, 0, len(c.d.systems))
 	for i := range c.d.systems {
-		ret = append(ret, jsonSystem{Name: c.d.systems[i].name,
+		ret = append(ret, shared.System{Name: c.d.systems[i].name,
 			ID: c.d.systems[i].id})
 	}
 	return ret
 }
 
-func (c Communication) scenes(g *group) []jsonScene {
-	scenes := make([]jsonScene, 0, len(g.scenes))
+func (c Communication) scenes(g *group) []shared.Scene {
+	scenes := make([]shared.Scene, 0, len(g.scenes))
 	for i := range g.scenes {
 		s := &g.scenes[i]
 		modules := make([]bool, c.d.owner.NumModules())
 		for j := range modules {
 			modules[j] = s.modules[j].enabled
 		}
-		scenes = append(scenes, jsonScene{
+		scenes = append(scenes, shared.Scene{
 			Name: g.scenes[i].name, ID: g.scenes[i].id, Modules: modules})
 	}
 	return scenes
 }
 
-func (c Communication) heroes(hl *heroList) []jsonHero {
-	ret := make([]jsonHero, 0, len(hl.data))
+func (c Communication) heroes(hl *heroList) []shared.Hero {
+	ret := make([]shared.Hero, 0, len(hl.data))
 	for i := range hl.data {
 		h := &hl.data[i]
 		ret = append(ret,
-			jsonHero{Name: h.name, ID: h.id, Description: h.description})
+			shared.Hero{Name: h.name, ID: h.id, Description: h.description})
 	}
 	return ret
 }
 
-func (c Communication) groups() []jsonGroup {
-	ret := make([]jsonGroup, 0, len(c.d.groups))
+func (c Communication) groups() []shared.Group {
+	ret := make([]shared.Group, 0, len(c.d.groups))
 	for i := range c.d.groups {
 		g := c.d.groups[i]
 
-		ret = append(ret, jsonGroup{Name: g.name,
+		ret = append(ret, shared.Group{Name: g.name,
 			ID:          g.id,
 			SystemIndex: g.systemIndex,
 			Heroes:      c.heroes(&g.heroes),
@@ -105,22 +67,22 @@ func (c Communication) groups() []jsonGroup {
 	return ret
 }
 
-func (c Communication) modules(a app.App) []jsonModuleDesc {
-	ret := make([]jsonModuleDesc, 0, a.NumModules())
-	for i := app.FirstModule; i < a.NumModules(); i++ {
+func (c Communication) modules(a app.App) []shared.Module {
+	ret := make([]shared.Module, 0, a.NumModules())
+	for i := shared.FirstModule; i < a.NumModules(); i++ {
 		module := a.ModuleAt(i)
 		modConfig := module.DefaultConfig
 		modValue := reflect.ValueOf(modConfig).Elem()
 		for ; modValue.Kind() == reflect.Interface ||
 			modValue.Kind() == reflect.Ptr; modValue = modValue.Elem() {
 		}
-		cur := jsonModuleDesc{
+		cur := shared.Module{
 			Name:        module.Name,
 			ID:          module.ID,
-			Config:      make([]jsonModuleSetting, 0, modValue.NumField()),
+			Config:      make([]shared.ModuleSetting, 0, modValue.NumField()),
 			PluginIndex: a.ModulePluginIndex(i)}
 		for j := 0; j < modValue.NumField(); j++ {
-			cur.Config = append(cur.Config, jsonModuleSetting{
+			cur.Config = append(cur.Config, shared.ModuleSetting{
 				Name: modValue.Type().Field(j).Name,
 				Type: modValue.Field(j).Interface().(config.Item).Name()})
 		}
@@ -137,18 +99,9 @@ func (c Communication) StaticData(a app.App, plugins interface{}) interface{} {
 	for i := range textures {
 		textureNames[i] = textures[i].Name()
 	}
-	return struct {
-		Fonts            []string         `json:"fonts"`
-		Textures         []string         `json:"textures"`
-		Modules          []jsonModuleDesc `json:"modules"`
-		NumPluginSystems int              `json:"numPluginSystems"`
-		Plugins          interface{}      `json:"plugins"`
-		FontDir          string           `json:"fontDir"`
-		Messages         []app.Message    `json:"messages"`
-		AppVersion       string           `json:"appVersion"`
-	}{Fonts: a.FontNames(), Textures: textureNames, Modules: c.modules(a),
-		NumPluginSystems: c.d.numPluginSystems, Plugins: plugins,
-		FontDir: a.DataDir("fonts"), Messages: a.Messages(),
+	return shared.Static{Fonts: a.FontNames(), Textures: textureNames,
+		Modules: c.modules(a), NumPluginSystems: c.d.numPluginSystems,
+		Plugins: plugins, FontDir: a.DataDir("fonts"), Messages: a.Messages(),
 		AppVersion: generated.CurrentVersion}
 }
 
@@ -156,8 +109,8 @@ func (c Communication) StaticData(a app.App, plugins interface{}) interface{} {
 // the state (systems, groups, scenes, heroes).
 func (c Communication) ViewAll(app app.App) interface{} {
 	return struct {
-		Systems []jsonSystem `json:"systems"`
-		Groups  []jsonGroup  `json:"groups"`
+		Systems []shared.System `json:"systems"`
+		Groups  []shared.Group  `json:"groups"`
 	}{Systems: c.systems(), Groups: c.groups()}
 }
 
@@ -276,7 +229,7 @@ func (c Communication) ViewScenes(g Group) interface{} {
 func (c Communication) UpdateSceneConfig(raw []byte, s Scene) server.Error {
 	simpleList := make([]interface{}, c.d.owner.NumModules())
 	sc := s.(*scene)
-	for i := app.FirstModule; i < c.d.owner.NumModules(); i++ {
+	for i := shared.FirstModule; i < c.d.owner.NumModules(); i++ {
 		simpleList[i] = sc.modules[i].config
 	}
 	return c.loadModuleConfigs(raw, simpleList)
@@ -342,7 +295,7 @@ func (c Communication) UpdateScene(raw []byte, g Group, s Scene) server.Error {
 }
 
 func (c Communication) loadModuleConfigInto(
-	moduleIndex app.ModuleIndex, target interface{},
+	moduleIndex shared.ModuleIndex, target interface{},
 	raw []json.RawMessage) server.Error {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
@@ -378,7 +331,7 @@ func (c Communication) loadModuleConfigs(jsonInput []byte,
 	if err := decoder.Decode(&raw); err != nil {
 		return &server.BadRequest{Message: "error in JSON structure", Inner: err}
 	}
-	for i := app.FirstModule; i < app.ModuleIndex(len(targetConfigs)); i++ {
+	for i := shared.FirstModule; i < shared.ModuleIndex(len(targetConfigs)); i++ {
 		conf := targetConfigs[i]
 		if conf == nil {
 			if raw[i] != nil {
@@ -394,15 +347,15 @@ func (c Communication) loadModuleConfigs(jsonInput []byte,
 	return nil
 }
 
-func (c Communication) moduleConfigs(config []interface{}) []jsonModuleConfig {
-	ret := make([]jsonModuleConfig, 0, c.d.owner.NumModules())
-	for i := app.FirstModule; i < c.d.owner.NumModules(); i++ {
+func (c Communication) moduleConfigs(config []interface{}) []shared.ModuleConfig {
+	ret := make([]shared.ModuleConfig, 0, c.d.owner.NumModules())
+	for i := shared.FirstModule; i < c.d.owner.NumModules(); i++ {
 		moduleConfig := config[i]
 		itemValue := reflect.ValueOf(moduleConfig).Elem()
 		for ; itemValue.Kind() == reflect.Interface ||
 			itemValue.Kind() == reflect.Ptr; itemValue = itemValue.Elem() {
 		}
-		jsonConfig := make(jsonModuleConfig, 0, itemValue.NumField())
+		jsonConfig := make(shared.ModuleConfig, 0, itemValue.NumField())
 		for j := 0; j < itemValue.NumField(); j++ {
 			jsonConfig = append(jsonConfig, itemValue.Field(j).Interface())
 		}
@@ -411,17 +364,17 @@ func (c Communication) moduleConfigs(config []interface{}) []jsonModuleConfig {
 	return ret
 }
 
-func (c Communication) sceneConfig(config []sceneModule) []jsonModuleConfig {
-	ret := make([]jsonModuleConfig, 0, c.d.owner.NumModules())
-	for i := app.FirstModule; i < c.d.owner.NumModules(); i++ {
+func (c Communication) sceneConfig(config []sceneModule) []shared.ModuleConfig {
+	ret := make([]shared.ModuleConfig, 0, c.d.owner.NumModules())
+	for i := shared.FirstModule; i < c.d.owner.NumModules(); i++ {
 		moduleConfig := config[i]
-		var jsonConfig jsonModuleConfig
+		var jsonConfig shared.ModuleConfig
 		if moduleConfig.config != nil {
 			itemValue := reflect.ValueOf(moduleConfig.config).Elem()
 			for ; itemValue.Kind() == reflect.Interface ||
 				itemValue.Kind() == reflect.Ptr; itemValue = itemValue.Elem() {
 			}
-			jsonConfig = make(jsonModuleConfig, 0, itemValue.NumField())
+			jsonConfig = make(shared.ModuleConfig, 0, itemValue.NumField())
 			for j := 0; j < itemValue.NumField(); j++ {
 				jsonConfig = append(jsonConfig, itemValue.Field(j).Interface())
 			}
@@ -435,7 +388,7 @@ func (c Communication) sceneConfig(config []sceneModule) []jsonModuleConfig {
 func (c Communication) ViewSceneState(a app.App) interface{} {
 	list := make([]interface{}, a.NumModules())
 	scene := c.d.State.scenes[c.d.State.activeScene]
-	for i := app.FirstModule; i < a.NumModules(); i++ {
+	for i := shared.FirstModule; i < a.NumModules(); i++ {
 		if scene[i] != nil {
 			list[i] = scene[i].WebView(a.ServerContext(i))
 		}
