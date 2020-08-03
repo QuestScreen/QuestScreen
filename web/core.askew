@@ -14,16 +14,16 @@
 </a:component>
 
 <a:component name="GroupMenuItem" params="title string">
-	<a:handlers>Clicked()</a:handlers>
+	<a:handlers>clicked()</a:handlers>
 	<li class="pure-menu-item group-list-item">
-		<a class="pure-menu-link" href="#" a:assign="prop(textContent)= title" a:capture="click:Clicked"></a>
+		<a class="pure-menu-link" href="#" a:assign="prop(textContent)= title" a:capture="click:clicked"></a>
 	</li>
 </a:component>
 
 <a:component name="PageMenuEntry" params="name string, parent string">
-	<a:handlers>Clicked()</a:handlers>
+	<a:handlers>clicked()</a:handlers>
 	<li class="pure-menu-item">
-		<a class="pure-menu-link" href="#" a:assign="class(submenu-link)= parent != ``" a:capture="click:Clicked"><span class="submenu-parent-name"> <a:text expr="parent"></a:text> –</span> <a:text expr="name"></a:text><i class="fas fa-sort"></i></a>
+		<a class="pure-menu-link" href="#" a:assign="class(submenu-link)= parent != ``" a:capture="click:clicked"><span class="submenu-parent-name"> <a:text expr="parent"></a:text> –</span> <a:text expr="name"></a:text><i class="fas fa-sort"></i></a>
 	</li>
 </a:component>
 

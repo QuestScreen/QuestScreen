@@ -5,3 +5,4 @@ info/info.go
 state/state.go
 core.go
 init.go
+main/plugins.go

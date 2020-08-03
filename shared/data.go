@@ -37,14 +37,20 @@ type Group struct {
 
 // ModuleSetting describes a setting of a module.
 type ModuleSetting struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Name      string          `json:"name"`
+	TypeIndex ConfigItemIndex `json:"typeIndex"`
 }
 
 // Module describes a loaded module.
 type Module struct {
-	Name        string          `json:"name"`
-	ID          string          `json:"id"`
-	Config      []ModuleSetting `json:"config"`
-	PluginIndex int             `json:"pluginIndex"`
+	Name string `json:"name"`
+	// <plugin-id>/<module-id>
+	Path   string          `json:"path"`
+	Config []ModuleSetting `json:"config"`
+}
+
+// Plugin describes a loaded plugin.
+type Plugin struct {
+	Name string `json:"name"`
+	ID   string `json:"id"`
 }

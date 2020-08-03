@@ -1,6 +1,7 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
+github.com/QuestScreen/Questscreen v0.1.0 h1:C5n7HbVw9hOTN8+tkH7Gh1Bq0opBGyw1HlIAJiymoWI=
 github.com/QuestScreen/api v0.3.0 h1:LhEW/eFojKSie4a7oi58f+3SG49h6haSvg36xOOQ4gQ=
 github.com/QuestScreen/api v0.3.0/go.mod h1:/B3uPCRFw7o8DucaI5J/3ZrMMiwybNMJ4jvlCEIFkKM=
 github.com/QuestScreen/api v0.3.1-0.20200504173908-4a1dd3b04fc9 h1:DBueojpX55qDVOYUL6GNuDB4YHL/7wnSDa1T4tFOJkw=
@@ -85,6 +86,10 @@ github.com/QuestScreen/api v0.3.1-0.20200727190920-a48471c13d2c/go.mod h1:n9VIlu
 github.com/QuestScreen/api v0.3.1-0.20200727191825-bd22291e95a3/go.mod h1:n9VIluIrwMzDbaVB1q+bYUCfKBcXnGJW/wTN5SIHfFI=
 github.com/QuestScreen/api v0.3.1-0.20200727192022-1d0e4393f366 h1:4/sK9jGsd6tn9KfAbxDs0KenUffGRsURxgI5oxogxqw=
 github.com/QuestScreen/api v0.3.1-0.20200727192022-1d0e4393f366/go.mod h1:n9VIluIrwMzDbaVB1q+bYUCfKBcXnGJW/wTN5SIHfFI=
+github.com/QuestScreen/api v0.3.1-0.20200728180208-2d825148f611 h1:OQJ1J1UuYDmfgu8wkAnTErtVj1zsluBwk9NiMDYueuc=
+github.com/QuestScreen/api v0.3.1-0.20200728180208-2d825148f611/go.mod h1:n9VIluIrwMzDbaVB1q+bYUCfKBcXnGJW/wTN5SIHfFI=
+github.com/QuestScreen/api v0.3.1-0.20200728184500-c60466c2f4ac h1:/E/ly5j/XHatPmszYnuaQBX4Yr7rFk9Zu4pVQq4ve70=
+github.com/QuestScreen/api v0.3.1-0.20200728184500-c60466c2f4ac/go.mod h1:n9VIluIrwMzDbaVB1q+bYUCfKBcXnGJW/wTN5SIHfFI=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=

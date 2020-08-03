@@ -77,17 +77,34 @@ func (c Communication) modules(a app.App) []shared.Module {
 			modValue.Kind() == reflect.Ptr; modValue = modValue.Elem() {
 		}
 		cur := shared.Module{
-			Name:        module.Name,
-			ID:          module.ID,
-			Config:      make([]shared.ModuleSetting, 0, modValue.NumField()),
-			PluginIndex: a.ModulePluginIndex(i)}
+			Name:   module.Name,
+			ID:     module.ID,
+			Config: make([]shared.ModuleSetting, 0, modValue.NumField())}
 		for j := 0; j < modValue.NumField(); j++ {
 			cur.Config = append(cur.Config, shared.ModuleSetting{
-				Name: modValue.Type().Field(j).Name,
-				Type: modValue.Field(j).Interface().(config.Item).Name()})
+				Name:      modValue.Type().Field(j).Name,
+				TypeIndex: a.ConfigItemFromType(modValue.Field(j).Type().Elem())})
 		}
 		ret = append(ret, cur)
 	}
+	return ret
+}
+
+func (c Communication) configItems(a app.App) []string {
+	ret := make([]string, 0, a.NumConfigItems())
+	for i := shared.FirstConfigItem; i < a.NumConfigItems(); i++ {
+		ret = append(ret, a.PluginID(a.ConfigItemPluginIndex(i))+"/"+a.ConfigItemName(i))
+	}
+	return ret
+}
+
+func (c Communication) plugins(a app.App) []shared.Plugin {
+	ret := make([]shared.Plugin, 0, a.NumPlugins())
+	for i := 0; i < a.NumPlugins(); i++ {
+		plugin := a.Plugin(i)
+		ret = append(ret, shared.Plugin{Name: plugin.Name, ID: a.PluginID(i)})
+	}
+
 	return ret
 }
 
@@ -100,8 +117,9 @@ func (c Communication) StaticData(a app.App, plugins interface{}) interface{} {
 		textureNames[i] = textures[i].Name()
 	}
 	return shared.Static{Fonts: a.FontNames(), Textures: textureNames,
-		Modules: c.modules(a), NumPluginSystems: c.d.numPluginSystems,
-		Plugins: plugins, FontDir: a.DataDir("fonts"), Messages: a.Messages(),
+		Modules: c.modules(a), ConfigItems: c.configItems(a),
+		Plugins: c.plugins(a), NumPluginSystems: c.d.numPluginSystems,
+		FontDir: a.DataDir("fonts"), Messages: a.Messages(),
 		AppVersion: generated.CurrentVersion}
 }
 

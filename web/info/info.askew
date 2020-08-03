@@ -36,7 +36,7 @@
 	</section>
 </a:component>
 
-<a:component name="Page">
+<a:component name="Page" params="version string">
 	<section class="data-sheet">
 		<h4 class="data-sheet-header"><i class="fas fa-film"></i> Loaded Modules</h4>
 		<table class="module-list">
@@ -50,7 +50,7 @@
 	</section>
 	<a:embed optional type="MessageContainer" name="Messages"></a:embed>
 	<footer class="version-info">
-		<p>QuestScreen <span class="app-version"></span></p>
+		<p>QuestScreen <span class="app-version" a:assign="prop(textContent)=version"></span></p>
 		<p>This app is free software, distributed under the terms of the GNU GPL v3.</p>
 	</footer>
 </a:component>

@@ -1,10 +1,16 @@
 package shared
 
-// ModuleIndex identifies the module internally.
+// ModuleIndex identifies a module internally.
 type ModuleIndex int
 
 // FirstModule is the index of the first module
 const FirstModule ModuleIndex = 0
+
+// ConfigItemIndex identifies a config item internally.
+type ConfigItemIndex int
+
+// FirstConfigItem is the index of the first config item.
+const FirstConfigItem ConfigItemIndex = 0
 
 // Message is a warning or an error that should be displayed on the starting
 // screen of the client.
