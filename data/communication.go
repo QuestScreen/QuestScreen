@@ -78,7 +78,7 @@ func (c Communication) modules(a app.App) []shared.Module {
 		}
 		cur := shared.Module{
 			Name:   module.Name,
-			ID:     module.ID,
+			Path:   a.PluginID(a.ModulePluginIndex(i)) + "/" + module.ID,
 			Config: make([]shared.ModuleSetting, 0, modValue.NumField())}
 		for j := 0; j < modValue.NumField(); j++ {
 			cur.Config = append(cur.Config, shared.ModuleSetting{

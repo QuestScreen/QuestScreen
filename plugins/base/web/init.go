@@ -8,8 +8,8 @@ import (
 	"github.com/QuestScreen/api/web"
 )
 
-// InitPluginWebUI initializes the plugin's modules for the Web UI.
-func InitPluginWebUI(reg web.PluginRegistrator) {
+// LoadPluginWebUI initializes the plugin's modules for the Web UI.
+func LoadPluginWebUI(reg web.PluginRegistrator) {
 	reg.RegisterModule("background", background.NewState)
 	reg.RegisterModule("herolist", herolist.NewState)
 	reg.RegisterModule("overlays", overlays.NewState)

@@ -4,7 +4,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/pborman/getopt"
+	"github.com/pborman/getopt/v2"
 
 	"github.com/QuestScreen/QuestScreen/display"
 	"github.com/veandco/go-sdl2/img"

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/QuestScreen/QuestScreen/app"
+	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/render"
 	"github.com/QuestScreen/api/server"
@@ -77,7 +78,7 @@ func (d *Display) Init(
 	d.moduleStates = make([]moduleState, d.owner.NumModules())
 
 	d.moduleRenderers = make([]modules.Renderer, d.owner.NumModules())
-	for i := app.FirstModule; i < app.ModuleIndex(len(d.moduleRenderers)); i++ {
+	for i := shared.FirstModule; i < shared.ModuleIndex(len(d.moduleRenderers)); i++ {
 		var err error
 		d.moduleRenderers[i], err = d.owner.ModuleAt(i).CreateRenderer(
 			d, owner.MessageSenderFor(i))
@@ -94,7 +95,7 @@ func (d *Display) render(cur time.Time, popup bool) {
 	if d.initial {
 		d.welcomeTexture.Draw(d, frame, 255)
 	} else {
-		for i := app.FirstModule; i < d.owner.NumModules(); i++ {
+		for i := shared.FirstModule; i < d.owner.NumModules(); i++ {
 			if d.enabledModules[i] {
 				ccount := d.r.canvasCount()
 				state := &d.moduleStates[i]
@@ -122,7 +123,7 @@ func (d *Display) render(cur time.Time, popup bool) {
 	d.Window.GLSwap()
 }
 
-func (d *Display) startTransition(moduleIndex app.ModuleIndex) {
+func (d *Display) startTransition(moduleIndex shared.ModuleIndex) {
 	r := d.moduleRenderers[moduleIndex]
 	state := &d.moduleStates[moduleIndex]
 	if state.queuedData == nil {
@@ -205,14 +206,14 @@ func (d *Display) RenderLoop() int {
 			case *sdl.UserEvent:
 				switch e.Type {
 				case d.Events.ModuleUpdateID:
-					d.startTransition(app.ModuleIndex(e.Code))
+					d.startTransition(shared.ModuleIndex(e.Code))
 				case d.Events.SceneChangeID:
 					d.enabledModules = d.queuedEnabledModules
 					d.queuedEnabledModules = nil
 					d.initial = false
 					fallthrough
 				case d.Events.ModuleConfigID:
-					for i := app.FirstModule; i < d.owner.NumModules(); i++ {
+					for i := shared.FirstModule; i < d.owner.NumModules(); i++ {
 						r := d.moduleRenderers[i]
 						state := &d.moduleStates[i]
 						if state.queuedConfig != nil || state.queuedData != nil {
@@ -222,7 +223,7 @@ func (d *Display) RenderLoop() int {
 						}
 					}
 				case d.Events.HeroesChangedID:
-					for i := app.FirstModule; i < d.owner.NumModules(); i++ {
+					for i := shared.FirstModule; i < d.owner.NumModules(); i++ {
 						state := &d.moduleStates[i]
 						if state.queuedData != nil {
 							r := d.moduleRenderers[i]
@@ -274,7 +275,7 @@ func (d *Display) StartRequest(eventID uint32, eventCode int32) (Request,
 
 // SendModuleConfig queues the given config for the module at the given ID as
 // part of the request.
-func (r *Request) SendModuleConfig(index app.ModuleIndex, config interface{}) error {
+func (r *Request) SendModuleConfig(index shared.ModuleIndex, config interface{}) error {
 	if index < 0 || index >= r.d.owner.NumModules() {
 		return fmt.Errorf("Module index %d outside of range 0..%d", index, len(r.d.moduleStates))
 	}
@@ -289,7 +290,7 @@ func (r *Request) SendModuleConfig(index app.ModuleIndex, config interface{}) er
 // SendRendererData queues the given data for the module at the given ID as part
 // of the request. Whether the data is used for RebuiltState or InitTransition
 // depends on the event ID of the request.
-func (r *Request) SendRendererData(index app.ModuleIndex, data interface{}) error {
+func (r *Request) SendRendererData(index shared.ModuleIndex, data interface{}) error {
 	if index < 0 || index >= r.d.owner.NumModules() {
 		return fmt.Errorf("Module index %d outside of range 0..%d", index, len(r.d.moduleStates))
 	}

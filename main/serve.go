@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/QuestScreen/QuestScreen/app"
 	"github.com/QuestScreen/QuestScreen/generated"
+	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/groups"
 	"github.com/QuestScreen/api/modules"
@@ -154,7 +154,7 @@ func (env *endpointEnv) sendConfigsToDisplay() server.Error {
 func sendScene(qs *QuestScreen, req *display.Request) {
 	data := make([]bool, len(qs.modules))
 	scene := qs.activeGroup().Scene(qs.data.ActiveScene())
-	for i := app.FirstModule; i < qs.NumModules(); i++ {
+	for i := shared.FirstModule; i < qs.NumModules(); i++ {
 		data[i] = scene.UsesModule(i)
 		if data[i] {
 			req.SendRendererData(i, qs.data.StateOf(i).CreateRendererData(
@@ -172,7 +172,7 @@ func propagateHeroesChange(action groups.HeroChangeAction,
 	}
 	for i := 0; i < g.NumScenes(); i++ {
 		scene := g.Scene(i)
-		for j := app.FirstModule; j < qs.NumModules(); j++ {
+		for j := shared.FirstModule; j < qs.NumModules(); j++ {
 			if scene.UsesModule(j) {
 				state := qs.data.State.StateOfScene(i, j)
 				hams, ok := state.(modules.HeroAwareState)
@@ -192,7 +192,7 @@ func mergeAndSendConfigs(qs *QuestScreen, req *display.Request) {
 	g := qs.activeGroup()
 	if g != nil {
 		scene := g.Scene(qs.data.ActiveScene())
-		for i := app.FirstModule; i < qs.NumModules(); i++ {
+		for i := shared.FirstModule; i < qs.NumModules(); i++ {
 			if scene.UsesModule(i) {
 				req.SendModuleConfig(i, qs.data.MergeConfig(i,
 					qs.activeSystemIndex, qs.activeGroupIndex, qs.data.ActiveScene()))
@@ -412,7 +412,7 @@ func (sce sceneConfigEndpoint) Handle(method httpMethods, ids []string,
 
 type moduleEndpoint struct {
 	*endpointEnv
-	moduleIndex   app.ModuleIndex
+	moduleIndex   shared.ModuleIndex
 	endpointIndex int
 	pure          bool
 }
@@ -769,7 +769,7 @@ func startServer(owner *QuestScreen, events display.Events,
 			&branch{"heroes"}, endpoint{httpPost, &dataHeroesEndpoint{env}},
 			idCapture{}, endpoint{httpPut | httpDelete, &dataHeroEndpoint{env}})
 
-		for i := app.FirstModule; i < owner.NumModules(); i++ {
+		for i := shared.FirstModule; i < owner.NumModules(); i++ {
 			seenSlash := false
 			seenOthers := false
 

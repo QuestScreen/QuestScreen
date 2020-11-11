@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -9,15 +10,15 @@ import (
 	"os/user"
 	"path/filepath"
 	"plugin"
+	"reflect"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/QuestScreen/QuestScreen/app"
-	base "github.com/QuestScreen/QuestScreen/base"
 	"github.com/QuestScreen/QuestScreen/data"
 	"github.com/QuestScreen/QuestScreen/display"
 	"github.com/QuestScreen/QuestScreen/generated"
+	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/fonts"
 	"github.com/QuestScreen/api/groups"
@@ -63,6 +64,8 @@ type QuestScreen struct {
 	modules             []moduleData
 	plugins             []*api.Plugin
 	resourceCollections [][][]ownedResourceFile
+	numConfigItems      int
+	configItemTypes     map[reflect.Type]int
 	textures            []resources.Resource
 	data                data.Data
 	persistence         data.Persistence
@@ -70,7 +73,7 @@ type QuestScreen struct {
 	display             display.Display
 	activeGroupIndex    int
 	activeSystemIndex   int
-	messages            []app.Message
+	messages            []shared.Message
 	html, js, css       []byte
 	context             sdl.GLContext
 }
@@ -78,21 +81,21 @@ type QuestScreen struct {
 // implements api.MessageSender
 type messageCollector struct {
 	owner       *QuestScreen
-	moduleIndex app.ModuleIndex
+	moduleIndex shared.ModuleIndex
 }
 
 func (mc *messageCollector) Warning(text string) {
-	mc.owner.messages = append(mc.owner.messages, app.Message{
+	mc.owner.messages = append(mc.owner.messages, shared.Message{
 		IsError: false, ModuleIndex: mc.moduleIndex, Text: text})
 }
 
 func (mc *messageCollector) Error(text string) {
-	mc.owner.messages = append(mc.owner.messages, app.Message{
+	mc.owner.messages = append(mc.owner.messages, shared.Message{
 		IsError: true, ModuleIndex: mc.moduleIndex, Text: text})
 }
 
 // MessageSenderFor creates a new message sender for the given index.
-func (qs *QuestScreen) MessageSenderFor(index app.ModuleIndex) server.MessageSender {
+func (qs *QuestScreen) MessageSenderFor(index shared.ModuleIndex) server.MessageSender {
 	return &messageCollector{moduleIndex: index, owner: qs}
 }
 
@@ -277,7 +280,7 @@ func (qs *QuestScreen) DataDir(subdirs ...string) string {
 }
 
 // ModuleAt returns the module at the given index
-func (qs *QuestScreen) ModuleAt(index app.ModuleIndex) *modules.Module {
+func (qs *QuestScreen) ModuleAt(index shared.ModuleIndex) *modules.Module {
 	return qs.modules[index].Module
 }
 
@@ -291,23 +294,23 @@ func (qs *QuestScreen) moduleByID(id string) (index int, module *modules.Module)
 }
 
 // ModulePluginIndex returns the plugin the provides the module at the given index
-func (qs *QuestScreen) ModulePluginIndex(index app.ModuleIndex) int {
+func (qs *QuestScreen) ModulePluginIndex(index shared.ModuleIndex) int {
 	return qs.modules[index].pluginIndex
 }
 
 // NumModules returns the number of registered modules
-func (qs *QuestScreen) NumModules() app.ModuleIndex {
-	return app.ModuleIndex(len(qs.modules))
+func (qs *QuestScreen) NumModules() shared.ModuleIndex {
+	return shared.ModuleIndex(len(qs.modules))
 }
 
 // Messages returns the messages generated on app startup
-func (qs *QuestScreen) Messages() []app.Message {
+func (qs *QuestScreen) Messages() []shared.Message {
 	return qs.messages
 }
 
 type moduleContext struct {
 	*QuestScreen
-	moduleIndex app.ModuleIndex
+	moduleIndex shared.ModuleIndex
 }
 
 // GetResources filters resources by current group and system.
@@ -336,7 +339,7 @@ func (emptyHeroList) HeroByID(id string) (index int, h groups.Hero) {
 }
 
 // ServerContext returns a server context for the module at the given index
-func (qs *QuestScreen) ServerContext(moduleIndex app.ModuleIndex) server.Context {
+func (qs *QuestScreen) ServerContext(moduleIndex shared.ModuleIndex) server.Context {
 	return &moduleContext{QuestScreen: qs, moduleIndex: moduleIndex}
 }
 
@@ -431,7 +434,28 @@ func (qs *QuestScreen) registerModule(descr *modules.Module) error {
 			return fmt.Errorf("module id may not be one of %v", forbiddenNames)
 		}
 	}
+
+	configType := reflect.TypeOf(descr.DefaultConfig)
+	if configType.Kind() != reflect.Ptr {
+		return errors.New("DefaultConfig's type is not a pointer to a struct")
+	}
+	configType = configType.Elem()
+	if configType.Kind() != reflect.Struct {
+		return errors.New("DefaultConfig's type is not a pointer to a struct")
+	}
+	for i := 0; i < configType.NumField(); i++ {
+		fType := configType.Field(i).Type
+		if fType.Kind() != reflect.Ptr {
+			return errors.New("DefaultConfig." + configType.Field(i).Name + " is not a pointer")
+		}
+		if _, ok := qs.configItemTypes[fType]; !ok {
+			qs.configItemTypes[fType] = qs.numConfigItems
+			qs.numConfigItems++
+		}
+	}
+
 	qs.modules = append(qs.modules, moduleData{descr, len(qs.plugins)})
+
 	return nil
 }
 
@@ -506,7 +530,7 @@ func (qs *QuestScreen) NumFontFamilies() int {
 
 // GetResources filters resources by current group and system.
 func (qs *QuestScreen) GetResources(
-	moduleIndex app.ModuleIndex, index resources.CollectionIndex) []resources.Resource {
+	moduleIndex shared.ModuleIndex, index resources.CollectionIndex) []resources.Resource {
 	complete := qs.resourceCollections[moduleIndex][index]
 	ret := make([]resources.Resource, 0, len(complete))
 	for i := range complete {
@@ -550,6 +574,10 @@ func (qs *QuestScreen) setActiveGroup(index int) (int, server.Error) {
 			Description: "Failed to set active group", Inner: err}
 	}
 	return groupState.ActiveScene(), nil
+}
+
+func (qs *QuestScreen) ConfigItemFromType(t reflect.Type) shared.ConfigItemIndex {
+	qs.conf
 }
 
 func (qs *QuestScreen) destroy() {
