@@ -33,5 +33,5 @@ func main() {
 			panic("server module " + m.Path + " unknown")
 		}
 	}
-	web.Skeleton.Page.Set(info.NewPage(web.StaticData.AppVersion))
+	Page.Set(info.NewPage(web.StaticData.AppVersion))
 }

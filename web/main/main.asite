@@ -22,6 +22,7 @@
 	<meta name="theme-color" content="#ffffff">
 </head>
 <body>
+	<a:site></a:site>
 <header>
 	<h1 class="pure-u-1">QuestScreen</h1>
 	<nav id="mainmenu" class="pure-g">
@@ -50,7 +51,7 @@
 	</nav>
 </header>
 
-<a:embed name="TitleBar" type="TitleBar"></a:embed>
+<a:embed name="TitleContent" type="TitleBar"></a:embed>
 
 <div id="page">
 	<div id="pagemenu-wrapper">
@@ -62,8 +63,5 @@
 	<main>
 		<a:embed name="Page" optional></a:embed>
 	</main>
-
-	<a:templates></a:templates>
-	<script src="/all.js"></script>
 </body>
 </html>
