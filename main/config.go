@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type config struct {
+type appConfig struct {
 	fullscreen bool
 	width      int32
 	height     int32
@@ -29,7 +29,7 @@ type tmpConfig struct {
 	KeyActions    []tmpKeyAction
 }
 
-func (c *config) MarshalYAML() (interface{}, error) {
+func (c *appConfig) MarshalYAML() (interface{}, error) {
 	ret := tmpConfig{
 		Fullscreen: c.fullscreen,
 		Width:      c.width, Height: c.height, Port: c.port,
@@ -44,7 +44,7 @@ func (c *config) MarshalYAML() (interface{}, error) {
 	return ret, nil
 }
 
-func (c *config) UnmarshalYAML(value *yaml.Node) error {
+func (c *appConfig) UnmarshalYAML(value *yaml.Node) error {
 	var tmp tmpConfig
 	if err := value.Decode(&tmp); err != nil {
 		return err
@@ -53,7 +53,7 @@ func (c *config) UnmarshalYAML(value *yaml.Node) error {
 		return fmt.Errorf("invalid size (w=%d, h=%d)", tmp.Width, tmp.Height)
 	}
 
-	*c = config{fullscreen: tmp.Fullscreen, width: tmp.Width, height: tmp.Height,
+	*c = appConfig{fullscreen: tmp.Fullscreen, width: tmp.Width, height: tmp.Height,
 		port: tmp.Port, keyActions: make([]display.KeyAction, len(tmp.KeyActions))}
 
 	for i := range tmp.KeyActions {
@@ -72,8 +72,8 @@ func (c *config) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-func defaultConfig() config {
-	return config{
+func defaultConfig() appConfig {
+	return appConfig{
 		fullscreen: false, width: 800, height: 600, port: 8080,
 		keyActions: []display.KeyAction{{Key: sdl.K_ESCAPE, ReturnValue: 0,
 			Description: "Exit"}},

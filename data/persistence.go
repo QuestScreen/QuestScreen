@@ -15,7 +15,6 @@ import (
 
 	"github.com/QuestScreen/QuestScreen/app"
 	"github.com/QuestScreen/QuestScreen/shared"
-	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/config"
 	"github.com/QuestScreen/api/groups"
 	"github.com/QuestScreen/api/modules"
@@ -299,7 +298,7 @@ func (p Persistence) WriteSystem(s System) error {
 	return ioutil.WriteFile(path, raw, 0644)
 }
 
-func (p Persistence) createSystem(tmpl *api.SystemTemplate) (*system, error) {
+func (p Persistence) createSystem(tmpl *app.SystemTemplate) (*system, error) {
 	s, err := p.loadSystem(tmpl.ID, byteInput(tmpl.Config))
 	if err != nil {
 		return nil, err
@@ -426,7 +425,7 @@ func (p Persistence) WriteGroup(g Group) error {
 // The group's initial configuration is given via a GroupTemplate, which must
 // not be nil.
 func (p Persistence) CreateGroup(
-	name string, tmpl *api.GroupTemplate, sceneTmpls []api.SceneTemplate) error {
+	name string, tmpl *app.GroupTemplate, sceneTmpls []app.SceneTemplate) error {
 	if tmpl == nil {
 		return errors.New("missing group template")
 	}
@@ -516,7 +515,7 @@ func (p Persistence) WriteScene(g Group, s Scene) error {
 }
 
 // CreateScene creates a new scene from the given template in the given group.
-func (p Persistence) CreateScene(g Group, name string, tmpl *api.SceneTemplate) error {
+func (p Persistence) CreateScene(g Group, name string, tmpl *app.SceneTemplate) error {
 	gr := g.(*group)
 	id := genID(name, "scene", sceneIDs{gr.scenes})
 	heroes := g.Heroes()

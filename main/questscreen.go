@@ -9,17 +9,16 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"plugin"
 	"reflect"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/QuestScreen/QuestScreen/app"
 	"github.com/QuestScreen/QuestScreen/data"
 	"github.com/QuestScreen/QuestScreen/display"
 	"github.com/QuestScreen/QuestScreen/generated"
+	"github.com/QuestScreen/QuestScreen/plugins"
 	"github.com/QuestScreen/QuestScreen/shared"
-	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/fonts"
 	"github.com/QuestScreen/api/groups"
 	"github.com/QuestScreen/api/modules"
@@ -55,17 +54,20 @@ type moduleData struct {
 	pluginIndex int
 }
 
+type pluginData struct {
+	*app.Plugin
+	id string
+}
+
 // QuestScreen is the main application. it implements app.App.
 // this is logically a singleton, multiple instances are not supported.
 type QuestScreen struct {
-	config
+	appConfig
 	dataDir             string
 	fonts               []LoadedFontFamily
 	modules             []moduleData
-	plugins             []*api.Plugin
+	plugins             []pluginData
 	resourceCollections [][][]ownedResourceFile
-	numConfigItems      int
-	configItemTypes     map[reflect.Type]int
 	textures            []resources.Resource
 	data                data.Data
 	persistence         data.Persistence
@@ -99,45 +101,40 @@ func (qs *QuestScreen) MessageSenderFor(index shared.ModuleIndex) server.Message
 	return &messageCollector{moduleIndex: index, owner: qs}
 }
 
-func appendAssets(buffer []byte, paths ...string) []byte {
-	for i := range paths {
-		buffer = append(buffer, generated.MustAsset(paths[i])...)
-		buffer = append(buffer, '\n')
-	}
-	return buffer
+// PluginID returns the unique ID of the plugin with the given index.
+func (qs *QuestScreen) PluginID(index int) string {
+	return qs.plugins[index].id
 }
 
-func (qs *QuestScreen) loadPlugins() {
-	pluginPath := filepath.Join(qs.dataDir, "plugins")
-	if _, err := os.Stat(pluginPath); os.IsNotExist(err) {
-		return
+// AddPlugin registers the given plugin's modules and config items with the app.
+func (qs *QuestScreen) AddPlugin(id string, plugin *app.Plugin) error {
+	for _, descr := range plugin.Modules {
+		for i := range forbiddenNames {
+			if descr.ID == forbiddenNames[i] {
+
+				return fmt.Errorf("module id may not be one of %v", forbiddenNames)
+			}
+		}
+
+		configType := reflect.TypeOf(descr.DefaultConfig)
+		if configType.Kind() != reflect.Ptr {
+			return errors.New("DefaultConfig's type is not a pointer to a struct")
+		}
+		configType = configType.Elem()
+		if configType.Kind() != reflect.Struct {
+			return errors.New("DefaultConfig's type is not a pointer to a struct")
+		}
+		for i := 0; i < configType.NumField(); i++ {
+			fType := configType.Field(i).Type
+			if fType.Kind() != reflect.Ptr {
+				return errors.New("DefaultConfig." + configType.Field(i).Name + " is not a pointer")
+			}
+		}
+
+		qs.modules = append(qs.modules, moduleData{descr, len(qs.plugins)})
 	}
-	files, err := ioutil.ReadDir(pluginPath)
-	if err != nil {
-		log.Printf("Unable to load plugin directory: %s\n", err.Error())
-		return
-	}
-	for _, file := range files {
-		if file.IsDir() || file.Name()[0] == '.' ||
-			!strings.HasSuffix(file.Name(), ".so") {
-			continue
-		}
-		path := filepath.Join(pluginPath, file.Name())
-		p, err := plugin.Open(path)
-		if err != nil {
-			log.Printf("%s: Unable to load plugin. Error:\n%s\n",
-				pluginPath, err.Error())
-			continue
-		}
-		o, err := p.Lookup("QSPlugin")
-		if err != nil {
-			log.Printf("%s: QSPlugin object missing\n", pluginPath)
-			continue
-		}
-		if err = qs.registerPlugin(o.(*api.Plugin)); err != nil {
-			panic(err)
-		}
-	}
+	qs.plugins = append(qs.plugins, pluginData{plugin, id})
+	return nil
 }
 
 func (qs *QuestScreen) loadConfig(path string, width int32, height int32,
@@ -146,14 +143,14 @@ func (qs *QuestScreen) loadConfig(path string, width int32, height int32,
 	if err == nil {
 		decoder := yaml.NewDecoder(bytes.NewReader(input))
 		decoder.KnownFields(true)
-		err = decoder.Decode(&qs.config)
+		err = decoder.Decode(&qs.appConfig)
 		if err != nil {
 			return err
 		}
 	} else {
 		if os.IsNotExist(err) {
-			qs.config = defaultConfig()
-			output, err := yaml.Marshal(&qs.config)
+			qs.appConfig = defaultConfig()
+			output, err := yaml.Marshal(&qs.appConfig)
 			if err != nil {
 				panic(err)
 			}
@@ -168,14 +165,14 @@ func (qs *QuestScreen) loadConfig(path string, width int32, height int32,
 		}
 	}
 	if width != 0 && height != 0 {
-		qs.config.width = width
-		qs.config.height = height
-		qs.config.fullscreen = false
+		qs.appConfig.width = width
+		qs.appConfig.height = height
+		qs.appConfig.fullscreen = false
 	} else if fullscreen {
-		qs.config.fullscreen = true
+		qs.appConfig.fullscreen = true
 	}
 	if port != 0 {
-		qs.config.port = port
+		qs.appConfig.port = port
 	}
 	return nil
 }
@@ -205,11 +202,11 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 
 	// create window and renderer
 	var flags uint32 = sdl.WINDOW_OPENGL | sdl.WINDOW_ALLOW_HIGHDPI
-	if qs.config.fullscreen {
+	if qs.fullscreen {
 		flags |= sdl.WINDOW_FULLSCREEN_DESKTOP
 	}
 	window, err := sdl.CreateWindow("QuestScreen", sdl.WINDOWPOS_UNDEFINED,
-		sdl.WINDOWPOS_UNDEFINED, qs.config.width, qs.config.height, flags)
+		sdl.WINDOWPOS_UNDEFINED, qs.width, qs.height, flags)
 	if err != nil {
 		panic(err)
 	}
@@ -235,18 +232,13 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	qs.activeGroupIndex = -1
 	qs.activeSystemIndex = -1
 
-	qs.html = appendAssets(qs.html, "web/html/index-top.html")
-	qs.js = appendAssets(qs.js,
-		"web/js/template.js", "web/js/controls.js", "web/js/popup.js",
-		"web/js/datasets.js", "web/js/config.js", "web/js/info.js",
-		"web/js/app.js", "web/js/state.js", "web/js/configitems.js")
-	qs.css = appendAssets(qs.css, "web/css/style.css", "web/css/color.css")
-	if err = qs.registerPlugin(&base.Base); err != nil {
-		panic(err)
-	}
-	qs.loadPlugins()
-	qs.html = appendAssets(qs.html, "web/html/index-bottom.html")
-	qs.js = appendAssets(qs.js, "web/js/init.js")
+	qs.html = generated.MustAsset("assets/index.html")
+	qs.js = generated.MustAsset("assets/main.js")
+	qs.css = generated.MustAsset("assets/style.css")
+	qs.css = append(qs.css, '\n')
+	qs.css = append(qs.css, generated.MustAsset("assets/color.css")...)
+
+	plugins.LoadPlugins(qs)
 
 	texturePath := qs.DataDir("textures")
 	textureFiles, err := ioutil.ReadDir(texturePath)
@@ -267,7 +259,7 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	qs.loadModuleResources()
 
 	if err := qs.display.Init(
-		qs, events, qs.config.fullscreen, qs.config.port, qs.config.keyActions,
+		qs, events, qs.fullscreen, qs.port, qs.keyActions,
 		window); err != nil {
 		panic(err)
 	}
@@ -349,8 +341,8 @@ func (qs *QuestScreen) NumPlugins() int {
 }
 
 // Plugin returns the plugin with the given index
-func (qs *QuestScreen) Plugin(index int) *api.Plugin {
-	return qs.plugins[index]
+func (qs *QuestScreen) Plugin(index int) *app.Plugin {
+	return qs.plugins[index].Plugin
 }
 
 func appendBySelector(resources []ownedResourceFile, basePath string,
@@ -427,62 +419,6 @@ func (qs *QuestScreen) listFiles(
 
 var forbiddenNames = [7]string{"scenes", "heroes", "fonts", "textures",
 	"plugins", "config.yaml", "state.yaml"}
-
-func (qs *QuestScreen) registerModule(descr *modules.Module) error {
-	for i := range forbiddenNames {
-		if descr.ID == forbiddenNames[i] {
-			return fmt.Errorf("module id may not be one of %v", forbiddenNames)
-		}
-	}
-
-	configType := reflect.TypeOf(descr.DefaultConfig)
-	if configType.Kind() != reflect.Ptr {
-		return errors.New("DefaultConfig's type is not a pointer to a struct")
-	}
-	configType = configType.Elem()
-	if configType.Kind() != reflect.Struct {
-		return errors.New("DefaultConfig's type is not a pointer to a struct")
-	}
-	for i := 0; i < configType.NumField(); i++ {
-		fType := configType.Field(i).Type
-		if fType.Kind() != reflect.Ptr {
-			return errors.New("DefaultConfig." + configType.Field(i).Name + " is not a pointer")
-		}
-		if _, ok := qs.configItemTypes[fType]; !ok {
-			qs.configItemTypes[fType] = qs.numConfigItems
-			qs.numConfigItems++
-		}
-	}
-
-	qs.modules = append(qs.modules, moduleData{descr, len(qs.plugins)})
-
-	return nil
-}
-
-func (qs *QuestScreen) registerPlugin(plugin *api.Plugin) error {
-	log.Println("Loading plugin", plugin.Name)
-	if js := plugin.AdditionalJS; js != nil {
-		qs.js = append(qs.js, '\n')
-		qs.js = append(qs.js, js...)
-	}
-	if html := plugin.AdditionalHTML; html != nil {
-		qs.html = append(qs.html, '\n')
-		qs.html = append(qs.html, html...)
-	}
-	if css := plugin.AdditionalCSS; css != nil {
-		qs.css = append(qs.css, '\n')
-		qs.css = append(qs.css, css...)
-	}
-	modules := plugin.Modules
-	for i := range modules {
-		if err := qs.registerModule(modules[i]); err != nil {
-			log.Println("While registering module " + plugin.Name + " > " + modules[i].Name + ":")
-			log.Println("  " + err.Error())
-		}
-	}
-	qs.plugins = append(qs.plugins, plugin)
-	return nil
-}
 
 func (qs *QuestScreen) loadModuleResources() {
 	for i := range qs.modules {
@@ -574,10 +510,6 @@ func (qs *QuestScreen) setActiveGroup(index int) (int, server.Error) {
 			Description: "Failed to set active group", Inner: err}
 	}
 	return groupState.ActiveScene(), nil
-}
-
-func (qs *QuestScreen) ConfigItemFromType(t reflect.Type) shared.ConfigItemIndex {
-	qs.conf
 }
 
 func (qs *QuestScreen) destroy() {

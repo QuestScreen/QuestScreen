@@ -6,3 +6,4 @@ __debug_bin
 *.m4v
 docs/demo.json
 plugins/plugins.go
+assets/assets.go

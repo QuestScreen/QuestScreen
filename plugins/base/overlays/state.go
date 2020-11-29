@@ -2,6 +2,7 @@ package overlays
 
 import (
 	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
+	"github.com/QuestScreen/api/comms"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/resources"
 	"github.com/QuestScreen/api/server"
@@ -87,12 +88,12 @@ func (s *state) PureEndpoint(index int) modules.PureEndpoint {
 func (e endpoint) Post(payload []byte) (interface{},
 	interface{}, server.Error) {
 	value := struct {
-		ResourceIndex server.ValidatedInt `json:"resourceIndex"`
-		Visible       bool                `json:"visible"`
-	}{ResourceIndex: server.ValidatedInt{Min: 0, Max: len(e.items) - 1}}
-	if err := server.ReceiveData(payload,
-		&server.ValidatedStruct{Value: &value}); err != nil {
-		return nil, nil, err
+		ResourceIndex comms.ValidatedInt `json:"resourceIndex"`
+		Visible       bool               `json:"visible"`
+	}{ResourceIndex: comms.ValidatedInt{Min: 0, Max: len(e.items) - 1}}
+	if err := comms.ReceiveData(payload,
+		&comms.ValidatedStruct{Value: &value}); err != nil {
+		return nil, nil, &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 	e.visible[value.ResourceIndex.Value] = value.Visible
 	if value.Visible {

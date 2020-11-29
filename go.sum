@@ -90,6 +90,8 @@ github.com/QuestScreen/api v0.3.1-0.20200728180208-2d825148f611 h1:OQJ1J1UuYDmfg
 github.com/QuestScreen/api v0.3.1-0.20200728180208-2d825148f611/go.mod h1:n9VIluIrwMzDbaVB1q+bYUCfKBcXnGJW/wTN5SIHfFI=
 github.com/QuestScreen/api v0.3.1-0.20200728184500-c60466c2f4ac h1:/E/ly5j/XHatPmszYnuaQBX4Yr7rFk9Zu4pVQq4ve70=
 github.com/QuestScreen/api v0.3.1-0.20200728184500-c60466c2f4ac/go.mod h1:n9VIluIrwMzDbaVB1q+bYUCfKBcXnGJW/wTN5SIHfFI=
+github.com/QuestScreen/api v0.3.1-0.20201128195316-2a67e5e4116e h1:Md9yd/TU4R2/iLGQ9V5eWXtVhQMSBPcUyBxtjQZUIL0=
+github.com/QuestScreen/api v0.3.1-0.20201128195316-2a67e5e4116e/go.mod h1:n9VIluIrwMzDbaVB1q+bYUCfKBcXnGJW/wTN5SIHfFI=
 github.com/QuestScreen/qs-build v0.0.0-20200812191811-a59773b2e7ee h1:2CPSPHI+NeTpMOLnyqg9xldenf5dbuPcALb4JsaPh5M=
 github.com/QuestScreen/qs-build v0.0.0-20200812191811-a59773b2e7ee/go.mod h1:T9bpfUJUfBAAvCZhuQbkVZcCCYdwoMUaf8F2slEnqwI=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
@@ -257,6 +259,8 @@ golang.org/x/sys v0.0.0-20200602100848-8d3cce7afc34/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/text v0.3.2 h1:tW2bmiBqwgJj/UpqtC8EpXEZVYOwU0yG4iWbprSVAcs=
 golang.org/x/text v0.3.2/go.mod h1:bEr9sfX3Q8Zfm5fL9x+3itogRgK3+ptLWKqgva+5dAk=
+golang.org/x/text v0.3.4 h1:0YWbFKbhXG/wIiuHDSKpS0Iy7FSA+u45VtBMfQcFTTc=
+golang.org/x/text v0.3.4/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
 golang.org/x/time v0.0.0-20190308202827-9d24e82272b4/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
 golang.org/x/tools v0.0.0-20180221164845-07fd8470d635/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=

@@ -2,10 +2,8 @@ package app
 
 import (
 	"net/http"
-	"reflect"
 
 	"github.com/QuestScreen/QuestScreen/shared"
-	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/fonts"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/resources"
@@ -15,18 +13,15 @@ import (
 
 // App is the interface to the application for the data and display modules.
 type App interface {
+	AddPlugin(id string, plugin *Plugin) error
 	DataDir(subdirs ...string) string
 	NumPlugins() int
-	Plugin(index int) *api.Plugin
+	Plugin(index int) *Plugin
 	PluginID(index int) string
 	NumModules() shared.ModuleIndex
 	ModuleAt(index shared.ModuleIndex) *modules.Module
 	ModulePluginIndex(index shared.ModuleIndex) int
-	NumConfigItems() shared.ConfigItemIndex
-	ConfigItemName(index shared.ConfigItemIndex) string
-	ConfigItemFromType(t reflect.Type) shared.ConfigItemIndex
-	ConfigItemPluginIndex(index shared.ConfigItemIndex) int
-	// ServerContext builds an api.ServerContext with the given moduleIndex.
+	// ServerContext builds a server.Context with the given moduleIndex.
 	ServerContext(moduleIndex shared.ModuleIndex) server.Context
 	GetResources(moduleIndex shared.ModuleIndex,
 		index resources.CollectionIndex) []resources.Resource

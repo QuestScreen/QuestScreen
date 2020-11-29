@@ -2,6 +2,7 @@ package herolist
 
 import (
 	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
+	"github.com/QuestScreen/api/comms"
 	"github.com/QuestScreen/api/groups"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/server"
@@ -129,8 +130,8 @@ func (s *state) IDEndpoint(index int) modules.IDEndpoint {
 func (e globalEndpoint) Post(payload []byte) (interface{}, interface{},
 	server.Error) {
 	var value bool
-	if err := server.ReceiveData(payload, &value); err != nil {
-		return nil, nil, err
+	if err := comms.ReceiveData(payload, &value); err != nil {
+		return nil, nil, &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 	e.globalVisible = value
 	return value, &globalRequest{visible: e.globalVisible}, nil
@@ -143,8 +144,8 @@ func (e heroEndpoint) Post(id string, payload []byte) (interface{}, interface{},
 		return nil, nil, &server.NotFound{Name: id}
 	}
 	var value bool
-	if err := server.ReceiveData(payload, &value); err != nil {
-		return nil, nil, err
+	if err := comms.ReceiveData(payload, &value); err != nil {
+		return nil, nil, &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 	e.heroVisible[hIndex] = value
 	return value, &heroRequest{index: int32(hIndex), visible: value}, nil

@@ -9,6 +9,7 @@ import (
 	"github.com/QuestScreen/QuestScreen/app"
 	"github.com/QuestScreen/QuestScreen/generated"
 	"github.com/QuestScreen/QuestScreen/shared"
+	"github.com/QuestScreen/api/comms"
 	"github.com/QuestScreen/api/config"
 	"github.com/QuestScreen/api/groups"
 	"github.com/QuestScreen/api/server"
@@ -77,23 +78,9 @@ func (c Communication) modules(a app.App) []shared.Module {
 			modValue.Kind() == reflect.Ptr; modValue = modValue.Elem() {
 		}
 		cur := shared.Module{
-			Name:   module.Name,
-			Path:   a.PluginID(a.ModulePluginIndex(i)) + "/" + module.ID,
-			Config: make([]shared.ModuleSetting, 0, modValue.NumField())}
-		for j := 0; j < modValue.NumField(); j++ {
-			cur.Config = append(cur.Config, shared.ModuleSetting{
-				Name:      modValue.Type().Field(j).Name,
-				TypeIndex: a.ConfigItemFromType(modValue.Field(j).Type().Elem())})
-		}
+			Name: module.Name,
+			Path: a.PluginID(a.ModulePluginIndex(i)) + "/" + module.ID}
 		ret = append(ret, cur)
-	}
-	return ret
-}
-
-func (c Communication) configItems(a app.App) []string {
-	ret := make([]string, 0, a.NumConfigItems())
-	for i := shared.FirstConfigItem; i < a.NumConfigItems(); i++ {
-		ret = append(ret, a.PluginID(a.ConfigItemPluginIndex(i))+"/"+a.ConfigItemName(i))
 	}
 	return ret
 }
@@ -117,9 +104,9 @@ func (c Communication) StaticData(a app.App, plugins interface{}) interface{} {
 		textureNames[i] = textures[i].Name()
 	}
 	return shared.Static{Fonts: a.FontNames(), Textures: textureNames,
-		Modules: c.modules(a), ConfigItems: c.configItems(a),
-		Plugins: c.plugins(a), NumPluginSystems: c.d.numPluginSystems,
-		FontDir: a.DataDir("fonts"), Messages: a.Messages(),
+		Modules: c.modules(a), Plugins: c.plugins(a),
+		NumPluginSystems: c.d.numPluginSystems,
+		FontDir:          a.DataDir("fonts"), Messages: a.Messages(),
 		AppVersion: generated.CurrentVersion}
 }
 
@@ -165,10 +152,10 @@ func (c Communication) UpdateSystemConfig(raw []byte, s System) server.Error {
 // UpdateSystem updates a system's name from a given JSON input.
 func (c Communication) UpdateSystem(raw []byte, s System) server.Error {
 	data := struct {
-		Name server.ValidatedString `json:"name"`
-	}{Name: server.ValidatedString{MinLen: 1, MaxLen: -1}}
-	if err := server.ReceiveData(raw, &data); err != nil {
-		return err
+		Name comms.ValidatedString `json:"name"`
+	}{Name: comms.ValidatedString{MinLen: 1, MaxLen: -1}}
+	if err := comms.ReceiveData(raw, &data); err != nil {
+		return &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 	s.(*system).name = data.Name.Value
 	// TODO: sort system list anew
@@ -188,14 +175,14 @@ func (c Communication) UpdateGroupConfig(raw []byte, g Group) server.Error {
 // UpdateGroup updates a group's name and linked system from a given JSON input.
 func (c Communication) UpdateGroup(raw []byte, g Group) server.Error {
 	value := struct {
-		Name        server.ValidatedString `json:"name"`
-		SystemIndex server.ValidatedInt    `json:"systemIndex"`
+		Name        comms.ValidatedString `json:"name"`
+		SystemIndex comms.ValidatedInt    `json:"systemIndex"`
 	}{
-		Name:        server.ValidatedString{MinLen: 1, MaxLen: -1},
-		SystemIndex: server.ValidatedInt{Min: -1, Max: c.d.NumSystems() - 1},
+		Name:        comms.ValidatedString{MinLen: 1, MaxLen: -1},
+		SystemIndex: comms.ValidatedInt{Min: -1, Max: c.d.NumSystems() - 1},
 	}
-	if err := server.ReceiveData(raw, &server.ValidatedStruct{Value: &value}); err != nil {
-		return err
+	if err := comms.ReceiveData(raw, &comms.ValidatedStruct{Value: &value}); err != nil {
+		return &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 	gr := g.(*group)
 	gr.name = value.Name.Value
@@ -212,13 +199,13 @@ func (c Communication) ViewGroups() interface{} {
 // UpdateHero updates a hero's name and description form a given JSON input.
 func (c Communication) UpdateHero(raw []byte, h groups.Hero) server.Error {
 	value := struct {
-		Name        server.ValidatedString `json:"name"`
-		Description string                 `json:"description"`
+		Name        comms.ValidatedString `json:"name"`
+		Description string                `json:"description"`
 	}{
-		Name: server.ValidatedString{MinLen: 1, MaxLen: -1},
+		Name: comms.ValidatedString{MinLen: 1, MaxLen: -1},
 	}
-	if err := server.ReceiveData(raw, &server.ValidatedStruct{Value: &value}); err != nil {
-		return err
+	if err := comms.ReceiveData(raw, &comms.ValidatedStruct{Value: &value}); err != nil {
+		return &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 	he := h.(*hero)
 	he.name = value.Name.Value
@@ -294,14 +281,14 @@ func isNull(msg json.RawMessage) bool {
 func (c Communication) UpdateScene(raw []byte, g Group, s Scene) server.Error {
 	var modules []bool
 	data := struct {
-		Name    server.ValidatedString `json:"name"`
-		Modules server.ValidatedSlice  `json:"modules"`
-	}{Name: server.ValidatedString{MinLen: 1, MaxLen: -1},
-		Modules: server.ValidatedSlice{Data: &modules,
+		Name    comms.ValidatedString `json:"name"`
+		Modules comms.ValidatedSlice  `json:"modules"`
+	}{Name: comms.ValidatedString{MinLen: 1, MaxLen: -1},
+		Modules: comms.ValidatedSlice{Data: &modules,
 			MinItems: int(c.d.owner.NumModules()),
 			MaxItems: int(c.d.owner.NumModules())}}
-	if err := server.ReceiveData(raw, &data); err != nil {
-		return err
+	if err := comms.ReceiveData(raw, &data); err != nil {
+		return &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 	sc := s.(*scene)
 	sc.name = data.Name.Value

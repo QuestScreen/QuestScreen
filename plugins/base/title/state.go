@@ -1,6 +1,7 @@
 package title
 
 import (
+	"github.com/QuestScreen/api/comms"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/server"
 	"gopkg.in/yaml.v3"
@@ -54,8 +55,8 @@ func (s *state) PureEndpoint(index int) modules.PureEndpoint {
 func (e endpoint) Post(payload []byte) (interface{}, interface{},
 	server.Error) {
 	var value string
-	if err := server.ReceiveData(payload, &value); err != nil {
-		return nil, nil, err
+	if err := comms.ReceiveData(payload, &value); err != nil {
+		return nil, nil, &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 	e.caption = value
 	return value, &changeRequest{caption: value}, nil

@@ -12,7 +12,7 @@ import (
 
 	"github.com/QuestScreen/QuestScreen/generated"
 	"github.com/QuestScreen/QuestScreen/shared"
-	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/comms"
 	"github.com/QuestScreen/api/groups"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/server"
@@ -232,7 +232,7 @@ type validatedStateAction struct {
 }
 
 func (vsa *validatedStateAction) UnmarshalJSON(data []byte) error {
-	if err := json.Unmarshal(data, &server.ValidatedStruct{
+	if err := json.Unmarshal(data, &comms.ValidatedStruct{
 		Value: &vsa.Value}); err != nil {
 		return err
 	}
@@ -268,8 +268,9 @@ func (se stateEndpoint) Handle(method httpMethods, ids []string,
 		}
 		value := validatedStateAction{MaxGroups: se.qs.data.NumGroups() - 1,
 			MaxScenes: maxScenes}
-		if err := server.ReceiveData(raw, &value); err != nil {
-			return nil, err
+		if err := comms.ReceiveData(raw, &value); err != nil {
+			return nil, &server.BadRequest{
+				Inner: err, Message: "received invalid data"}
 		}
 
 		if value.Action == leaveGroup {
@@ -513,9 +514,9 @@ type dataSystemsEndpoint struct {
 
 func (sc dataSystemsEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, server.Error) {
-	name := server.ValidatedString{MinLen: 1, MaxLen: -1}
-	if err := server.ReceiveData(raw, &name); err != nil {
-		return nil, err
+	name := comms.ValidatedString{MinLen: 1, MaxLen: -1}
+	if err := comms.ReceiveData(raw, &name); err != nil {
+		return nil, &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 	if err := sc.qs.persistence.CreateSystem(name.Value); err != nil {
 		return nil, err
@@ -533,12 +534,12 @@ type groupCreationReceiver struct {
 		PluginIndex        int    `json:"pluginIndex"`
 		GroupTemplateIndex int    `json:"groupTemplateIndex"`
 	}
-	plugins []*api.Plugin
+	plugins []pluginData
 }
 
 func (gcr *groupCreationReceiver) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data,
-		&server.ValidatedStruct{Value: &gcr.data}); err != nil {
+		&comms.ValidatedStruct{Value: &gcr.data}); err != nil {
 		return err
 	}
 	if gcr.data.Name == "" {
@@ -557,12 +558,12 @@ func (gcr *groupCreationReceiver) UnmarshalJSON(data []byte) error {
 func (dge dataGroupsEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, server.Error) {
 	value := groupCreationReceiver{plugins: dge.qs.plugins}
-	if err := server.ReceiveData(raw, &value); err != nil {
-		return nil, err
+	if err := comms.ReceiveData(raw, &value); err != nil {
+		return nil, &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 	if err := dge.qs.persistence.CreateGroup(value.data.Name,
-		&dge.qs.plugins[value.data.PluginIndex].GroupTemplates[value.data.GroupTemplateIndex],
-		dge.qs.plugins[value.data.PluginIndex].SceneTemplates); err != nil {
+		&dge.qs.plugins[value.data.PluginIndex].Plugin.GroupTemplates[value.data.GroupTemplateIndex],
+		dge.qs.plugins[value.data.PluginIndex].Plugin.SceneTemplates); err != nil {
 		return nil, &server.InternalError{
 			Description: "while creating group", Inner: err}
 	}
@@ -579,12 +580,12 @@ type sceneCreationReceiver struct {
 		PluginIndex        int    `json:"pluginIndex"`
 		SceneTemplateIndex int    `json:"sceneTemplateIndex"`
 	}
-	plugins []*api.Plugin
+	plugins []pluginData
 }
 
 func (scr *sceneCreationReceiver) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data,
-		&server.ValidatedStruct{Value: &scr.data}); err != nil {
+		&comms.ValidatedStruct{Value: &scr.data}); err != nil {
 		return err
 	}
 	if scr.data.Name == "" {
@@ -607,8 +608,8 @@ func (dse dataScenesEndpoint) Handle(method httpMethods, ids []string,
 		return nil, &server.NotFound{Name: ids[0]}
 	}
 	value := sceneCreationReceiver{plugins: dse.qs.plugins}
-	if err := server.ReceiveData(raw, &value); err != nil {
-		return nil, err
+	if err := comms.ReceiveData(raw, &value); err != nil {
+		return nil, &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 
 	if err := dse.qs.persistence.CreateScene(group, value.data.Name,
@@ -658,13 +659,13 @@ func (dhe dataHeroesEndpoint) Handle(method httpMethods, ids []string,
 		return nil, &server.NotFound{Name: ids[0]}
 	}
 	value := struct {
-		Name        server.ValidatedString `json:"name"`
-		Description string                 `json:"description"`
+		Name        comms.ValidatedString `json:"name"`
+		Description string                `json:"description"`
 	}{
-		Name: server.ValidatedString{MinLen: 1, MaxLen: -1},
+		Name: comms.ValidatedString{MinLen: 1, MaxLen: -1},
 	}
-	if err := server.ReceiveData(raw, &value); err != nil {
-		return nil, err
+	if err := comms.ReceiveData(raw, &value); err != nil {
+		return nil, &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 	req, err := dhe.qs.display.StartRequest(dhe.events.HeroesChangedID, 0)
 	if err != nil {

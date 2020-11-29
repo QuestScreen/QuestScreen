@@ -36,7 +36,7 @@ var Descriptor = modules.Module{
 	Name: "Background Image",
 	ID:   "background",
 	ResourceCollections: []resources.Selector{
-		resources.Selector{Subdirectory: "", Suffixes: nil}},
+		{Subdirectory: "", Suffixes: nil}},
 	EndpointPaths:  []string{""},
 	DefaultConfig:  &backgroundConfig{},
 	CreateRenderer: newRenderer,

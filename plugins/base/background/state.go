@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
+	"github.com/QuestScreen/api/comms"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/resources"
 	"github.com/QuestScreen/api/server"
@@ -74,9 +75,9 @@ func (s *state) PureEndpoint(index int) modules.PureEndpoint {
 
 func (e endpoint) Post(payload []byte) (interface{}, interface{},
 	server.Error) {
-	value := server.ValidatedInt{Min: -1, Max: len(e.resources) - 1}
-	if err := server.ReceiveData(payload, &value); err != nil {
-		return nil, nil, err
+	value := comms.ValidatedInt{Min: -1, Max: len(e.resources) - 1}
+	if err := comms.ReceiveData(payload, &value); err != nil {
+		return nil, nil, &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 	e.curIndex = value.Value
 	req := &request{}

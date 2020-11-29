@@ -11,5 +11,4 @@ type Static struct {
 	Messages         []Message `json:"messages"`
 	AppVersion       string    `json:"appVersion"`
 	Modules          []Module  `json:"modules"`
-	ConfigItems      []string  `json:"configItems"`
 }

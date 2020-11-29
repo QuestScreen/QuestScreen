@@ -35,18 +35,11 @@ type Group struct {
 	Scenes      []Scene `json:"scenes"`
 }
 
-// ModuleSetting describes a setting of a module.
-type ModuleSetting struct {
-	Name      string          `json:"name"`
-	TypeIndex ConfigItemIndex `json:"typeIndex"`
-}
-
 // Module describes a loaded module.
 type Module struct {
 	Name string `json:"name"`
 	// <plugin-id>/<module-id>
-	Path   string          `json:"path"`
-	Config []ModuleSetting `json:"config"`
+	Path string `json:"path"`
 }
 
 // Plugin describes a loaded plugin.
