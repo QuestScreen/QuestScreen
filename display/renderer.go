@@ -6,14 +6,13 @@ import (
 	"log"
 	"unsafe"
 
-	"github.com/QuestScreen/api/colors"
-	"github.com/QuestScreen/api/fonts"
+	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/render"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-func toArr(c colors.RGBA) [4]C.uint8_t {
+func toArr(c api.RGBA) [4]C.uint8_t {
 	return [4]C.uint8_t{
 		C.uint8_t(c.R), C.uint8_t(c.G), C.uint8_t(c.B), C.uint8_t(c.A)}
 }
@@ -72,7 +71,7 @@ func (d *Display) OutputSize() render.Rectangle {
 
 // FillRect fills the rectangle with the specified dimensions with the
 // specified color. The rectangle is positions via the given transformation.
-func (d *Display) FillRect(t render.Transform, color colors.RGBA) {
+func (d *Display) FillRect(t render.Transform, color api.RGBA) {
 	t = d.toInternalCoords(t, false)
 	cArr := toArr(color)
 	C.draw_rect(&d.r.engine, (*C.float)(&t[0]), &cArr[0], false)
@@ -230,7 +229,7 @@ func (d *Display) Unit() int32 {
 // RenderText renders the given text with the given font into an image with
 // transparent background.
 // Returns an empty image if it wasn't able to create the texture.
-func (d *Display) RenderText(text string, font fonts.Config) render.Image {
+func (d *Display) RenderText(text string, font api.Font) render.Image {
 	face := d.owner.Font(font.FamilyIndex, font.Style, font.Size)
 	// we give R,G,B intentionally in the wrong order because SDL_ttf renders
 	// the text in ARGB format, but we need ABGR for OpenGL ES.
@@ -281,7 +280,7 @@ func (c *canvas) Close() {
 }
 
 func (d *Display) drawMasked(
-	bg colors.Background, content render.Rectangle) bool {
+	bg api.Background, content render.Rectangle) bool {
 	if bg.TextureIndex == -1 {
 		return false
 	}
@@ -327,7 +326,7 @@ func (d *Display) drawMasked(
 // CreateCanvas creates a canvas to draw content into, and fills it with the
 // given background.
 func (d *Display) CreateCanvas(innerWidth, innerHeight int32,
-	bg colors.Background, borders render.Directions) (c render.Canvas, content render.Rectangle) {
+	bg api.Background, borders render.Directions) (c render.Canvas, content render.Rectangle) {
 	ret := &canvas{renderer: &d.r, prevW: d.r.width, prevH: d.r.height}
 	width, height := innerWidth, innerHeight
 	content = render.Rectangle{

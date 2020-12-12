@@ -5,16 +5,9 @@ import (
 	"github.com/QuestScreen/api/web"
 )
 
-// ModuleConfigItem is part of a module's configuration.
-type ModuleConfigItem struct {
-	Name  string
-	Index shared.ConfigItemIndex
-}
-
 // MappedModule is a module known to the client.
 type MappedModule struct {
 	Constructor web.ModuleConstructor
-	Settings    []ModuleConfigItem
 }
 
 // StaticData is loaded at app start and constant everafter.

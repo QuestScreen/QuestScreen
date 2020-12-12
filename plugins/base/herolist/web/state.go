@@ -4,23 +4,26 @@ import (
 	"encoding/json"
 
 	"github.com/QuestScreen/QuestScreen/web/controls"
+	"github.com/QuestScreen/api/server"
 
 	"github.com/flyx/askew/runtime"
 
 	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
+	"github.com/QuestScreen/api/groups"
+	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/web"
 )
 
 // State implements api.ModuleState
 type State struct {
-	web.ServerState
-	web.GroupData
+	server.State
+	groups.Group
 	data shared.HerolistState
 }
 
 // NewState creates a new herolist state
-func NewState(data json.RawMessage, server web.ServerState, group web.GroupData) (web.ModuleState, error) {
-	ret := &State{ServerState: server, GroupData: group}
+func NewState(data json.RawMessage, srv server.State, group groups.Group) (modules.State, error) {
+	ret := &State{State: srv, Group: group}
 	return ret, json.Unmarshal(data, &ret.data)
 }
 

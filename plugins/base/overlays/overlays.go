@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/QuestScreen/api/colors"
+	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/render"
 	"github.com/QuestScreen/api/resources"
@@ -109,7 +109,7 @@ func (o *Overlays) loadTexture(r render.Renderer, td *textureData,
 		loadedWidth = int32(float32(tex.Width) * targetScale)
 		canvas, frame := r.CreateCanvas(loadedWidth,
 			int32(float32(tex.Height)*targetScale),
-			colors.RGB{R: 0, G: 0, B: 0}.AsBackground(), render.Nowhere)
+			api.RGBA{R: 0, G: 0, B: 0, A: 255}.AsBackground(), render.Nowhere)
 		tex.Draw(r, frame, 255)
 		tex = canvas.Finish()
 	} else {

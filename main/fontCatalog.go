@@ -5,7 +5,7 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/QuestScreen/api/fonts"
+	"github.com/QuestScreen/api"
 	"github.com/veandco/go-sdl2/ttf"
 )
 
@@ -13,21 +13,21 @@ import (
 // faces is nil for sizes that have not yet been loaded into memory.
 // path points to the file containing the font.
 type LoadedFontStyle struct {
-	faces       [fonts.NumSizes]*ttf.Font
+	faces       [api.NumFontSizes]*ttf.Font
 	path        string
-	fontSizeMap [fonts.NumSizes]int32
+	fontSizeMap [api.NumFontSizes]int32
 }
 
 // LoadedFontFamily is a font family that is available for usage.
 // in implements api.FontFamily.
 type LoadedFontFamily struct {
-	loadedFaces [fonts.NumStyles]LoadedFontStyle
+	loadedFaces [api.NumFontStyles]LoadedFontStyle
 	name        string
 }
 
 // CreateFontCatalog loads all the fonts in the fonts directory
 func createFontCatalog(
-	fontDir string, fontSizeMap [fonts.NumSizes]int32) []LoadedFontFamily {
+	fontDir string, fontSizeMap [api.NumFontSizes]int32) []LoadedFontFamily {
 	files, err := ioutil.ReadDir(fontDir)
 
 	if err != nil {
@@ -39,7 +39,7 @@ func createFontCatalog(
 	for _, file := range files {
 		if !file.IsDir() {
 			path := filepath.Join(fontDir, file.Name())
-			if font, err := ttf.OpenFont(path, int(fontSizeMap[fonts.Content])); err != nil {
+			if font, err := ttf.OpenFont(path, int(fontSizeMap[api.ContentFont])); err != nil {
 				log.Println(err)
 			} else {
 				familyName := font.FaceFamilyName()
@@ -60,21 +60,21 @@ func createFontCatalog(
 					catalog = append(catalog, LoadedFontFamily{name: familyName})
 					family = &catalog[len(catalog)-1]
 				}
-				fontList := [fonts.NumSizes]*ttf.Font{}
-				fontList[fonts.Content] = font
+				fontList := [api.NumFontSizes]*ttf.Font{}
+				fontList[api.ContentFont] = font
 				if isBold {
 					if isItalic {
-						family.loadedFaces[fonts.BoldItalic] = LoadedFontStyle{
+						family.loadedFaces[api.BoldItalicFont] = LoadedFontStyle{
 							faces: fontList, path: path, fontSizeMap: fontSizeMap}
 					} else {
-						family.loadedFaces[fonts.Bold] = LoadedFontStyle{
+						family.loadedFaces[api.BoldFont] = LoadedFontStyle{
 							faces: fontList, path: path, fontSizeMap: fontSizeMap}
 					}
 				} else if isItalic {
-					family.loadedFaces[fonts.Italic] = LoadedFontStyle{
+					family.loadedFaces[api.ItalicFont] = LoadedFontStyle{
 						faces: fontList, path: path, fontSizeMap: fontSizeMap}
 				} else {
-					family.loadedFaces[fonts.Regular] = LoadedFontStyle{
+					family.loadedFaces[api.RegularFont] = LoadedFontStyle{
 						faces: fontList, path: path, fontSizeMap: fontSizeMap}
 				}
 			}
@@ -88,7 +88,7 @@ func createFontCatalog(
 
 // Font returns the font at the given size;
 // loads that size if it isn't already available.
-func (style *LoadedFontStyle) Font(size fonts.Size) *ttf.Font {
+func (style *LoadedFontStyle) Font(size api.FontSize) *ttf.Font {
 	ret := style.faces[size]
 	if ret == nil {
 		newSize, err := ttf.OpenFont(style.path, int(style.fontSizeMap[size]))
@@ -103,7 +103,7 @@ func (style *LoadedFontStyle) Font(size fonts.Size) *ttf.Font {
 
 // Styled returns the requested style if available.
 // A fallback is returned if the requested style isn't available.
-func (family *LoadedFontFamily) Styled(style fonts.Style) *LoadedFontStyle {
+func (family *LoadedFontFamily) Styled(style api.FontStyle) *LoadedFontStyle {
 	var ret *LoadedFontStyle
 
 	for curStyle := style; curStyle >= 0; curStyle-- {
@@ -112,7 +112,7 @@ func (family *LoadedFontFamily) Styled(style fonts.Style) *LoadedFontStyle {
 			return ret
 		}
 	}
-	for curStyle := style + 1; curStyle < fonts.NumStyles; curStyle++ {
+	for curStyle := style + 1; curStyle < api.NumFontStyles; curStyle++ {
 		ret = &family.loadedFaces[curStyle]
 		if ret.path != "" {
 			return ret

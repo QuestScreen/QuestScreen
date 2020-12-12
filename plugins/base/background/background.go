@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/QuestScreen/api/colors"
+	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/render"
 	"github.com/QuestScreen/api/resources"
@@ -54,7 +54,7 @@ func (bg *Background) genTexture(
 
 	window := renderer.OutputSize()
 	canvas, _ := renderer.CreateCanvas(window.Width, window.Height,
-		colors.RGB{R: 0, G: 0, B: 0}.AsBackground(), render.Nowhere)
+		api.RGBA{R: 0, G: 0, B: 0, A: 255}.AsBackground(), render.Nowhere)
 	scaleFactor := float32(1.0)
 	texRatio := float32(tex.Width) / float32(tex.Height)
 	winRatio := float32(window.Width) / float32(window.Height)

@@ -1,8 +1,7 @@
 package display
 
 import (
-	"github.com/QuestScreen/api/colors"
-	"github.com/QuestScreen/api/fonts"
+	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/render"
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -25,8 +24,8 @@ func keyName(k sdl.Keycode) string {
 func (d *Display) renderKeyOptions(frame render.Rectangle, actions []KeyAction) error {
 	actionImages := make([]render.Image, len(actions))
 
-	fontDesc := fonts.Config{FamilyIndex: 0, Size: fonts.Content,
-		Style: fonts.Regular, Color: colors.RGBA{R: 0, G: 0, B: 0, A: 200}}
+	fontDesc := api.Font{FamilyIndex: 0, Size: api.ContentFont,
+		Style: api.RegularFont, Color: api.RGBA{R: 0, G: 0, B: 0, A: 200}}
 
 	bottomText := d.RenderText("any other key to close", fontDesc)
 	defer d.FreeImage(&bottomText)
@@ -51,9 +50,9 @@ func (d *Display) renderKeyOptions(frame render.Rectangle, actions []KeyAction) 
 		_, row = row.Carve(render.West, padding)
 		keyFrame, row := row.Carve(render.West, maxHeight)
 		keyFrame = keyFrame.Shrink(-2*d.r.unit, -2*d.r.unit)
-		keyFrame.Fill(d, colors.RGBA{R: 0, G: 0, B: 0, A: 255})
+		keyFrame.Fill(d, api.RGBA{R: 0, G: 0, B: 0, A: 255})
 		keyFrame = keyFrame.Shrink(2*d.r.unit, 2*d.r.unit)
-		keyFrame.Fill(d, colors.RGBA{R: 255, G: 255, B: 255, A: 255})
+		keyFrame.Fill(d, api.RGBA{R: 255, G: 255, B: 255, A: 255})
 		keyTex := d.RenderText(keyName(actions[i].Key), fontDesc)
 		keyArea := keyFrame.Position(keyTex.Width, keyTex.Height, render.Center,
 			render.Middle)
@@ -80,13 +79,13 @@ func (d *Display) genPopup(frame render.Rectangle, actions []KeyAction) {
 		return
 	}
 	canvas, _ := d.CreateCanvas(frame.Width, frame.Height,
-		colors.RGBA{R: 0, G: 0, B: 0, A: 127}.AsBackground(), render.Nowhere)
+		api.RGBA{R: 0, G: 0, B: 0, A: 127}.AsBackground(), render.Nowhere)
 	defer canvas.Close()
 
 	frame = frame.Shrink(frame.Width/2, frame.Height/2)
-	frame.Fill(d, colors.RGBA{R: 0, G: 0, B: 0, A: 255})
+	frame.Fill(d, api.RGBA{R: 0, G: 0, B: 0, A: 255})
 	frame = frame.Shrink(2*d.r.unit, 2*d.r.unit)
-	frame.Fill(d, colors.RGBA{R: 255, G: 255, B: 255, A: 255})
+	frame.Fill(d, api.RGBA{R: 255, G: 255, B: 255, A: 255})
 	if err := d.renderKeyOptions(frame, actions); err != nil {
 		panic(err)
 	}

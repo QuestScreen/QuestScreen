@@ -19,7 +19,7 @@ import (
 	"github.com/QuestScreen/QuestScreen/generated"
 	"github.com/QuestScreen/QuestScreen/plugins"
 	"github.com/QuestScreen/QuestScreen/shared"
-	"github.com/QuestScreen/api/fonts"
+	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/groups"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/resources"
@@ -446,7 +446,7 @@ func (qs *QuestScreen) ActiveGroup() groups.Group {
 
 // Font returns the font face of the selected font.
 func (qs *QuestScreen) Font(
-	fontFamily int, style fonts.Style, size fonts.Size) *ttf.Font {
+	fontFamily int, style api.FontStyle, size api.FontSize) *ttf.Font {
 	return qs.fonts[fontFamily].Styled(style).Font(size)
 }
 

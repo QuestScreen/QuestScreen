@@ -22,11 +22,6 @@ func main() {
 	web.StaticData.Modules = make([]web.MappedModule, len(loader.tmp.Modules))
 	web.StaticData.ConfigItems = make([]api.ConfigItemConstructor, len(loader.tmp.ConfigItems))
 	loadPlugins(&loader)
-	for i, m := range loader.tmp.ConfigItems {
-		if web.StaticData.ConfigItems[i] == nil {
-			panic("server config item " + m + " unknown")
-		}
-	}
 
 	for i, m := range loader.tmp.Modules {
 		if web.StaticData.Modules[i].Constructor == nil {

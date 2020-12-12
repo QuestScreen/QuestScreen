@@ -1,24 +1,28 @@
+// +build js
+
 package web
 
 import (
 	"encoding/json"
 
 	"github.com/QuestScreen/QuestScreen/web/controls"
+	"github.com/QuestScreen/api/web/groups"
+	"github.com/QuestScreen/api/web/modules"
+	"github.com/QuestScreen/api/web/server"
 
 	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
-	"github.com/QuestScreen/api/web"
 	"github.com/flyx/askew/runtime"
 )
 
 // State implements web.ModuleState
 type State struct {
-	web.ServerState
+	server.State
 	data shared.OverlayState
 }
 
 // NewState creates a new overlays state.
-func NewState(data json.RawMessage, server web.ServerState, group web.GroupData) (web.ModuleState, error) {
-	ret := &State{ServerState: server}
+func NewState(data json.RawMessage, srv server.State, group groups.Group) (modules.State, error) {
+	ret := &State{State: srv}
 	return ret, json.Unmarshal(data, &ret.data)
 }
 
@@ -36,7 +40,7 @@ func (s *State) UI() runtime.Component {
 
 // ItemClicked implements the Dropdown's controller.
 func (s *State) ItemClicked(index int) bool {
-	s.Fetch(web.Post, "", struct {
+	s.Fetch(server.Post, "", struct {
 		resourceIndex int
 		visible       bool
 	}{index, s.data[index].Selected},

@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/QuestScreen/QuestScreen/shared"
-	"github.com/QuestScreen/api/fonts"
+	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/resources"
 	"github.com/QuestScreen/api/server"
@@ -26,7 +26,7 @@ type App interface {
 	GetResources(moduleIndex shared.ModuleIndex,
 		index resources.CollectionIndex) []resources.Resource
 	GetTextures() []resources.Resource
-	Font(fontFamily int, style fonts.Style, size fonts.Size) *ttf.Font
+	Font(fontFamily int, style api.FontStyle, size api.FontSize) *ttf.Font
 	NumFontFamilies() int
 	FontNames() []string
 	Messages() []shared.Message

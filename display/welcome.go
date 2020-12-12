@@ -6,8 +6,7 @@ import (
 	"strconv"
 
 	"github.com/QuestScreen/QuestScreen/generated"
-	"github.com/QuestScreen/api/colors"
-	"github.com/QuestScreen/api/fonts"
+	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/render"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -43,7 +42,7 @@ func getIPAddresses() ([]string, error) {
 
 var fontColor = sdl.Color{R: 0, G: 0, B: 0, A: 200}
 
-func (d *Display) renderIPHint(font fonts.Config, ip string,
+func (d *Display) renderIPHint(font api.Font, ip string,
 	portPart string, frame *render.Rectangle) {
 	ipHint := d.RenderText("http://"+ip+portPart, font)
 	var row render.Rectangle
@@ -56,7 +55,7 @@ func (d *Display) renderIPHint(font fonts.Config, ip string,
 
 func (d *Display) genWelcome(frame render.Rectangle, port uint16) error {
 	c, _ := d.CreateCanvas(frame.Width, frame.Height,
-		colors.RGBA{R: 255, G: 255, B: 255, A: 255}.AsBackground(),
+		api.RGBA{R: 255, G: 255, B: 255, A: 255}.AsBackground(),
 		render.Nowhere)
 	defer c.Close()
 
@@ -75,9 +74,8 @@ func (d *Display) genWelcome(frame render.Rectangle, port uint16) error {
 	logoTex.Draw(d, logoArea, 255)
 
 	if d.owner.NumFontFamilies() > 0 {
-		fontFace := fonts.Config{FamilyIndex: 0, Size: fonts.Large,
-			Style: fonts.Regular,
-			Color: colors.RGBA{R: 0, G: 0, B: 0, A: 255}}
+		fontFace := api.Font{FamilyIndex: 0, Size: api.LargeFont,
+			Style: api.RegularFont, Color: api.RGBA{R: 0, G: 0, B: 0, A: 255}}
 		titleTex := d.RenderText("Quest Screen", fontFace)
 		defer d.FreeImage(&titleTex)
 		titleRow, frame := frame.Carve(render.North, titleTex.Height+4*d.r.unit)
@@ -85,7 +83,7 @@ func (d *Display) genWelcome(frame render.Rectangle, port uint16) error {
 			render.Center, render.Middle)
 		titleTex.Draw(d, texFrame, 255)
 
-		fontFace.Size = fonts.Heading
+		fontFace.Size = api.HeadingFont
 		ips, err := getIPAddresses()
 		portPart := ":" + strconv.Itoa(int(port)) + "/"
 		if err == nil {

@@ -4,16 +4,17 @@ import (
 	"log"
 	"time"
 
-	"github.com/QuestScreen/api/colors"
-	"github.com/QuestScreen/api/fonts"
+	"github.com/QuestScreen/QuestScreen/plugins/base/bgcolor"
+	"github.com/QuestScreen/QuestScreen/plugins/base/fonts"
+	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/render"
 	"github.com/QuestScreen/api/server"
 )
 
 type titleConfig struct {
-	Font       *fonts.Config      `yaml:"font"`
-	Background *colors.Background `yaml:"background"`
+	Font       *fonts.Config   `yaml:"font"`
+	Background *bgcolor.Config `yaml:"background"`
 }
 
 type changeRequest struct {
@@ -45,15 +46,15 @@ var Descriptor = modules.Module{
 	Name:          "Scene Title",
 	ID:            "title",
 	EndpointPaths: []string{""},
-	DefaultConfig: &titleConfig{Font: &fonts.Config{
-		FamilyIndex: 0, Size: fonts.Heading, Style: fonts.Bold},
-		Background: colors.NewBackground(
-			colors.RGBA{R: 255, G: 255, B: 255, A: 255})},
+	DefaultConfig: &titleConfig{Font: fonts.NewConfig(0, api.HeadingFont,
+		api.BoldFont, api.RGBA{R: 0, G: 0, B: 0, A: 255}),
+		Background: bgcolor.NewConfig(
+			api.RGBA{R: 255, G: 255, B: 255, A: 255}.AsBackground())},
 	CreateRenderer: newRenderer, CreateState: newState,
 }
 
 func (t *Title) genTitleTexture(r render.Renderer, text string) render.Image {
-	tex := r.RenderText(text, *t.titleConfig.Font)
+	tex := r.RenderText(text, t.Font.Font)
 	if tex.IsEmpty() {
 		log.Println("failed to render title text")
 		return tex
@@ -69,7 +70,7 @@ func (t *Title) genTitleTexture(r render.Renderer, text string) render.Image {
 	}
 	unit := r.Unit()
 	canvas, inner := r.CreateCanvas(resWidth+4*unit, resHeight,
-		*t.titleConfig.Background, render.West|render.East|render.South)
+		t.Background.Background, render.West|render.East|render.South)
 	frame := inner.Position(
 		resWidth, resHeight, render.Center, render.Middle)
 	tex.Draw(r, frame, 255)
