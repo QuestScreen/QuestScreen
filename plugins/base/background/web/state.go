@@ -17,14 +17,14 @@ type State struct {
 	data shared.BackgroundState
 }
 
-// NewState creates a new background state.
+// NewState implements modules.Constructor.
 func NewState(data json.RawMessage, srv server.State, group groups.Group) (modules.State, error) {
 	ret := &State{State: srv}
 	return ret, json.Unmarshal(data, &ret.data)
 }
 
 // UI returns a dropdown widget.
-func (s *State) UI() runtime.Component {
+func (s *State) UI(srv server.State) runtime.Component {
 	ret := controls.NewDropdown(controls.SelectSingle)
 	for index, item := range s.data.Items {
 		ret.Items.Append(controls.NewDropdownItem(true, item, index))

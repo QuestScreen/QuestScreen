@@ -5,7 +5,7 @@ import (
 
 	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/QuestScreen/web"
-	api "github.com/QuestScreen/api/web"
+	"github.com/QuestScreen/api/web/modules"
 )
 
 // pluginLoader implements web.PluginRegistrator
@@ -14,7 +14,7 @@ type pluginLoader struct {
 	tmp shared.Static
 }
 
-func (pl *pluginLoader) RegisterModule(id string, constructor api.ModuleConstructor) error {
+func (pl *pluginLoader) RegisterModule(id string, constructor modules.Constructor) error {
 	path := pl.id + "/" + id
 	found := false
 	for i := range pl.tmp.Modules {

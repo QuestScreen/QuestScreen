@@ -2,12 +2,12 @@ package web
 
 import (
 	"github.com/QuestScreen/QuestScreen/shared"
-	"github.com/QuestScreen/api/web"
+	"github.com/QuestScreen/api/web/modules"
 )
 
 // MappedModule is a module known to the client.
 type MappedModule struct {
-	Constructor web.ModuleConstructor
+	modules.Constructor
 }
 
 // StaticData is loaded at app start and constant everafter.
@@ -20,5 +20,4 @@ var StaticData struct {
 	Messages         []shared.Message
 	AppVersion       string
 	Modules          []MappedModule
-	ConfigItems      []web.ConfigItemConstructor
 }

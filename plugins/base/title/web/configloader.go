@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	p1 "github.com/QuestScreen/QuestScreen/plugins/base/title"
-	p2 "github.com/QuestScreen/QuestScreen/plugins/base/title"
+	p2 "github.com/QuestScreen/QuestScreen/plugins/base/bgcolor/web"
+	p1 "github.com/QuestScreen/QuestScreen/plugins/base/fonts/web"
 	"github.com/QuestScreen/api/web/config"
 	"github.com/QuestScreen/api/web/server"
 )
@@ -25,10 +25,10 @@ func LoadConfig(ctx server.Context, input []byte) (map[string]config.Controller,
 			return nil, errors.New("field missing: " + "Font")
 		}
 		var value p1.Controller
-		if err := json.Unmarshal(raw, value); err != nil {
+		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, errors.New("in config item Font: " + err.Error())
 		}
-		ret["Font"] = value
+		ret["Font"] = &value
 		delete(items, "Font")
 	}
 	{
@@ -37,10 +37,10 @@ func LoadConfig(ctx server.Context, input []byte) (map[string]config.Controller,
 			return nil, errors.New("field missing: " + "Background")
 		}
 		var value p2.Controller
-		if err := json.Unmarshal(raw, value); err != nil {
+		if err := json.Unmarshal(raw, &value); err != nil {
 			return nil, errors.New("in config item Background: " + err.Error())
 		}
-		ret["Background"] = value
+		ret["Background"] = &value
 		delete(items, "Background")
 	}
 	for key := range items {

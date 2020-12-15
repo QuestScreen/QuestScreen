@@ -20,14 +20,14 @@ type State struct {
 	data shared.OverlayState
 }
 
-// NewState creates a new overlays state.
+// NewState implements modules.Constructor.
 func NewState(data json.RawMessage, srv server.State, group groups.Group) (modules.State, error) {
 	ret := &State{State: srv}
 	return ret, json.Unmarshal(data, &ret.data)
 }
 
 // UI creates a dropdown as UI for the overlays module.
-func (s *State) UI() runtime.Component {
+func (s *State) UI(srv server.State) runtime.Component {
 	ret := controls.NewDropdown(controls.SelectMultiple)
 	for index, item := range s.data {
 		w := controls.NewDropdownItem(true, item.Name, index)

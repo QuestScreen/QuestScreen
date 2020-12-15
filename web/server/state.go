@@ -3,7 +3,7 @@ package server
 import (
 	"strings"
 
-	"github.com/QuestScreen/api/web"
+	api "github.com/QuestScreen/api/web/server"
 )
 
 // State implements web.ServerState.
@@ -12,7 +12,7 @@ type State struct {
 }
 
 // Fetch implements web.ServerState (see there for description)
-func (s *State) Fetch(method web.RequestMethod, subpath string, payload interface{}, target interface{}) {
+func (s *State) Fetch(method api.RequestMethod, subpath string, payload interface{}, target interface{}) {
 	var urlBuilder strings.Builder
 	urlBuilder.WriteString(s.base)
 	if subpath != "" {

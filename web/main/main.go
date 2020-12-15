@@ -4,7 +4,7 @@ import (
 	"github.com/QuestScreen/QuestScreen/web"
 	"github.com/QuestScreen/QuestScreen/web/info"
 	"github.com/QuestScreen/QuestScreen/web/server"
-	api "github.com/QuestScreen/api/web"
+	api "github.com/QuestScreen/api/web/server"
 )
 
 func main() {
@@ -20,7 +20,6 @@ func main() {
 	web.StaticData.Messages = loader.tmp.Messages
 	web.StaticData.AppVersion = loader.tmp.AppVersion
 	web.StaticData.Modules = make([]web.MappedModule, len(loader.tmp.Modules))
-	web.StaticData.ConfigItems = make([]api.ConfigItemConstructor, len(loader.tmp.ConfigItems))
 	loadPlugins(&loader)
 
 	for i, m := range loader.tmp.Modules {

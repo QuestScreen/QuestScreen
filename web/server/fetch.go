@@ -6,11 +6,11 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/QuestScreen/api/web"
+	api "github.com/QuestScreen/api/web/server"
 )
 
 // Fetch makes a request to the server and returns the response.
-func Fetch(method web.RequestMethod, url string, payload interface{}, target interface{}) error {
+func Fetch(method api.RequestMethod, url string, payload interface{}, target interface{}) error {
 	var body io.Reader
 	if payload != nil {
 		str, err := json.Marshal(payload)
