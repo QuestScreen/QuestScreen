@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 	<title>QuestScreen Control Center</title>
-	<link href="/css/pure-min.css" rel="stylesheet"/>
-	<link href="/css/grids-responsive-min.css" rel="stylesheet"/>
-	<link href="/css/fontawesome.min.css" rel="stylesheet">
-	<link href="/css/solid.min.css" rel="stylesheet">
+	<link href="/pure-min.css" rel="stylesheet"/>
+	<link href="/grids-responsive-min.css" rel="stylesheet"/>
+	<link href="/fontawesome.min.css" rel="stylesheet">
+	<link href="/solid.min.css" rel="stylesheet">
 	<link href="/style.css" rel="stylesheet"/>
+	<link href="/color.css" rel="stylesheet"/>
 
 	<meta name="viewport" content="width=device-width, initial-scale=1"/>
 	<meta charset="UTF-8"/>

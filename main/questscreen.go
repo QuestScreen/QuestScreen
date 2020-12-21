@@ -16,7 +16,6 @@ import (
 	"github.com/QuestScreen/QuestScreen/app"
 	"github.com/QuestScreen/QuestScreen/data"
 	"github.com/QuestScreen/QuestScreen/display"
-	"github.com/QuestScreen/QuestScreen/generated"
 	"github.com/QuestScreen/QuestScreen/plugins"
 	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/api"
@@ -76,7 +75,6 @@ type QuestScreen struct {
 	activeGroupIndex    int
 	activeSystemIndex   int
 	messages            []shared.Message
-	html, js, css       []byte
 	context             sdl.GLContext
 }
 
@@ -231,12 +229,6 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	qs.resourceCollections = make([][][]ownedResourceFile, 0, 32)
 	qs.activeGroupIndex = -1
 	qs.activeSystemIndex = -1
-
-	qs.html = generated.MustAsset("assets/index.html")
-	qs.js = generated.MustAsset("assets/main.js")
-	qs.css = generated.MustAsset("assets/style.css")
-	qs.css = append(qs.css, '\n')
-	qs.css = append(qs.css, generated.MustAsset("assets/color.css")...)
 
 	plugins.LoadPlugins(qs)
 

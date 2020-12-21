@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/QuestScreen/QuestScreen/generated"
+	"github.com/QuestScreen/QuestScreen/assets"
 	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/api/comms"
 	"github.com/QuestScreen/api/groups"
@@ -98,39 +99,67 @@ func (srh *staticResourceHandler) ServeHTTP(
 	}
 }
 
-func (srh *staticResourceHandler) faviconRes(name string, contentType string) {
-	srh.resources["/"+name] = staticResource{
-		contentType: contentType, content: generated.MustAsset("web/favicon/" + name)}
+type contentTypesS struct {
+	HTML, JS, CSS, OctetStream, PNG, SVG, XML, ICO, EOT, TTF, WOFF, WOFF2,
+	Webmanifest string
+}
+
+func (ct *contentTypesS) get(extension string) string {
+	switch extension {
+	case ".html":
+		return ct.HTML
+	case ".js":
+		return ct.JS
+	case ".css":
+		return ct.CSS
+	case ".png":
+		return ct.PNG
+	case ".svg":
+		return ct.SVG
+	case ".xml":
+		return ct.XML
+	case ".ico":
+		return ct.ICO
+	case ".eot":
+		return ct.EOT
+	case ".ttf":
+		return ct.TTF
+	case ".woff":
+		return ct.WOFF
+	case ".woff2":
+		return ct.WOFF2
+	case ".webmanifest":
+		return ct.Webmanifest
+	default:
+		return ct.OctetStream
+	}
+}
+
+var contentTypes = contentTypesS{
+	HTML: "text/html", JS: "application/javascript", CSS: "text/css",
+	PNG: "image/png", XML: "application/xml", ICO: "image/vnd.microsoft.icon",
+	SVG: "image/svg+xml", EOT: "application/vnd.ms-fontobject", TTF: "font/ttf",
+	WOFF: "font/woff", WOFF2: "font/woff2",
+	Webmanifest: "application/manifest+json",
+	OctetStream: "application/octet-stream",
 }
 
 func newStaticResourceHandler(qs *QuestScreen) *staticResourceHandler {
 	srh := &staticResourceHandler{
 		resources: make(map[string]staticResource)}
 
-	indexRes := staticResource{
-		contentType: "text/html; charset=utf-8", content: qs.html}
-	srh.resources["/"] = indexRes
-	srh.resources["/index.html"] = indexRes
-	srh.resources["/all.js"] = staticResource{
-		contentType: "application/javascript", content: qs.js}
-	srh.resources["/style.css"] = staticResource{
-		contentType: "text/css", content: qs.css}
-	srh.faviconRes("android-chrome-192x192.png", "image/png")
-	srh.faviconRes("android-chrome-512x512.png", "image/png")
-	srh.faviconRes("apple-touch-icon.png", "image/png")
-	srh.faviconRes("browserconfig.xml", "application/xml")
-	srh.faviconRes("favicon-16x16.png", "image/png")
-	srh.faviconRes("favicon-32x32.png", "image/png")
-	srh.faviconRes("favicon.ico", "image/vnd.microsoft.icon")
-	srh.faviconRes("mstile-150x150.png", "image/png")
-	srh.faviconRes("safari-pinned-tab.svg", "image/svg+xml")
-	srh.faviconRes("site.webmanifest", "application/manifest+json")
-	return srh
-}
+	for _, assetName := range assets.AssetNames() {
+		res := staticResource{
+			contentType: contentTypes.get(filepath.Ext(assetName)),
+			content:     assets.MustAsset(assetName),
+		}
+		srh.resources["/"+assetName] = res
+		if assetName == "index.html" {
+			srh.resources["/"] = res
+		}
+	}
 
-func (srh *staticResourceHandler) add(path string, contentType string) {
-	srh.resources[path] = staticResource{
-		contentType: contentType, content: generated.MustAsset("web" + path)}
+	return srh
 }
 
 type endpointEnv struct {
@@ -729,15 +758,6 @@ func startServer(owner *QuestScreen, events display.Events,
 	mutex := &sync.Mutex{}
 
 	sep := newStaticResourceHandler(owner)
-	sep.add("/css/pure-min.css", "text/css")
-	sep.add("/css/grids-responsive-min.css", "text/css")
-	sep.add("/css/fontawesome.min.css", "text/css")
-	sep.add("/css/solid.min.css", "text/css")
-	sep.add("/webfonts/fa-solid-900.eot", "application/vnd.ms-fontobject")
-	sep.add("/webfonts/fa-solid-900.svg", "image/svg+xml")
-	sep.add("/webfonts/fa-solid-900.ttf", "font/ttf")
-	sep.add("/webfonts/fa-solid-900.woff", "font/woff")
-	sep.add("/webfonts/fa-solid-900.woff2", "font/woff2")
 	http.Handle("/", sep)
 
 	reg("StaticDataHandler", "/static", mutex,
