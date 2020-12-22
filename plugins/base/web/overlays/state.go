@@ -1,20 +1,21 @@
-package web
+package overlays
 
 import (
 	"encoding/json"
 
-	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
 	"github.com/QuestScreen/QuestScreen/web/controls"
 	"github.com/QuestScreen/api/web/groups"
 	"github.com/QuestScreen/api/web/modules"
 	"github.com/QuestScreen/api/web/server"
+
+	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
 	"github.com/flyx/askew/runtime"
 )
 
-// State implements api.web.ModuleState
+// State implements web.ModuleState
 type State struct {
 	server.State
-	data shared.BackgroundState
+	data shared.OverlayState
 }
 
 // NewState implements modules.Constructor.
@@ -23,19 +24,24 @@ func NewState(data json.RawMessage, srv server.State, group groups.Group) (modul
 	return ret, json.Unmarshal(data, &ret.data)
 }
 
-// UI returns a dropdown widget.
+// UI creates a dropdown as UI for the overlays module.
 func (s *State) UI(srv server.State) runtime.Component {
-	ret := controls.NewDropdown(controls.SelectSingle)
-	for index, item := range s.data.Items {
-		ret.Items.Append(controls.NewDropdownItem(true, item, index))
+	ret := controls.NewDropdown(controls.SelectMultiple)
+	for index, item := range s.data {
+		w := controls.NewDropdownItem(true, item.Name, index)
+		w.Selected.Set(item.Selected)
+		ret.Items.Append(w)
 	}
 	ret.Controller = s
 	return ret
 }
 
-// ItemClicked handles a click by switching to the clicked background and
-// returning true.
+// ItemClicked implements the Dropdown's controller.
 func (s *State) ItemClicked(index int) bool {
-	s.Fetch(server.Post, "", index, nil)
-	return true
+	s.Fetch(server.Post, "", struct {
+		resourceIndex int
+		visible       bool
+	}{index, s.data[index].Selected},
+		&s.data[index].Selected)
+	return s.data[index].Selected
 }

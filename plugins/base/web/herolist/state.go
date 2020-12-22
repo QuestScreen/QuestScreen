@@ -1,4 +1,4 @@
-package web
+package herolist
 
 import (
 	"encoding/json"

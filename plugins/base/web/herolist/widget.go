@@ -1,4 +1,4 @@
-package web
+package herolist
 
 // ItemClicked implements the controller of controls.Dropdown
 func (w *Widget) ItemClicked(index int) bool {

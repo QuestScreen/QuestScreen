@@ -1,2 +1,2 @@
-herolist/web/components.go
-title/web/components.go
+web/herolist/components.go
+web/title/components.go

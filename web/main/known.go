@@ -21,11 +21,10 @@ func (pl *pluginLoader) RegisterModule(id string, constructor modules.Constructo
 		serverItem := &pl.tmp.Modules[i]
 		if path == serverItem.Path {
 			found = true
-			appItem := &web.StaticData.Modules[i]
-			if appItem.Constructor != nil {
+			if web.StaticData.Modules[i].Constructor != nil {
 				return fmt.Errorf("[plugin %s] duplicate module ID during registration: %s", pl.id, id)
 			}
-			appItem.Constructor = constructor
+			web.StaticData.Modules[i].Constructor = constructor
 			break
 		}
 	}

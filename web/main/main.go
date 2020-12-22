@@ -20,7 +20,9 @@ func main() {
 	web.StaticData.Messages = loader.tmp.Messages
 	web.StaticData.AppVersion = loader.tmp.AppVersion
 	web.StaticData.Modules = make([]web.MappedModule, len(loader.tmp.Modules))
-	loadPlugins(&loader)
+	if err := registerPlugins(&loader); err != nil {
+		panic("while loading modules: " + err.Error())
+	}
 
 	for i, m := range loader.tmp.Modules {
 		if web.StaticData.Modules[i].Constructor == nil {

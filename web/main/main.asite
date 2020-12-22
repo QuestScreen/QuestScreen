@@ -22,8 +22,7 @@
 	<meta name="msapplication-TileColor" content="#00aba9">
 	<meta name="theme-color" content="#ffffff">
 </head>
-<body>
-	<a:site></a:site>
+<body><a:site></a:site>
 <header>
 	<h1 class="pure-u-1">QuestScreen</h1>
 	<nav id="mainmenu" class="pure-g">
