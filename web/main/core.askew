@@ -1,11 +1,47 @@
+<a:component name="HeaderContainer">
+	<header a:bindings="style(height):height, style(paddingBottom):paddingBottom, style(overflow):overflow, prop(offsetWidth):offsetWidth, prop(offsetHeight):(offsetHeight int), self():Self">
+		<h1 class="pure-u-1">QuestScreen</h1>
+		<nav id="mainmenu" class="pure-g" a:bindings="class(disabled):Disabled">
+			<div id="error-menu-overlay" class="pure-u-1">Menu disabled due to errors in core, see messages</div>
+			<div class="pure-u-1 pure-u-sm-1-3 pure-menu pure-menu-horizontal">
+				<ul class="pure-menu-list">
+					<li class="pure-menu-item pure-menu-has-children">
+						<a id="open-group-menu" class="pure-menu-link" href="#">Switch Group <i class="fas fa-caret-down"></i></a>
+						<ul id="menu-groups" class="pure-menu-children"></ul>
+					</li>
+				</ul>
+			</div>
+			<div class="pure-u-1 pure-u-sm-1-3 pure-menu">
+				<ul class="pure-menu-list">
+					<li class="pure-menu-item">
+						<a id="show-config" class="pure-menu-link" href="#"><i class="fas fa-cog"></i> Configuration</a>
+					</li>
+				</ul>
+			</div>
+			<div class="pure-u-1 pure-u-sm-1-3 pure-menu">
+				<ul class="pure-menu-list">
+					<li class="pure-menu-item">
+						<a id="show-datasets" class="pure-menu-link" href="#"><i class="fas fa-database"></i> Datasets</a>
+					</li>
+				</ul>
+			</div>
+		</nav>
+	</header>
+</a:component>
 
 <a:component name="TitleBar">
-	<a:controller>BackButtonClicked()</a:controller>
+	<a:controller>
+		BackButtonClicked()
+		HeaderToggleClicked(target *js.Object)
+	</a:controller>
 	<h2 id="title-wrapper">
 		<div id="title-buttons">
 			<a id="back-button" class="empty" href="#" a:capture="click:BackButtonClicked"><i class="fas fa-angle-left"></i>
 				<span id="back-button-caption" a:bindings="prop(textContent):BackButtonCaption"></span></a>
-			<a id="header-toggle"><i class="fas fa-angle-up"></i></a>
+			<a id="header-toggle"
+			    a:capture="click:HeaderToggleClicked(target=event(currentTarget))"><i
+					    class="fas fa-angle-up"
+							a:bindings="class(fa-angle-up, fa-angle-down):ToggleOrientation"></i></a>
 		</div>
 		<p id="title-content">
 			<span id="title" a:bindings="prop(textContent):Title"></span><span id="subtitle" a:bindings="prop(textContent):Subtitle"></span>

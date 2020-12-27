@@ -8,6 +8,8 @@ import (
 // MappedModule is a module known to the client.
 type MappedModule struct {
 	modules.Constructor
+	PluginIndex int
+	Name, ID    string
 }
 
 // StaticData is loaded at app start and constant everafter.

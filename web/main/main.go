@@ -8,6 +8,10 @@ import (
 )
 
 func main() {
+	app := &App{}
+
+	TitleContent.Controller = app
+
 	var loader pluginLoader
 	if err := server.Fetch(api.Get, "/static", nil, &loader.tmp); err != nil {
 		panic(err)
@@ -18,6 +22,12 @@ func main() {
 	web.StaticData.Plugins = loader.tmp.Plugins
 	web.StaticData.FontDir = loader.tmp.FontDir
 	web.StaticData.Messages = loader.tmp.Messages
+	for _, msg := range web.StaticData.Messages {
+		if msg.ModuleIndex == -1 {
+			Header.Disabled.Set(true)
+			break
+		}
+	}
 	web.StaticData.AppVersion = loader.tmp.AppVersion
 	web.StaticData.Modules = make([]web.MappedModule, len(loader.tmp.Modules))
 	if err := registerPlugins(&loader); err != nil {
@@ -29,5 +39,5 @@ func main() {
 			panic("server module " + m.Path + " unknown")
 		}
 	}
-	Page.Set(info.NewPage(web.StaticData.AppVersion))
+	Page.Set(info.ConstructInfoPage())
 }

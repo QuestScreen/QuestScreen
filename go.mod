@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/QuestScreen/api v0.3.1-0.20201215214703-bf9f7c03d5a2
-	github.com/flyx/askew v0.0.0-20201013193006-ce02297f094c
+	github.com/flyx/askew v0.0.0-20201223225015-de138e79a966
 	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00
 	github.com/pborman/getopt v0.0.0-20190409184431-ee0cd42419d3

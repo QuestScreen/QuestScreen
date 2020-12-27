@@ -1,15 +1,13 @@
 <a:macro name="modulePath">
-	<span class="plugin-name" a:assign="prop(textContent)=plugin"></span>
+	<span a:assign="prop(textContent)=plugin"></span>
 	<i class="fas fa-angle-right"></i>
-	<span class="module-name" a:assign="prop(textContent)=moduleName"></span>
+	<span a:assign="prop(textContent)=moduleName"></span>
 </a:macro>
 
 <a:component name="Module" params="plugin string, moduleName string, moduleID string">
 	<tr>
-		<td class="module-path">
-			<a:include name="modulePath"></a:include>
-		</td>
-		<td class="module-id" a:assign="prop(textContent)=moduleID"></td>
+		<td a:assign="prop(textContent)=plugin"></td>
+		<td a:assign="prop(textContent)=moduleName"></td>
 	</tr>
 </a:component>
 
@@ -21,7 +19,7 @@
 		<td a:if="plugin != ``">
 			<a:include name="modulePath"></a:include>
 		</td>
-		<td class="text"></td>
+		<td class="text"><a:text expr="message"></a:text></td>
 	</tr>
 </a:component>
 
@@ -41,7 +39,7 @@
 		<h4 class="data-sheet-header"><i class="fas fa-film"></i> Loaded Modules</h4>
 		<table class="module-list">
 			<thead>
-				<tr><th>Name</th><th>ID</th></tr>
+				<tr><th>Plugin</th><th>Module</th></tr>
 			</thead>
 			<tbody>
 				<a:embed list type="Module" name="Modules"></a:embed>

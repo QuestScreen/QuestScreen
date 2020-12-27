@@ -694,16 +694,19 @@ table.message-list .text {
 }
 
 #error-menu-overlay {
-	position: absolute;
-	margin: 0;
-	padding: .5em;
 	text-align: center;
 	font-weight: bold;
-	top: 0;
-	left: 0;
-	z-index: 1;
 	border-radius: .125em;
 	box-sizing: border-box;
+	line-height: 2em;
+}
+
+nav:not(.disabled) > #error-menu-overlay {
+	display: none;
+}
+
+nav.disabled > :not(#error-menu-overlay) {
+	display: none;
 }
 
 .herolist-switch-all.pure-button-primary .show-all,

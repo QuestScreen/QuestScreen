@@ -10,8 +10,9 @@ import (
 
 // pluginLoader implements web.PluginRegistrator
 type pluginLoader struct {
-	id  string
-	tmp shared.Static
+	id    string
+	index int
+	tmp   shared.Static
 }
 
 func (pl *pluginLoader) RegisterModule(id string, constructor modules.Constructor) error {
@@ -21,10 +22,14 @@ func (pl *pluginLoader) RegisterModule(id string, constructor modules.Constructo
 		serverItem := &pl.tmp.Modules[i]
 		if path == serverItem.Path {
 			found = true
-			if web.StaticData.Modules[i].Constructor != nil {
+			module := &web.StaticData.Modules[i]
+			if module.Constructor != nil {
 				return fmt.Errorf("[plugin %s] duplicate module ID during registration: %s", pl.id, id)
 			}
-			web.StaticData.Modules[i].Constructor = constructor
+			module.Constructor = constructor
+			module.Name = serverItem.Name
+			module.ID = id
+			module.PluginIndex = pl.index
 			break
 		}
 	}
