@@ -1,5 +1,6 @@
 <a:import>
   "github.com/QuestScreen/QuestScreen/web/controls"
+	"github.com/QuestScreen/QuestScreen/shared"
 </a:import>
 
 <a:component name="ListItem" params="name string, removable bool, index int">
@@ -15,7 +16,7 @@
 	</div>
 </a:component>
 
-<a:component name="Base">
+<a:component name="Base" params="data *shared.Data" init oninclude>
 	<article>
 		<section class="data-sheet">
 			<h4 class="data-sheet-header"><i class="fas fa-book"></i> Systems</h4>

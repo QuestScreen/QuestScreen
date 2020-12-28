@@ -112,11 +112,8 @@ func (c Communication) StaticData(a app.App, plugins interface{}) interface{} {
 
 // ViewAll returns a serializable view of all data items that are not part of
 // the state (systems, groups, scenes, heroes).
-func (c Communication) ViewAll(app app.App) interface{} {
-	return struct {
-		Systems []shared.System `json:"systems"`
-		Groups  []shared.Group  `json:"groups"`
-	}{Systems: c.systems(), Groups: c.groups()}
+func (c Communication) ViewAll(app app.App) shared.Data {
+	return shared.Data{Systems: c.systems(), Groups: c.groups()}
 }
 
 // ViewBaseConfig returns a serializable view of the base configuration.

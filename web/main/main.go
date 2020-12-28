@@ -2,16 +2,11 @@ package main
 
 import (
 	"github.com/QuestScreen/QuestScreen/web"
-	"github.com/QuestScreen/QuestScreen/web/info"
 	"github.com/QuestScreen/QuestScreen/web/server"
 	api "github.com/QuestScreen/api/web/server"
 )
 
 func main() {
-	app := &App{}
-
-	TitleContent.Controller = app
-
 	var loader pluginLoader
 	if err := server.Fetch(api.Get, "/static", nil, &loader.tmp); err != nil {
 		panic(err)
@@ -39,5 +34,11 @@ func main() {
 			panic("server module " + m.Path + " unknown")
 		}
 	}
-	Page.Set(info.ConstructInfoPage())
+
+	app := &App{}
+	app.Init()
+	web.Page = app
+	TitleContent.Controller = app
+	Header.Controller = app
+	app.ShowInfo()
 }

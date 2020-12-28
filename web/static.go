@@ -12,7 +12,7 @@ type MappedModule struct {
 	Name, ID    string
 }
 
-// StaticData is loaded at app start and constant everafter.
+// StaticData is loaded at app start and is constant everafter.
 var StaticData struct {
 	Fonts            []string
 	Textures         []string

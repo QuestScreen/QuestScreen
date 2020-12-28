@@ -47,3 +47,10 @@ type Plugin struct {
 	Name string `json:"name"`
 	ID   string `json:"id"`
 }
+
+// Data contains all systems and groups and is used for the server's "/data"
+// endpoint
+type Data struct {
+	Systems []System `json:"systems"`
+	Groups  []Group  `json:"groups"`
+}

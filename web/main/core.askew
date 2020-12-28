@@ -1,4 +1,5 @@
 <a:component name="HeaderContainer">
+	<a:controller>showDatasets()</a:controller>
 	<header a:bindings="style(height):height, style(paddingBottom):paddingBottom, style(overflow):overflow, prop(offsetWidth):offsetWidth, prop(offsetHeight):(offsetHeight int), self():Self">
 		<h1 class="pure-u-1">QuestScreen</h1>
 		<nav id="mainmenu" class="pure-g" a:bindings="class(disabled):Disabled">
@@ -21,7 +22,8 @@
 			<div class="pure-u-1 pure-u-sm-1-3 pure-menu">
 				<ul class="pure-menu-list">
 					<li class="pure-menu-item">
-						<a id="show-datasets" class="pure-menu-link" href="#"><i class="fas fa-database"></i> Datasets</a>
+						<a id="show-datasets" class="pure-menu-link" href="#"
+								a:capture="click:showDatasets() {preventDefault}"><i class="fas fa-database"></i> Datasets</a>
 					</li>
 				</ul>
 			</div>
@@ -36,7 +38,8 @@
 	</a:controller>
 	<h2 id="title-wrapper">
 		<div id="title-buttons">
-			<a id="back-button" class="empty" href="#" a:capture="click:BackButtonClicked"><i class="fas fa-angle-left"></i>
+			<a id="back-button" class="empty" href="#" a:capture="click:BackButtonClicked"
+					a:bindings="class(empty):BackButtonEmpty"><i class="fas fa-angle-left"></i>
 				<span id="back-button-caption" a:bindings="prop(textContent):BackButtonCaption"></span></a>
 			<a id="header-toggle"
 			    a:capture="click:HeaderToggleClicked(target=event(currentTarget))"><i

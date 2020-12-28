@@ -26,3 +26,7 @@ func ConstructInfoPage() *Page {
 
 	return ret
 }
+
+func (o *Page) onInclude() {
+	web.Page.SetTitle("Info", "", web.NoBackButton)
+}
