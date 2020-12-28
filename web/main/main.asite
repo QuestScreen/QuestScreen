@@ -22,7 +22,12 @@
 	<meta name="msapplication-TileColor" content="#00aba9">
 	<meta name="theme-color" content="#ffffff">
 </head>
-<body><a:site></a:site>
+<body>
+<a:site>
+	<a:import>
+		"github.com/QuestScreen/QuestScreen/web/controls"
+	</a:import>
+</a:site>
 <a:embed name="Header" type="HeaderContainer"></a:embed>
 
 <a:embed name="TitleContent" type="TitleBar"></a:embed>
@@ -37,5 +42,7 @@
 	<main>
 		<a:embed name="Page" optional></a:embed>
 	</main>
+
+	<a:embed name="Popup" type="controls.PopupBase"></a:embed>
 </body>
 </html>

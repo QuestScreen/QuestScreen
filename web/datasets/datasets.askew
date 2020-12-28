@@ -17,12 +17,16 @@
 </a:component>
 
 <a:component name="Base" params="data *shared.Data" init oninclude>
+	<a:handlers>
+		addSystem()
+		addGroup()
+	</a:handlers>
 	<article>
 		<section class="data-sheet">
 			<h4 class="data-sheet-header"><i class="fas fa-book"></i> Systems</h4>
 			<div class="data-list systems">
 				<a:embed name="Systems" type="ListItem" list></a:embed>
-				<a class="data-list-link create">
+				<a class="data-list-link create" a:capture="click:addSystem() {preventDefault}">
 					<i class="fas fa-plus-square"></i>
 				</a>
 			</div>
@@ -31,7 +35,7 @@
 			<h4 class="data-sheet-header"><i class="fas fa-users"></i> Groups</h4>
 			<div class="data-list groups">
 				<a:embed name="Groups" type="ListItem" list></a:embed>
-				<a class="data-list-link create">
+				<a class="data-list-link create" a:capture="click:addGroup() {preventDefault}">
 					<i class="fas fa-plus-square"></i>
 				</a>
 			</div>

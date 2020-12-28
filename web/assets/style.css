@@ -163,7 +163,7 @@ input:checked + .slider:before {
 	margin-bottom: .5em;
 }
 
-#popup-content {
+#popup > section {
 	text-align: left;
 	display: block;
 	min-height: 2em;

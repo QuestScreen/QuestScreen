@@ -25,3 +25,11 @@ func (o *Base) init(data *shared.Data) {
 func (o *Base) onInclude() {
 	web.Page.SetTitle("Dataset Base", "", web.BackButtonBack)
 }
+
+func (o *Base) addSystem() {
+
+}
+
+func (o *Base) addGroup() {
+
+}

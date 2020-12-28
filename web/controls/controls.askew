@@ -42,3 +42,20 @@
     </ul>
   </div>
 </a:component>
+
+<a:component name="PopupBase">
+	<a:controller>
+		confirm()
+		cancel()
+	</a:controller>
+	<div id="popup-wrapper" a:bindings="style(display):Display, style(visibility):Visibility">
+		<form id="popup" class="pure-form" a:capture="submit:confirm() {preventDefault}">
+			<h3 a:bindings="prop(textContent):Title"></h3>
+			<section><a:embed name="Content" optional></a:embed></section>
+			<button class="pure-button" a:bindings="prop(textContent):CancelCaption"
+					a:capture="click:cancel() {preventDefault}"></button>
+			<button type="submit" class="pure-button pure-button-primary"
+					a:bindings="prop(textContent):ConfirmCaption"></button>
+		</form>
+	</div>
+</a:component>
