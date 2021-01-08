@@ -44,10 +44,13 @@
 </a:component>
 
 <a:component name="PopupBase">
-	<a:controller>
+  <a:data>
+    controller popupController
+  </a:data>
+	<a:handlers>
 		confirm()
 		cancel()
-	</a:controller>
+	</a:handlers>
 	<div id="popup-wrapper" a:bindings="style(display):Display, style(visibility):Visibility">
 		<form id="popup" class="pure-form" a:capture="submit:confirm() {preventDefault}">
 			<h3 a:bindings="prop(textContent):Title"></h3>
@@ -58,4 +61,35 @@
 					a:bindings="prop(textContent):ConfirmCaption"></button>
 		</form>
 	</div>
+</a:component>
+
+<a:component name="popupTemplateItem">
+	<li class="pure-menu-item template-item">
+		<a class="pure-menu-link" href="#">
+			<div class="template-container">
+				<p class="template-identifier">
+					<span a:bindings="prop(textContent):PluginName"></span>
+					<i class="fas fa-angle-right"></i>
+					<span a:bindings="prop(textContent):Name"></span>
+				</p>
+				<p class="template-descr" a:bindings="prop(textContent):Description"></p>
+			</div>
+			<i class="fas fa-sort"></i>
+		</a>
+	</li>
+</a:component>
+
+<a:component name="popupTemplateList">
+	<div class="pure-menu template-list">
+		<ul class="pure-menu-list"><a:embed name="popupTemplateItem" list></a:embed></ul>
+	</div>
+</a:component>
+
+<a:component name="popupText" params="caption string">
+  <a:text expr="caption"></a:text>
+</a:component>
+
+<a:component name="popupInput" params="label string">
+  <label a:assign="prop(textContent)=label"></label>
+  <input type="text" required a:bindings="prop(value):Value" />
 </a:component>

@@ -3,7 +3,7 @@ controls/controls.go
 datasets/datasets.go
 info/info.go
 state/state.go
-main/core.go
-main/init.go
+site/core.go
+site/init.go
 main/plugins.go
 main/main.js.map

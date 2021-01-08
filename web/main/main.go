@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/QuestScreen/QuestScreen/web"
 	"github.com/QuestScreen/QuestScreen/web/server"
+	"github.com/QuestScreen/QuestScreen/web/site"
 	api "github.com/QuestScreen/api/web/server"
 )
 
@@ -19,7 +20,7 @@ func main() {
 	web.StaticData.Messages = loader.tmp.Messages
 	for _, msg := range web.StaticData.Messages {
 		if msg.ModuleIndex == -1 {
-			Header.Disabled.Set(true)
+			site.Header.Disabled.Set(true)
 			break
 		}
 	}
@@ -38,7 +39,7 @@ func main() {
 	app := &App{}
 	app.Init()
 	web.Page = app
-	TitleContent.Controller = app
-	Header.Controller = app
+	site.TitleContent.Controller = app
+	site.Header.Controller = app
 	app.ShowInfo()
 }
