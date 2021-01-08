@@ -1,5 +1,7 @@
 package web
 
+import "github.com/QuestScreen/QuestScreen/shared"
+
 // BackButtonKind describes the kind of action the back button in the title bar
 // is used for.
 type BackButtonKind int
@@ -16,6 +18,7 @@ const (
 
 // PageIF is the interface to the page managed by the main app.
 type PageIF interface {
+	Data() *shared.Data
 	SetTitle(caption, subtitle string, bb BackButtonKind)
 }
 

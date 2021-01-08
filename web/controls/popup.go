@@ -70,12 +70,21 @@ func (cc *confirmController) cancel() {
 	cc.val <- false
 }
 
+func (cc *confirmController) needsDoShow() bool {
+	return false
+}
+
+func (cc *confirmController) doShow() {}
+
 // Confirm shows the popup and returns true if the user clicks OK, false if
 // Cancel. Blocking, must be called from a goroutine.
 func (pb *PopupBase) Confirm(text string) bool {
-	c := confirmController{make(chan bool, 1)}
+	c := &confirmController{make(chan bool, 1)}
+	pb.controller = c
 	pb.show("Confirm", newPopupText(text), "OK", "Cancel")
-	return <-c.val
+	ret := <-c.val
+	pb.controller = nil
+	return ret
 }
 
 type textInputController struct {
@@ -88,10 +97,23 @@ func (tic *textInputController) confirm() {
 	tic.val <- &str
 }
 
+func (tic *textInputController) cancel() {
+	tic.val <- nil
+}
+
+func (tic *textInputController) needsDoShow() bool {
+	return false
+}
+
+func (tic *textInputController) doShow() {}
+
 // TextInput shows the popup and returns the entered string if the user clicks
 // OK, nil if Cancel. Blocking, must be called from a goroutine.
 func (pb *PopupBase) TextInput(title, label string) *string {
-	tic := textInputController{make(chan *string, 1), newPopupInput(label)}
+	tic := &textInputController{make(chan *string, 1), newPopupInput(label)}
+	pb.controller = tic
 	pb.show(title, tic.input, "OK", "Cancel")
-	return <-tic.val
+	ret := <-tic.val
+	pb.controller = nil
+	return ret
 }

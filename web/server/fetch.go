@@ -33,8 +33,10 @@ func Fetch(method api.RequestMethod, url string, payload interface{}, target int
 		return err
 	}
 	if resp.StatusCode == 200 {
-		dec := json.NewDecoder(resp.Body)
-		err = dec.Decode(target)
+		if target != nil {
+			dec := json.NewDecoder(resp.Body)
+			err = dec.Decode(target)
+		}
 		resp.Body.Close()
 		return err
 	}

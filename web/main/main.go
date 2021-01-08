@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/QuestScreen/QuestScreen/web"
+	"github.com/QuestScreen/QuestScreen/web/app"
 	"github.com/QuestScreen/QuestScreen/web/server"
 	"github.com/QuestScreen/QuestScreen/web/site"
 	api "github.com/QuestScreen/api/web/server"
@@ -36,7 +37,7 @@ func main() {
 		}
 	}
 
-	app := &App{}
+	app := &app.App{}
 	app.Init()
 	web.Page = app
 	site.TitleContent.Controller = app

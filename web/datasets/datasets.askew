@@ -1,22 +1,24 @@
 <a:import>
   "github.com/QuestScreen/QuestScreen/web/controls"
-	"github.com/QuestScreen/QuestScreen/shared"
 </a:import>
 
 <a:component name="ListItem" params="name string, removable bool, index int">
-	<a:handlers>clicked(index int)</a:handlers>
+	<a:controller>delete(index int)</a:controller>
 	<div class="data-list-item">
 		<span class="data-list-text" a:assign="prop(textContent) = name"></span>
 		<a class="data-list-link"
 				a:assign="class(delete) = removable, data(index) = index"
-				a:capture="click:clicked">
+				a:capture="click:delete">
 			<i class="fas fa-minus-square" a:if="removable"></i>
 			<i class="fas fa-cubes" a:if="!removable"></i>
 		</a>
 	</div>
 </a:component>
 
-<a:component name="Base" params="data *shared.Data" init oninclude>
+<a:component name="Base" init oninclude>
+	<a:data>
+		sc systemItemsController
+	</a:data>
 	<a:handlers>
 		addSystem()
 		addGroup()
@@ -25,7 +27,7 @@
 		<section class="data-sheet">
 			<h4 class="data-sheet-header"><i class="fas fa-book"></i> Systems</h4>
 			<div class="data-list systems">
-				<a:embed name="Systems" type="ListItem" list></a:embed>
+				<a:embed name="SystemList" type="ListItem" list></a:embed>
 				<a class="data-list-link create" a:capture="click:addSystem() {preventDefault}">
 					<i class="fas fa-plus-square"></i>
 				</a>
@@ -34,7 +36,7 @@
 		<section class="data-sheet">
 			<h4 class="data-sheet-header"><i class="fas fa-users"></i> Groups</h4>
 			<div class="data-list groups">
-				<a:embed name="Groups" type="ListItem" list></a:embed>
+				<a:embed name="GroupList" type="ListItem" list></a:embed>
 				<a class="data-list-link create" a:capture="click:addGroup() {preventDefault}">
 					<i class="fas fa-plus-square"></i>
 				</a>

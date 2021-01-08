@@ -1,8 +1,10 @@
 package datasets
 
 import (
-	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/QuestScreen/web"
+	"github.com/QuestScreen/QuestScreen/web/server"
+	"github.com/QuestScreen/QuestScreen/web/site"
+	api "github.com/QuestScreen/api/web/server"
 )
 
 func (o *EditableText) setEdited() {
@@ -12,14 +14,43 @@ func (o *EditableText) setEdited() {
 func (o *ListItem) clicked(index int) {
 }
 
-func (o *Base) init(data *shared.Data) {
-	for index, group := range data.Groups {
-		o.Groups.Append(NewListItem(group.Name, true, index))
+type systemItemsController struct {
+	*Base
+}
+
+func (c *systemItemsController) delete(index int) {
+	go func() {
+		system := web.Page.Data().Systems[index]
+		if ok := site.Popup.Confirm("Really delete system " + system.Name + "?"); ok {
+			if err := server.Fetch(api.Delete, "data/systems/"+system.ID, nil, nil); err != nil {
+				panic(err)
+			}
+			c.SystemList.RemoveAll()
+			c.regenSystems()
+			// TODO: regen menu
+		}
+	}()
+}
+
+func (o *Base) regenSystems() {
+	for index, system := range web.Page.Data().Systems {
+		item := NewListItem(system.Name,
+			index >= web.StaticData.NumPluginSystems, index)
+		o.SystemList.Append(item)
 	}
-	for index, system := range data.Systems {
-		o.Systems.Append(NewListItem(system.Name,
-			index >= web.StaticData.NumPluginSystems, index))
+}
+
+func (o *Base) regenGroups() {
+	for index, group := range web.Page.Data().Groups {
+		o.GroupList.Append(NewListItem(group.Name, true, index))
 	}
+}
+
+func (o *Base) init() {
+	o.sc.Base = o
+	o.SystemList.DefaultController = &o.sc
+	o.regenGroups()
+	o.regenSystems()
 }
 
 func (o *Base) onInclude() {
@@ -28,10 +59,18 @@ func (o *Base) onInclude() {
 
 func (o *Base) addSystem() {
 	go func() {
-		
+		name := site.Popup.TextInput("Create system", "Name:")
+		if name != nil {
+			if err := server.Fetch(api.Post, "data/systems", *name,
+				&web.Page.Data().Systems); err != nil {
+				panic(err)
+			}
+			// TODO: regen menu
+			o.SystemList.RemoveAll()
+			o.regenSystems()
+		}
 	}()
 }
 
 func (o *Base) addGroup() {
-
 }
