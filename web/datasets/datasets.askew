@@ -18,6 +18,7 @@
 <a:component name="Base" init oninclude>
 	<a:data>
 		sc systemItemsController
+		gc groupItemsController
 	</a:data>
 	<a:handlers>
 		addSystem()
@@ -149,29 +150,4 @@
 			</div>
 		</a:include>
 	</article>
-</a:component>
-
-<a:component name="SelectableTemplate"
-		params="pluginName string, templateName string, descr string">
-	<li class="pure-menu-item template-item">
-		<a class="pure-menu-link" href="#">
-			<div class="template-container">
-				<p class="template-identifier">
-					<span a:assign="prop(textContent) = pluginName"></span>
-					<i class="fas fa-angle-right"></i>
-					<span a:assign="prop(textContent) = templateName"></span>
-				</p>
-				<p class="template-descr" a:assign="prop(textContent) = descr"></p>
-			</div>
-			<i class="fas fa-sort"></i>
-		</a>
-	</li>
-</a:component>
-
-<a:component name="TemplatePopup">
-	<div class="pure-menu template-list">
-		<ul class="pure-menu-list">
-			<a:embed name="Templates" type="SelectableTemplate" list></a:embed>
-		</ul>
-	</div>
 </a:component>

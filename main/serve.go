@@ -558,28 +558,24 @@ type dataGroupsEndpoint struct {
 }
 
 type groupCreationReceiver struct {
-	data struct {
-		Name               string `json:"name"`
-		PluginIndex        int    `json:"pluginIndex"`
-		GroupTemplateIndex int    `json:"groupTemplateIndex"`
-	}
+	shared.GroupCreationRequest
 	plugins []pluginData
 }
 
 func (gcr *groupCreationReceiver) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data,
-		&comms.ValidatedStruct{Value: &gcr.data}); err != nil {
+		&comms.ValidatedStruct{Value: &gcr.GroupCreationRequest}); err != nil {
 		return err
 	}
-	if gcr.data.Name == "" {
+	if gcr.Name == "" {
 		return errors.New("name must not be empty")
-	} else if gcr.data.PluginIndex < 0 ||
-		gcr.data.PluginIndex >= len(gcr.plugins) {
+	} else if gcr.PluginIndex < 0 ||
+		gcr.PluginIndex >= len(gcr.plugins) {
 		return fmt.Errorf("pluginIndex out of range [0..%d]", len(gcr.plugins)-1)
-	} else if gcr.data.GroupTemplateIndex < 0 ||
-		gcr.data.GroupTemplateIndex >= len(gcr.plugins[gcr.data.PluginIndex].GroupTemplates) {
+	} else if gcr.GroupTemplateIndex < 0 ||
+		gcr.GroupTemplateIndex >= len(gcr.plugins[gcr.PluginIndex].GroupTemplates) {
 		return fmt.Errorf("groupTemplateIndex out of range [0..%d]",
-			len(gcr.plugins[gcr.data.PluginIndex].GroupTemplates)-1)
+			len(gcr.plugins[gcr.PluginIndex].GroupTemplates)-1)
 	}
 	return nil
 }
@@ -590,9 +586,9 @@ func (dge dataGroupsEndpoint) Handle(method httpMethods, ids []string,
 	if err := comms.ReceiveData(raw, &value); err != nil {
 		return nil, &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
-	if err := dge.qs.persistence.CreateGroup(value.data.Name,
-		&dge.qs.plugins[value.data.PluginIndex].Plugin.GroupTemplates[value.data.GroupTemplateIndex],
-		dge.qs.plugins[value.data.PluginIndex].Plugin.SceneTemplates); err != nil {
+	if err := dge.qs.persistence.CreateGroup(value.Name,
+		&dge.qs.plugins[value.PluginIndex].Plugin.GroupTemplates[value.GroupTemplateIndex],
+		dge.qs.plugins[value.PluginIndex].Plugin.SceneTemplates); err != nil {
 		return nil, &server.InternalError{
 			Description: "while creating group", Inner: err}
 	}

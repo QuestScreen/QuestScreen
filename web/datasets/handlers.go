@@ -1,7 +1,9 @@
 package datasets
 
 import (
+	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/QuestScreen/web"
+	"github.com/QuestScreen/QuestScreen/web/controls"
 	"github.com/QuestScreen/QuestScreen/web/server"
 	"github.com/QuestScreen/QuestScreen/web/site"
 	api "github.com/QuestScreen/api/web/server"
@@ -20,13 +22,34 @@ type systemItemsController struct {
 
 func (c *systemItemsController) delete(index int) {
 	go func() {
-		system := web.Page.Data().Systems[index]
+		data := web.Page.Data()
+		system := data.Systems[index]
 		if ok := site.Popup.Confirm("Really delete system " + system.Name + "?"); ok {
-			if err := server.Fetch(api.Delete, "data/systems/"+system.ID, nil, nil); err != nil {
+			if err := server.Fetch(
+				api.Delete, "data/systems/"+system.ID, nil, &data.Systems); err != nil {
 				panic(err)
 			}
 			c.SystemList.RemoveAll()
 			c.regenSystems()
+			// TODO: regen menu
+		}
+	}()
+}
+
+type groupItemsController struct {
+	*Base
+}
+
+func (c *groupItemsController) delete(index int) {
+	go func() {
+		data := web.Page.Data()
+		group := data.Groups[index]
+		if ok := site.Popup.Confirm("Really delete group " + group.Name + "?"); ok {
+			if err := server.Fetch(api.Delete, "data/groups/"+group.ID, nil, &data.Groups); err != nil {
+				panic(err)
+			}
+			c.GroupList.RemoveAll()
+			c.regenGroups()
 			// TODO: regen menu
 		}
 	}()
@@ -48,7 +71,9 @@ func (o *Base) regenGroups() {
 
 func (o *Base) init() {
 	o.sc.Base = o
+	o.gc.Base = o
 	o.SystemList.DefaultController = &o.sc
+	o.GroupList.DefaultController = &o.gc
 	o.regenGroups()
 	o.regenSystems()
 }
@@ -73,4 +98,17 @@ func (o *Base) addSystem() {
 }
 
 func (o *Base) addGroup() {
+	go func() {
+		pluginIndex, templateIndex, name :=
+			site.Popup.TemplateSelect(controls.GroupTemplate)
+		if pluginIndex != -1 {
+			if err := server.Fetch(api.Post, "data/groups", shared.GroupCreationRequest{
+				name, pluginIndex, templateIndex}, &web.Page.Data().Groups); err != nil {
+				panic(err)
+			}
+			// TODO: regen menu
+			o.GroupList.RemoveAll()
+			o.regenGroups()
+		}
+	}()
 }

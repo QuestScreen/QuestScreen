@@ -42,10 +42,18 @@ type Module struct {
 	Path string `json:"path"`
 }
 
+// TemplateDescr describes an available template for a system, group or scene.
+type TemplateDescr struct {
+	Name, Description string
+}
+
 // Plugin describes a loaded plugin.
 type Plugin struct {
-	Name string `json:"name"`
-	ID   string `json:"id"`
+	Name            string `json:"name"`
+	ID              string `json:"id"`
+	SystemTemplates []TemplateDescr
+	GroupTemplates  []TemplateDescr
+	SceneTemplates  []TemplateDescr
 }
 
 // Data contains all systems and groups and is used for the server's "/data"

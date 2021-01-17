@@ -89,7 +89,24 @@ func (c Communication) plugins(a app.App) []shared.Plugin {
 	ret := make([]shared.Plugin, 0, a.NumPlugins())
 	for i := 0; i < a.NumPlugins(); i++ {
 		plugin := a.Plugin(i)
-		ret = append(ret, shared.Plugin{Name: plugin.Name, ID: a.PluginID(i)})
+		descr := shared.Plugin{Name: plugin.Name, ID: a.PluginID(i)}
+		for _, t := range plugin.SystemTemplates {
+			descr.SystemTemplates = append(descr.SystemTemplates, shared.TemplateDescr{
+				Name: t.Name, Description: t.Name,
+			})
+		}
+		for _, t := range plugin.GroupTemplates {
+			descr.GroupTemplates = append(descr.GroupTemplates, shared.TemplateDescr{
+				Name: t.Name, Description: t.Description,
+			})
+		}
+		for _, t := range plugin.SceneTemplates {
+			descr.SceneTemplates = append(descr.SceneTemplates, shared.TemplateDescr{
+				Name: t.Name, Description: t.Description,
+			})
+		}
+
+		ret = append(ret, descr)
 	}
 
 	return ret
