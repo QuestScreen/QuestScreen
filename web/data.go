@@ -12,7 +12,7 @@ type MappedModule struct {
 	Name, ID    string
 }
 
-// StaticData is loaded at app start and is constant everafter.
+// StaticData is loaded when booting and is constant everafter.
 var StaticData struct {
 	Fonts            []string
 	Textures         []string
@@ -23,3 +23,6 @@ var StaticData struct {
 	AppVersion       string
 	Modules          []MappedModule
 }
+
+// Data is loaded when booting and updated according to user actions.
+var Data shared.Data

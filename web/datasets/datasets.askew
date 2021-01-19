@@ -2,7 +2,7 @@
   "github.com/QuestScreen/QuestScreen/web/controls"
 </a:import>
 
-<a:component name="ListItem" params="name string, removable bool, index int">
+<a:component name="listItem" params="name string, removable bool, index int">
 	<a:controller>delete(index int)</a:controller>
 	<div class="data-list-item">
 		<span class="data-list-text" a:assign="prop(textContent) = name"></span>
@@ -15,7 +15,7 @@
 	</div>
 </a:component>
 
-<a:component name="Base" init oninclude>
+<a:component name="base" init>
 	<a:data>
 		sc systemItemsController
 		gc groupItemsController
@@ -28,7 +28,7 @@
 		<section class="data-sheet">
 			<h4 class="data-sheet-header"><i class="fas fa-book"></i> Systems</h4>
 			<div class="data-list systems">
-				<a:embed name="SystemList" type="ListItem" list></a:embed>
+				<a:embed name="SystemList" type="listItem" list></a:embed>
 				<a class="data-list-link create" a:capture="click:addSystem() {preventDefault}">
 					<i class="fas fa-plus-square"></i>
 				</a>
@@ -37,7 +37,7 @@
 		<section class="data-sheet">
 			<h4 class="data-sheet-header"><i class="fas fa-users"></i> Groups</h4>
 			<div class="data-list groups">
-				<a:embed name="GroupList" type="ListItem" list></a:embed>
+				<a:embed name="GroupList" type="listItem" list></a:embed>
 				<a class="data-list-link create" a:capture="click:addGroup() {preventDefault}">
 					<i class="fas fa-plus-square"></i>
 				</a>
@@ -68,13 +68,13 @@
 	</section>
 </a:macro>
 
-<a:component name="System">
+<a:component name="system">
 	<article>
 		<a:include name="dataSheet"></a:include>
 	</article>
 </a:component>
 
-<a:component name="EditableText" params="title string">
+<a:component name="editableText" params="title string">
 	<a:handlers>setEdited()</a:handlers>
 	<div class="pure-control-group">
 		<label a:assign="prop(textContent) = title"></label>
@@ -85,13 +85,13 @@
 	</div>
 </a:component>
 
-<a:component name="Hero">
+<a:component name="hero">
 	<section class="data-sheet">
 		<h4 class="data-sheet-header"><i class="fas fa-mask"></i> Hero</h4>
 		<form class="pure-form pure-form-aligned">
 			<fieldset>
-				<a:embed name="Name" type="EditableText" args="`Name`"></a:embed>
-				<a:embed name="Description" type="EditableText" args="`Description`"></a:embed>
+				<a:embed name="Name" type="editableText" args="`Name`"></a:embed>
+				<a:embed name="Description" type="editableText" args="`Description`"></a:embed>
 				<div class="pure-controls">
 					<button class="pure-button delete"><i class="fas fa-trash-alt"></i> Delete</button>
 					<span class="hfill"></span>
@@ -103,7 +103,7 @@
 	</section>
 </a:component>
 
-<a:component name="Group">
+<a:component name="group">
 	<article>
 		<a:include name="dataSheet">
 			<div class="pure-control-group" a:slot="value">
@@ -115,18 +115,18 @@
 		<section class="data-sheet">
 			<h4 class="data-sheet-header"><i class="fas fa-image"></i> Scenes</h4>
 			<div class="data-list scenes">
-				<a:embed name="Scenes" type="ListItem" list></a:embed>
+				<a:embed name="Scenes" type="listItem" list></a:embed>
 				<a class="data-list-link create">
 					<i class="fas fa-plus-square"></i>
 				</a>
 			</div>
 		</section>
 		<h3>Heroes</h3>
-		<a:embed name="Heroes" type="Hero" list></a:embed>
+		<a:embed name="Heroes" type="hero" list></a:embed>
 	</article>
 </a:component>
 
-<a:component name="SceneModule" params="pluginName string, moduleName string">
+<a:component name="sceneModule" params="pluginName string, moduleName string">
 	<div class="data-list-item">
 		<span class="data-list-text">
 			<span a:assign="prop(textContent) = pluginName"></span>
@@ -140,7 +140,7 @@
 	</div>
 </a:component>
 
-<a:component name="Scene">
+<a:component name="scene">
 	<article>
 		<a:include name="dataSheet">
 			<div class="pure-control-group" a:slot="value">

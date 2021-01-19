@@ -26,19 +26,15 @@
 		<meta name="theme-color" content="#ffffff">
 	</head>
 	<body>
-		<a:embed name="Header" type="HeaderContainer"></a:embed>
-
-		<a:embed name="TitleContent" type="TitleBar"></a:embed>
+		<a:embed name="top" type="topBar"></a:embed>
 
 		<div id="page">
 			<div id="pagemenu-wrapper">
-				<nav id="pagemenu" class="pure-menu">
-					<a:embed name="Menu" optional></a:embed>
-				</nav>
+				<a:embed name="sidebar" type="sidebarType"></a:embed>
 			</div>
 
 			<main>
-				<a:embed name="Page" optional></a:embed>
+				<a:embed name="content" optional></a:embed>
 			</main>
 
 			<a:embed name="Popup" type="controls.PopupBase"></a:embed>

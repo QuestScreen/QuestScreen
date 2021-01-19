@@ -348,6 +348,10 @@ nav#pagemenu .submenu-parent-name {
 	display: none;
 }
 
+nav#pagemenu .menu-disabled {
+	display: none;
+}
+
 @media screen and (max-width: 35.5em) {
 	div#title-buttons {
 		position: static;

@@ -9,106 +9,92 @@ import (
 	api "github.com/QuestScreen/api/web/server"
 )
 
-func (o *EditableText) setEdited() {
+func (o *editableText) setEdited() {
 	o.Edited.Set(true)
 }
 
-func (o *ListItem) clicked(index int) {
+func (o *listItem) clicked(index int) {
 }
 
 type systemItemsController struct {
-	*Base
+	*base
 }
 
 func (c *systemItemsController) delete(index int) {
 	go func() {
-		data := web.Page.Data()
-		system := data.Systems[index]
+		system := web.Data.Systems[index]
 		if ok := site.Popup.Confirm("Really delete system " + system.Name + "?"); ok {
 			if err := server.Fetch(
-				api.Delete, "data/systems/"+system.ID, nil, &data.Systems); err != nil {
+				api.Delete, "data/systems/"+system.ID, nil, &web.Data.Systems); err != nil {
 				panic(err)
 			}
-			c.SystemList.RemoveAll()
-			c.regenSystems()
-			// TODO: regen menu
+			site.Refresh("")
 		}
 	}()
 }
 
 type groupItemsController struct {
-	*Base
+	*base
 }
 
 func (c *groupItemsController) delete(index int) {
 	go func() {
-		data := web.Page.Data()
-		group := data.Groups[index]
+		group := web.Data.Groups[index]
 		if ok := site.Popup.Confirm("Really delete group " + group.Name + "?"); ok {
-			if err := server.Fetch(api.Delete, "data/groups/"+group.ID, nil, &data.Groups); err != nil {
+			if err := server.Fetch(api.Delete, "data/groups/"+group.ID, nil, &web.Data.Groups); err != nil {
 				panic(err)
 			}
-			c.GroupList.RemoveAll()
-			c.regenGroups()
-			// TODO: regen menu
+			site.Refresh("")
 		}
 	}()
 }
 
-func (o *Base) regenSystems() {
-	for index, system := range web.Page.Data().Systems {
-		item := NewListItem(system.Name,
+func (o *base) regenSystems() {
+	for index, system := range web.Data.Systems {
+		item := newListItem(system.Name,
 			index >= web.StaticData.NumPluginSystems, index)
 		o.SystemList.Append(item)
 	}
 }
 
-func (o *Base) regenGroups() {
-	for index, group := range web.Page.Data().Groups {
-		o.GroupList.Append(NewListItem(group.Name, true, index))
+func (o *base) regenGroups() {
+	for index, group := range web.Data.Groups {
+		o.GroupList.Append(newListItem(group.Name, true, index))
 	}
 }
 
-func (o *Base) init() {
-	o.sc.Base = o
-	o.gc.Base = o
+func (o *base) init() {
+	o.sc.base = o
+	o.gc.base = o
 	o.SystemList.DefaultController = &o.sc
 	o.GroupList.DefaultController = &o.gc
 	o.regenGroups()
 	o.regenSystems()
 }
 
-func (o *Base) onInclude() {
-	web.Page.SetTitle("Dataset Base", "", web.BackButtonBack)
-}
-
-func (o *Base) addSystem() {
+func (o *base) addSystem() {
 	go func() {
 		name := site.Popup.TextInput("Create system", "Name:")
 		if name != nil {
 			if err := server.Fetch(api.Post, "data/systems", *name,
-				&web.Page.Data().Systems); err != nil {
+				&web.Data.Systems); err != nil {
 				panic(err)
 			}
-			// TODO: regen menu
-			o.SystemList.RemoveAll()
-			o.regenSystems()
+			site.Refresh("")
 		}
 	}()
 }
 
-func (o *Base) addGroup() {
+func (o *base) addGroup() {
 	go func() {
 		pluginIndex, templateIndex, name :=
 			site.Popup.TemplateSelect(controls.GroupTemplate)
 		if pluginIndex != -1 {
 			if err := server.Fetch(api.Post, "data/groups", shared.GroupCreationRequest{
-				name, pluginIndex, templateIndex}, &web.Page.Data().Groups); err != nil {
+				name, pluginIndex, templateIndex}, &web.Data.Groups); err != nil {
 				panic(err)
 			}
-			// TODO: regen menu
-			o.GroupList.RemoveAll()
-			o.regenGroups()
+			site.Refresh("")
 		}
 	}()
 }

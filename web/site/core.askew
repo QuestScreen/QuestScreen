@@ -1,5 +1,11 @@
-<a:component name="HeaderContainer">
-	<a:controller>ShowDatasets()</a:controller>
+<a:component name="topBar">
+	<a:controller>
+		backButtonClicked()
+		showDatasets()
+	</a:controller>
+	<a:handlers>
+		headerToggleClicked(target js.Value)
+	</a:handlers>
 	<header a:bindings="style(height):height, style(paddingBottom):paddingBottom, style(overflow):overflow, prop(offsetWidth):offsetWidth, prop(offsetHeight):(offsetHeight int), self():Self">
 		<h1 class="pure-u-1">QuestScreen</h1>
 		<nav id="mainmenu" class="pure-g" a:bindings="class(disabled):Disabled">
@@ -23,24 +29,15 @@
 				<ul class="pure-menu-list">
 					<li class="pure-menu-item">
 						<a id="show-datasets" class="pure-menu-link" href="#"
-								a:capture="click:ShowDatasets() {preventDefault}"><i class="fas fa-database"></i> Datasets</a>
+								a:capture="click:showDatasets() {preventDefault}"><i class="fas fa-database"></i> Datasets</a>
 					</li>
 				</ul>
 			</div>
 		</nav>
 	</header>
-</a:component>
-
-<a:component name="TitleBar">
-	<a:controller>
-		BackButtonClicked()
-	</a:controller>
-	<a:handlers>
-		headerToggleClicked(target js.Value)
-	</a:handlers>
 	<h2 id="title-wrapper">
 		<div id="title-buttons">
-			<a id="back-button" class="empty" href="#" a:capture="click:BackButtonClicked"
+			<a id="back-button" class="empty" href="#" a:capture="click:backButtonClicked"
 					a:bindings="class(empty):BackButtonEmpty"><i class="fas fa-angle-left"></i>
 				<span id="back-button-caption" a:bindings="prop(textContent):BackButtonCaption"></span></a>
 			<a id="header-toggle"
@@ -61,25 +58,30 @@
 	</li>
 </a:component>
 
-<a:component name="PageMenuEntry" params="name string, parent string">
+<a:component name="pageMenuEntry" params="name string, parent string, view View" init>
+	<a:data>
+		name, parent string
+		view View
+	</a:data>
 	<a:handlers>clicked()</a:handlers>
-	<li class="pure-menu-item">
-		<a class="pure-menu-link" href="#" a:assign="class(submenu-link)= parent != ``" a:capture="click:clicked"><span class="submenu-parent-name"> <a:text expr="parent"></a:text> –</span> <a:text expr="name"></a:text><i class="fas fa-sort"></i></a>
+	<li class="pure-menu-item" a:bindings="class(pure-menu-active):active">
+		<a class="pure-menu-link" href="#" a:assign="class(submenu-link)= parent != ``" a:capture="click:clicked"><span class="submenu-parent-name" a:if="parent != ``"> <a:text expr="parent"></a:text> –</span> <a:text expr="name"></a:text><i class="fas fa-sort"></i></a>
 	</li>
 </a:component>
 
-<a:component name="DataMenu">
-	<ul class="pure-menu-list">
-		<a:embed name="Base" type="PageMenuEntry" args="`Base`, ``"></a:embed>
-		<li class="pure-menu-heading config-menu-system-heading">
-			<!-- this is an <a> so that it can include padding as the surrounding <li>
-						needs `padding: 0;` to support hiding responsively. -->
-			<a class="pure-menu-dummy-link">Systems</a>
-		</li>
-		<a:embed name="Systems" list type="PageMenuEntry"></a:embed>
-		<li class="pure-menu-heading config-menu-group-heading">
-			<a class="pure-menu-dummy-link">Groups</a>
-		</li>
-		<a:embed name="Groups" list type="PageMenuEntry"></a:embed>
-	</ul>
+<a:component name="sidebarColl" params="title string">
+	<li class="pure-menu-heading" a:if="title != ``">
+		<!-- this is an <a> so that it can include padding as the surrounding <li>
+				 needs `padding: 0;` to support hiding responsively. -->
+		<a class="pure-menu-dummy-link" a:assign="prop(textContent)=title"></a>
+	</li>
+	<a:embed name="items" type="pageMenuEntry" list></a:embed>
+</a:component>
+
+<a:component name="sidebarType">
+	<nav id="pagemenu" class="pure-menu" a:bindings="class(pagemenu-expanded):expanded">
+		<ul class="pure-menu-list" a:bindings="class(menu-disabled):Disabled">
+			<a:embed name="items" type="sidebarColl" list></a:embed>
+		</ul>
+	</nav>
 </a:component>

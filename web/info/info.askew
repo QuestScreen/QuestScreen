@@ -34,7 +34,7 @@
 	</section>
 </a:component>
 
-<a:component name="Page" params="version string" oninclude>
+<a:component name="viewContent" params="version string" init>
 	<section class="data-sheet">
 		<h4 class="data-sheet-header"><i class="fas fa-film"></i> Loaded Modules</h4>
 		<table class="module-list">

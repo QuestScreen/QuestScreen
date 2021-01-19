@@ -2,7 +2,8 @@ package main
 
 import (
 	"github.com/QuestScreen/QuestScreen/web"
-	"github.com/QuestScreen/QuestScreen/web/app"
+	"github.com/QuestScreen/QuestScreen/web/datasets"
+	"github.com/QuestScreen/QuestScreen/web/info"
 	"github.com/QuestScreen/QuestScreen/web/server"
 	"github.com/QuestScreen/QuestScreen/web/site"
 	api "github.com/QuestScreen/api/web/server"
@@ -19,9 +20,10 @@ func main() {
 	web.StaticData.Plugins = loader.tmp.Plugins
 	web.StaticData.FontDir = loader.tmp.FontDir
 	web.StaticData.Messages = loader.tmp.Messages
+	headerDisabled := false
 	for _, msg := range web.StaticData.Messages {
 		if msg.ModuleIndex == -1 {
-			site.Header.Disabled.Set(true)
+			headerDisabled = true
 			break
 		}
 	}
@@ -37,10 +39,11 @@ func main() {
 		}
 	}
 
-	app := &app.App{}
-	app.Init()
-	web.Page = app
-	site.TitleContent.Controller = app
-	site.Header.Controller = app
-	app.ShowInfo()
+	if err := server.Fetch(api.Get, "/data", nil, &web.Data); err != nil {
+		panic(err)
+	}
+
+	datasets.Register()
+	info.Register()
+	site.Boot(headerDisabled)
 }
