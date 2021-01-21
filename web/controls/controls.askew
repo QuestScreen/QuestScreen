@@ -21,13 +21,10 @@
   </li>
 </a:component>
 
-<a:component name="Dropdown" init params="kind SelectorKind">
+<a:component name="Dropdown" params="var kind SelectorKind">
   <a:controller>
     ItemClicked(index int) bool
   </a:controller>
-  <a:data>
-    kind SelectorKind
-  </a:data>
   <div class="pure-menu pure-menu-horizontal dropdown-container">
     <ul class="pure-menu-list">
       <li class="pure-menu-item pure-menu-has-children dropdown-selector">
@@ -55,7 +52,7 @@
 		<form id="popup" class="pure-form" a:capture="submit:confirm() {preventDefault}">
 			<h3 a:bindings="prop(textContent):Title"></h3>
 			<section><a:embed name="Content" optional></a:embed></section>
-			<button class="pure-button" a:bindings="prop(textContent):CancelCaption"
+			<button type="button" class="pure-button" a:bindings="prop(textContent):CancelCaption"
 					a:capture="click:cancel() {preventDefault}"></button>
 			<button type="submit" class="pure-button pure-button-primary"
 					a:bindings="prop(textContent):ConfirmCaption"></button>

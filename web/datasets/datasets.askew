@@ -49,12 +49,13 @@
 <a:macro name="dataSheet">
 	<section class="data-sheet">
 		<h4 class="data-sheet-header"><i class="fas fa-file-alt"></i> General</h4>
-		<form class="pure-form pure-form-aligned">
+		<form class="pure-form pure-form-aligned"
+				a:capture="submit:setName(name=form(Name)) {preventDefault}">
 			<fieldset>
 				<div class="pure-control-group">
-						<label>Name</label>
-						<input type="text" name="name" required />
-						<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
+					<label for="Name">Name:</label>
+					<input type="text" name="Name" required a:assign="prop(value)=name" />
+					<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
 				</div>
 				<a:slot name="value"></a:slot>
 
@@ -68,7 +69,10 @@
 	</section>
 </a:macro>
 
-<a:component name="system">
+<a:component name="system" params="var id string, name string">
+	<a:handlers>
+		setName(name string)
+	</a:handlers>
 	<article>
 		<a:include name="dataSheet"></a:include>
 	</article>
@@ -103,7 +107,8 @@
 	</section>
 </a:component>
 
-<a:component name="group">
+<a:component name="group" params="var id string, name string">
+	<a:handlers>setName(name string)</a:handlers>
 	<article>
 		<a:include name="dataSheet">
 			<div class="pure-control-group" a:slot="value">
@@ -140,7 +145,8 @@
 	</div>
 </a:component>
 
-<a:component name="scene">
+<a:component name="scene" params="var groupID string, var sceneID string, name string">
+	<a:handlers>setName(name string)</a:handlers>
 	<article>
 		<a:include name="dataSheet">
 			<div class="pure-control-group" a:slot="value">

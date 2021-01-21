@@ -51,7 +51,8 @@ func (sv *SystemView) IsChild() bool {
 
 // GenerateUI implements site.View
 func (sv *SystemView) GenerateUI() runtime.Component {
-	return newSystem()
+	s := &web.Data.Systems[sv.systemIndex]
+	return newSystem(s.ID, s.Name)
 }
 
 // GroupView is the view of the selected group.
@@ -76,7 +77,8 @@ func (gv *GroupView) IsChild() bool {
 
 // GenerateUI implements site.View
 func (gv *GroupView) GenerateUI() runtime.Component {
-	return newGroup()
+	g := &web.Data.Groups[gv.groupIndex]
+	return newGroup(g.ID, g.Name)
 }
 
 // SceneView is the view of the selected scene.
@@ -101,7 +103,9 @@ func (sv *SceneView) IsChild() bool {
 
 // GenerateUI implements site.View.
 func (sv *SceneView) GenerateUI() runtime.Component {
-	return newScene()
+	g := &web.Data.Groups[sv.groupIndex]
+	s := &g.Scenes[sv.sceneIndex]
+	return newScene(g.ID, s.ID, s.Name)
 }
 
 // Page is the controller for the Datasets page and implements site.Page.

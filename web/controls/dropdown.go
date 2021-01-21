@@ -10,10 +10,6 @@ const (
 	SelectMultiple
 )
 
-func (d *Dropdown) init(kind SelectorKind) {
-	d.kind = kind
-}
-
 func (d *Dropdown) click(index int) {
 	if d.Controller != nil {
 		newVal := d.Controller.ItemClicked(index)

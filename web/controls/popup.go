@@ -138,7 +138,8 @@ func (tsc *templateSelectController) needsDoShow() bool {
 
 func (tsc *templateSelectController) doShow() {
 	tsc.Expanded.Set(true)
-	for _, item := range tsc.Templates.items {
+	for index := 0; index < tsc.Templates.Len(); index++ {
+		item := tsc.Templates.Item(index)
 		// calculate and explicitly set the height of the item based on the height
 		// of the container which can vary due to its variable content.
 		// this is required to make our expand/collapse animation work.
@@ -147,7 +148,7 @@ func (tsc *templateSelectController) doShow() {
 		item.Height.Set("calc(" + item.OffsetHeight.Get() + "px + 1em)")
 	}
 	// select first item
-	tsc.Templates.items[0].click()
+	tsc.Templates.Item(0).click()
 	tsc.Expanded.Set(false)
 }
 
@@ -160,8 +161,8 @@ func (o *popupFromTemplate) choose(pluginIndex int, templateIndex int, active bo
 	if active {
 		o.Expanded.Set(!o.Expanded.Get())
 	} else {
-		for _, item := range o.Templates.items {
-			item.Active.Set(false)
+		for index := 0; index < o.Templates.Len(); index++ {
+			o.Templates.Item(index).Active.Set(false)
 		}
 		o.Expanded.Set(false)
 		o.selectedPlugin = pluginIndex

@@ -98,3 +98,28 @@ func (o *base) addGroup() {
 		}
 	}()
 }
+
+func (o *system) setName(name string) {
+	go func() {
+		if err := server.Fetch(api.Put, "data/systems/"+o.id,
+			shared.SystemModificationRequest{Name: name},
+			&web.Data.Systems); err != nil {
+			panic(err)
+		}
+		site.Refresh("s-" + o.id)
+	}()
+}
+
+func (o *group) setName(name string) {
+	go func() {
+		if err := server.Fetch(api.Put, "data/groups/"+o.id, name,
+			&web.Data.Groups); err != nil {
+			panic(err)
+		}
+		site.Refresh("g-" + o.id)
+	}()
+}
+
+func (o *scene) setName(name string) {
+	panic("not implemented")
+}
