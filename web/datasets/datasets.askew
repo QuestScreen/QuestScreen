@@ -1,5 +1,6 @@
 <a:import>
   "github.com/QuestScreen/QuestScreen/web/controls"
+	"github.com/QuestScreen/QuestScreen/shared"
 </a:import>
 
 <a:component name="listItem" params="name string, removable bool, index int">
@@ -50,11 +51,11 @@
 	<section class="data-sheet">
 		<h4 class="data-sheet-header"><i class="fas fa-file-alt"></i> General</h4>
 		<form class="pure-form pure-form-aligned"
-				a:capture="submit:setName(name=form(Name)) {preventDefault}">
+				a:capture="reset:reset() {preventDefault}, submit:commit(name=form(Name)) {preventDefault}">
 			<fieldset>
-				<div class="pure-control-group">
+				<div class="pure-control-group" a:bindings="class(edited):nameEdited">
 					<label for="Name">Name:</label>
-					<input type="text" name="Name" required a:assign="prop(value)=name" />
+					<input type="text" name="Name" required a:bindings="prop(value):nameField" a:capture="input:editName()"/>
 					<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
 				</div>
 				<a:slot name="value"></a:slot>
@@ -69,9 +70,11 @@
 	</section>
 </a:macro>
 
-<a:component name="system" params="var id string, name string">
+<a:component name="system" params="var data *shared.System" init>
 	<a:handlers>
-		setName(name string)
+		commit(name string)
+		editName()
+		reset()
 	</a:handlers>
 	<article>
 		<a:include name="dataSheet"></a:include>
@@ -89,7 +92,7 @@
 	</div>
 </a:component>
 
-<a:component name="hero">
+<a:component name="hero" params="var data *shared.Hero" init>
 	<section class="data-sheet">
 		<h4 class="data-sheet-header"><i class="fas fa-mask"></i> Hero</h4>
 		<form class="pure-form pure-form-aligned">
@@ -107,13 +110,17 @@
 	</section>
 </a:component>
 
-<a:component name="group" params="var id string, name string">
-	<a:handlers>setName(name string)</a:handlers>
+<a:component name="group" params="var data *shared.Group" init>
+	<a:handlers>
+		commit(name string)
+		editName()
+		reset()
+	</a:handlers>
 	<article>
 		<a:include name="dataSheet">
-			<div class="pure-control-group" a:slot="value">
+			<div class="pure-control-group" a:slot="value" a:bindings="class(edited):systemEdited">
 				<label>System</label>
-				<a:embed name="Systems" type="controls.Dropdown" args="controls.SelectSingle"></a:embed>
+				<a:embed name="Systems" type="controls.Dropdown" args="controls.SelectAtMostOne, controls.NoIndicator" control></a:embed>
 				<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
 			</div>
 		</a:include>
@@ -145,8 +152,12 @@
 	</div>
 </a:component>
 
-<a:component name="scene" params="var groupID string, var sceneID string, name string">
-	<a:handlers>setName(name string)</a:handlers>
+<a:component name="scene" params="var groupID string, var sceneID string, var name string" init>
+	<a:handlers>
+		commit(name string)
+		editName()
+		reset()
+	</a:handlers>
 	<article>
 		<a:include name="dataSheet">
 			<div class="pure-control-group" a:slot="value">

@@ -7,33 +7,42 @@
   </label>
 </a:component>
 
-<a:component name="DropdownItem" params="showVisible bool, itemName string, itemIndex int">
+<a:component name="dropdownItem" params="indicator IndicatorKind, emph bool, itemName string, itemIndex int">
   <a:controller>
-    click(index int)
+    Select(index int)
   </a:controller>
   <li class="pure-menu-item" a:bindings="class(pure-menu-selected):Selected">
-    <a href="#" class="pure-menu-link" a:assign="data(index)=itemIndex"
-        a:capture="click:click{preventDefault}">
-      <i a:if="showVisible" class="fas fa-eye dropdown-visible"></i>
-      <i a:if="!showVisible" class="fas fa-eye-slash dropdown-invisible"></i>
+    <a href="#" class="pure-menu-link" a:assign="data(index)=itemIndex, class(emph)=emph"
+        a:capture="click:Select{preventDefault}">
+      <i a:if="indicator == VisibilityIndicator" class="fas fa-eye dropdown-visible"></i>
+      <i a:if="indicator == InvisibilityIndicator" class="fas fa-eye-slash dropdown-invisible"></i>
       <span a:assign="prop(textContent)=itemName" a:bindings="prop(textContent):caption"></span>
     </a>
   </li>
 </a:component>
 
-<a:component name="Dropdown" params="var kind SelectorKind">
+<a:component name="Dropdown" params="var kind SelectorKind, var indicator IndicatorKind" init>
   <a:controller>
     ItemClicked(index int) bool
   </a:controller>
+	<a:data>
+		CurIndex int
+	</a:data>
+	<a:handlers>
+		click()
+	</a:handlers>
   <div class="pure-menu pure-menu-horizontal dropdown-container">
     <ul class="pure-menu-list">
-      <li class="pure-menu-item pure-menu-has-children dropdown-selector">
-        <a href="#" class="pure-menu-link">
+      <li class="pure-menu-item pure-menu-has-children dropdown-selector"
+					a:bindings="class(pure-menu-active):opened">
+        <a href="#" class="pure-menu-link"
+						a:capture="click:click() {preventDefault}"
+						a:bindings="class(pure-menu-disabled):Disabled, self():link">
           <span a:bindings="prop(textContent):caption"></span>
           <i class="fas fa-caret-down"></i>
         </a>
-        <ul class="pure-menu-children">
-          <a:embed name="Items" list type="DropdownItem" control></a:embed>
+        <ul class="pure-menu-children" a:bindings="style(height):menuHeight">
+          <a:embed name="items" list type="dropdownItem" control></a:embed>
         </ul>
       </li>
     </ul>

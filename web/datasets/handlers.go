@@ -99,27 +99,87 @@ func (o *base) addGroup() {
 	}()
 }
 
-func (o *system) setName(name string) {
+func (o *system) init(data *shared.System) {
+	o.reset()
+}
+
+func (o *system) editName() {
+	o.nameEdited.Set(true)
+}
+
+func (o *system) reset() {
+	o.nameField.Set(o.data.Name)
+	o.nameEdited.Set(false)
+}
+
+func (o *system) commit(name string) {
 	go func() {
-		if err := server.Fetch(api.Put, "data/systems/"+o.id,
+		if err := server.Fetch(api.Put, "data/systems/"+o.data.ID,
 			shared.SystemModificationRequest{Name: name},
 			&web.Data.Systems); err != nil {
 			panic(err)
 		}
-		site.Refresh("s-" + o.id)
+		site.Refresh("s-" + o.data.ID)
 	}()
 }
 
-func (o *group) setName(name string) {
+func (o *hero) init(data *shared.Hero) {
+	o.Name.Value.Set(data.Name)
+	o.Description.Value.Set(data.Description)
+}
+
+func (o *group) init(data *shared.Group) {
+	for _, s := range web.Data.Systems {
+		o.Systems.AddItem(s.Name, false)
+	}
+	for _, s := range data.Scenes {
+		o.Scenes.Append(newListItem(s.Name, true, o.Scenes.Len()))
+	}
+	for i := range data.Heroes {
+		o.Heroes.Append(newHero(&data.Heroes[i]))
+	}
+	o.reset()
+}
+
+func (o *group) editName() {
+	o.nameEdited.Set(true)
+}
+
+func (o *group) reset() {
+	o.nameField.Set(o.data.Name)
+	o.Systems.Select(o.data.SystemIndex)
+	o.nameEdited.Set(false)
+	o.systemEdited.Set(false)
+}
+
+func (o *group) commit(name string) {
 	go func() {
-		if err := server.Fetch(api.Put, "data/groups/"+o.id, name,
+		if err := server.Fetch(api.Put, "data/groups/"+o.data.ID, name,
 			&web.Data.Groups); err != nil {
 			panic(err)
 		}
-		site.Refresh("g-" + o.id)
+		site.Refresh("g-" + o.data.ID)
 	}()
 }
 
-func (o *scene) setName(name string) {
+func (o *group) ItemClicked(index int) bool {
+	o.systemEdited.Set(true)
+	return true
+}
+
+func (o *scene) init(groupID string, sceneID string, name string) {
+	o.reset()
+}
+
+func (o *scene) editName() {
+	o.nameEdited.Set(true)
+}
+
+func (o *scene) reset() {
+	o.nameField.Set(o.name)
+	o.nameEdited.Set(false)
+}
+
+func (o *scene) commit(name string) {
 	panic("not implemented")
 }

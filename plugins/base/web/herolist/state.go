@@ -3,8 +3,6 @@ package herolist
 import (
 	"encoding/json"
 
-	"github.com/QuestScreen/QuestScreen/web/controls"
-
 	"github.com/flyx/askew/runtime"
 
 	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
@@ -32,9 +30,7 @@ func (s *State) UI(srv server.State) runtime.Component {
 	heroes := s.Heroes()
 	for i := 0; i < heroes.NumHeroes(); i++ {
 		hero := heroes.Hero(i)
-		item := controls.NewDropdownItem(false, hero.Name(), i)
-		item.Selected.Set(s.data.Heroes[i])
-		ret.Heroes.Items.Append(item)
+		ret.Heroes.AddItem(hero.Name(), s.data.Heroes[i])
 	}
 	ret.Controller = s
 	return ret

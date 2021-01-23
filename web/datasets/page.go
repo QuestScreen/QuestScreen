@@ -52,7 +52,7 @@ func (sv *SystemView) IsChild() bool {
 // GenerateUI implements site.View
 func (sv *SystemView) GenerateUI() runtime.Component {
 	s := &web.Data.Systems[sv.systemIndex]
-	return newSystem(s.ID, s.Name)
+	return newSystem(s)
 }
 
 // GroupView is the view of the selected group.
@@ -78,7 +78,7 @@ func (gv *GroupView) IsChild() bool {
 // GenerateUI implements site.View
 func (gv *GroupView) GenerateUI() runtime.Component {
 	g := &web.Data.Groups[gv.groupIndex]
-	return newGroup(g.ID, g.Name)
+	return newGroup(g)
 }
 
 // SceneView is the view of the selected scene.

@@ -105,6 +105,6 @@
 	</table>
 	<div class="config-item-fragment">
 		<label for="texture">Texture</label>
-		<a:embed name="Texture" type="controls.Dropdown" args="controls.SelectSingle"></a:embed>
+		<a:embed name="Texture" type="controls.Dropdown" args="controls.SelectSingle, controls.NoIndicator"></a:embed>
 	</div>
 </a:component>
