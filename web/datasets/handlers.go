@@ -10,7 +10,12 @@ import (
 )
 
 func (o *editableText) setEdited() {
-	o.Edited.Set(true)
+	o.edited.Set(true)
+}
+
+func (o *editableText) ResetTo(value string) {
+	o.Value.Set(value)
+	o.edited.Set(false)
 }
 
 func (o *listItem) clicked(index int) {
@@ -103,19 +108,14 @@ func (o *system) init(data *shared.System) {
 	o.reset()
 }
 
-func (o *system) editName() {
-	o.nameEdited.Set(true)
-}
-
 func (o *system) reset() {
-	o.nameField.Set(o.data.Name)
-	o.nameEdited.Set(false)
+	o.name.ResetTo(o.data.Name)
 }
 
-func (o *system) commit(name string) {
+func (o *system) commit() {
 	go func() {
 		if err := server.Fetch(api.Put, "data/systems/"+o.data.ID,
-			shared.SystemModificationRequest{Name: name},
+			shared.SystemModificationRequest{Name: o.name.Value.Get()},
 			&web.Data.Systems); err != nil {
 			panic(err)
 		}
@@ -141,20 +141,15 @@ func (o *group) init(data *shared.Group) {
 	o.reset()
 }
 
-func (o *group) editName() {
-	o.nameEdited.Set(true)
-}
-
 func (o *group) reset() {
-	o.nameField.Set(o.data.Name)
-	o.Systems.Select(o.data.SystemIndex)
-	o.nameEdited.Set(false)
+	o.name.ResetTo(o.data.Name)
+	o.Systems.SetItem(o.data.SystemIndex, true)
 	o.systemEdited.Set(false)
 }
 
-func (o *group) commit(name string) {
+func (o *group) commit() {
 	go func() {
-		if err := server.Fetch(api.Put, "data/groups/"+o.data.ID, name,
+		if err := server.Fetch(api.Put, "data/groups/"+o.data.ID, o.name.Value.Get(),
 			&web.Data.Groups); err != nil {
 			panic(err)
 		}
@@ -167,19 +162,14 @@ func (o *group) ItemClicked(index int) bool {
 	return true
 }
 
-func (o *scene) init(groupID string, sceneID string, name string) {
+func (o *scene) init(groupID string, data *shared.Scene) {
 	o.reset()
 }
 
-func (o *scene) editName() {
-	o.nameEdited.Set(true)
-}
-
 func (o *scene) reset() {
-	o.nameField.Set(o.name)
-	o.nameEdited.Set(false)
+	o.name.ResetTo(o.data.Name)
 }
 
-func (o *scene) commit(name string) {
+func (o *scene) commit() {
 	panic("not implemented")
 }

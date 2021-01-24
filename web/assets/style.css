@@ -466,6 +466,10 @@ article {
 	cursor: not-allowed;
 }
 
+.dropdown-selector .pure-menu-link.emph {
+	font-style: italic;
+}
+
 .pure-menu-selected .dropdown-invisible {
 	visibility: hidden;
 }
@@ -609,6 +613,10 @@ input[type="range"] {
 .data-list-link.delete,
 .data-list-item.create {
 	cursor: pointer;
+}
+
+.pure-control-group .pure-form-message-inline.edited {
+	display: inline;
 }
 
 .pure-control-group:not(.edited) .pure-form-message-inline.edited,

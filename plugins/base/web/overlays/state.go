@@ -26,11 +26,9 @@ func NewState(data json.RawMessage, srv server.State, group groups.Group) (modul
 
 // UI creates a dropdown as UI for the overlays module.
 func (s *State) UI(srv server.State) runtime.Component {
-	ret := controls.NewDropdown(controls.SelectMultiple)
-	for index, item := range s.data {
-		w := controls.NewDropdownItem(true, item.Name, index)
-		w.Selected.Set(item.Selected)
-		ret.Items.Append(w)
+	ret := controls.NewDropdown(controls.SelectMultiple, controls.VisibilityIndicator)
+	for _, item := range s.data {
+		ret.AddItem(item.Name, item.Selected)
 	}
 	ret.Controller = s
 	return ret

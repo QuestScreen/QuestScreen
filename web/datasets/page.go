@@ -104,8 +104,7 @@ func (sv *SceneView) IsChild() bool {
 // GenerateUI implements site.View.
 func (sv *SceneView) GenerateUI() runtime.Component {
 	g := &web.Data.Groups[sv.groupIndex]
-	s := &g.Scenes[sv.sceneIndex]
-	return newScene(g.ID, s.ID, s.Name)
+	return newScene(g.ID, &g.Scenes[sv.sceneIndex])
 }
 
 // Page is the controller for the Datasets page and implements site.Page.

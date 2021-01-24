@@ -9,11 +9,12 @@
 
 <a:component name="dropdownItem" params="indicator IndicatorKind, emph bool, itemName string, itemIndex int">
   <a:controller>
-    Select(index int)
+    clickItem(index int)
   </a:controller>
   <li class="pure-menu-item" a:bindings="class(pure-menu-selected):Selected">
     <a href="#" class="pure-menu-link" a:assign="data(index)=itemIndex, class(emph)=emph"
-        a:capture="click:Select{preventDefault}">
+        a:capture="click:clickItem{preventDefault}">
+			<i a:if="indicator == SelectionIndicator" class="fas fa-check-circle dropdown-visible"></i>
       <i a:if="indicator == VisibilityIndicator" class="fas fa-eye dropdown-visible"></i>
       <i a:if="indicator == InvisibilityIndicator" class="fas fa-eye-slash dropdown-invisible"></i>
       <span a:assign="prop(textContent)=itemName" a:bindings="prop(textContent):caption"></span>
@@ -37,7 +38,7 @@
 					a:bindings="class(pure-menu-active):opened">
         <a href="#" class="pure-menu-link"
 						a:capture="click:click() {preventDefault}"
-						a:bindings="class(pure-menu-disabled):Disabled, self():link">
+						a:bindings="class(pure-menu-disabled):Disabled, self():link, class(emph):emphCaption">
           <span a:bindings="prop(textContent):caption"></span>
           <i class="fas fa-caret-down"></i>
         </a>

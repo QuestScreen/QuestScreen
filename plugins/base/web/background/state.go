@@ -25,7 +25,7 @@ func NewState(data json.RawMessage, srv server.State, group groups.Group) (modul
 
 // UI returns a dropdown widget.
 func (s *State) UI(srv server.State) runtime.Component {
-	ret := controls.NewDropdown(controls.SelectOne, controls.NoIndicator)
+	ret := controls.NewDropdown(controls.SelectOne, controls.SelectionIndicator)
 	for index, item := range s.data.Items {
 		ret.AddItem(item, s.data.CurIndex == index)
 	}

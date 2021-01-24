@@ -1,6 +1,10 @@
 package controls
 
-import "github.com/QuestScreen/QuestScreen/web"
+import (
+	"strconv"
+
+	"github.com/QuestScreen/QuestScreen/web"
+)
 
 // SelectorKind defines how items in a dropdown menu are selected.
 type SelectorKind int
@@ -20,9 +24,8 @@ const (
 type IndicatorKind int
 
 const (
-	// NoIndicator places no indicator in front of a dropdown item regardless of
-	// its status.
-	NoIndicator IndicatorKind = iota
+	// SelectionIndicator shows a general „selected“ icon if the item is selected.
+	SelectionIndicator IndicatorKind = iota
 	// VisibilityIndicator shows a visibility icon if the item is selected.
 	VisibilityIndicator
 	// InvisibilityIndicator shows an invisibility icon if the item is deselected.
@@ -31,7 +34,7 @@ const (
 
 func (d *Dropdown) init(kind SelectorKind, indicator IndicatorKind) {
 	if kind == SelectAtMostOne {
-		d.items.Append(newDropdownItem(NoIndicator, true, "None", -1))
+		d.items.Append(newDropdownItem(indicator, true, "None", -1))
 	}
 }
 
@@ -46,14 +49,14 @@ func (d *Dropdown) Toggle() {
 	if d.opened.Get() {
 		d.opened.Set(false)
 		if web.InSmartphoneMode() {
-			d.menuHeight.Set(string(d.items.Len()*2) + "em")
-		}
-	} else {
-		d.opened.Set(true)
-		if web.InSmartphoneMode() {
 			d.menuHeight.Set("")
 		}
 		d.link.Get().Call("blur")
+	} else {
+		d.opened.Set(true)
+		if web.InSmartphoneMode() {
+			d.menuHeight.Set(strconv.Itoa(d.items.Len()*2) + "em")
+		}
 	}
 }
 
@@ -64,9 +67,7 @@ func (d *Dropdown) Hide() {
 	}
 }
 
-// Select selects the item with the given index, as if it had been clicked.
-// will call the controller's ItemClicked method if a controller is set.
-func (d *Dropdown) Select(index int) {
+func (d *Dropdown) clickItem(index int) {
 	var newVal bool
 	if d.Controller != nil {
 		newVal = d.Controller.ItemClicked(index)
@@ -74,6 +75,14 @@ func (d *Dropdown) Select(index int) {
 		newVal = true
 	}
 
+	d.SetItem(index, newVal)
+}
+
+// SetItem sets the value of an item.
+// For single-select dropdowns, this does nothing for value == false (to
+// unselect the current item, select another one or -1 for SelectAtMostOne
+// dropdowns).
+func (d *Dropdown) SetItem(index int, value bool) {
 	var itemIndex int
 	if d.kind == SelectAtMostOne {
 		itemIndex = index + 1
@@ -83,15 +92,10 @@ func (d *Dropdown) Select(index int) {
 
 	if d.kind == SelectMultiple {
 		item := d.items.Item(itemIndex)
-		item.Selected.Set(newVal)
+		item.Selected.Set(value)
 	} else {
 		for i := 0; i < d.items.Len(); i++ {
-			if d.kind == SelectAtMostOne {
-				d.CurIndex = i - 1
-			} else {
-				d.CurIndex = i
-			}
-			if d.CurIndex == index {
+			if i == itemIndex {
 				item := d.items.Item(i)
 				item.Selected.Set(true)
 				d.caption.Set(item.caption.Get())
@@ -99,6 +103,8 @@ func (d *Dropdown) Select(index int) {
 				d.items.Item(i).Selected.Set(false)
 			}
 		}
+		d.emphCaption.Set(index == -1)
+		d.CurIndex = index
 	}
 }
 
