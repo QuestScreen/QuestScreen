@@ -85,29 +85,51 @@
 	</article>
 </a:component>
 
-<a:component name="hero" params="var data *shared.Hero" init>
-	<section class="data-sheet">
-		<h4 class="data-sheet-header"><i class="fas fa-mask"></i> Hero</h4>
-		<form class="pure-form pure-form-aligned">
-			<fieldset>
-				<a:embed name="Name" type="editableText" args="`Name:`, `Name`"></a:embed>
-				<a:embed name="Description" type="editableText" args="`Description:`, `Description`"></a:embed>
-				<div class="pure-controls">
-					<button class="pure-button delete"><i class="fas fa-trash-alt"></i> Delete</button>
-					<span class="hfill"></span>
-					<button type="reset" class="pure-button">Reset</button>
-					<button type="submit" class="pure-button pure-button-primary">Save</button>
-				</div>
-			</fieldset>
-		</form>
-	</section>
+<a:component name="heroButton" params="name string, var index int">
+	<a:controller>heroClicked(index int)</a:controller>
+	<li class="pure-menu-item" a:bindings="class(pure-menu-selected):selected">
+		<a class="pure-menu-link"
+				a:assign="data(index)=index, prop(textContent)=name"
+				a:capture="click:heroClicked {preventDefault}"></a>
+	</li>
+</a:component>
+
+<a:component name="heroForm" params="var g *shared.Group">
+	<a:data>
+		data *shared.Hero
+	</a:data>
+	<a:handlers>
+		reset()
+		commit()
+		delete()
+	</a:handlers>
+	<a:controller>
+		refreshHeroData()
+	</a:controller>
+	<form class="pure-form pure-form-aligned"
+			a:bindings="class(no-hero-selected):disabled"
+			a:capture="reset:reset {preventDefault}, submit:commit {preventDefault}">
+		<fieldset>
+			<a:embed name="Name" type="editableText" args="`Name:`, `Name`"></a:embed>
+			<a:embed name="Description" type="editableText" args="`Description:`, `Description`"></a:embed>
+			<div class="pure-controls">
+				<button class="pure-button delete"
+						a:capture="click:delete {preventDefault}"><i class="fas fa-trash-alt"></i> Delete</button>
+				<span class="hfill"></span>
+				<button type="reset" class="pure-button">Reset</button>
+				<button type="submit" class="pure-button pure-button-primary">Save</button>
+			</div>
+		</fieldset>
+		<p>Group contains no heroes</p>
+	</form>
 </a:component>
 
 <a:component name="group" params="var data *shared.Group" init>
 	<a:handlers>
 		commit()
 		reset()
-		newScene()
+		createScene()
+		createHero()
 	</a:handlers>
 	<article>
 		<a:include name="dataSheet">
@@ -122,13 +144,27 @@
 			<div class="data-list scenes">
 				<a:embed name="Scenes" type="listItem" list control></a:embed>
 				<a class="data-list-link create"
-						a:capture="click:newScene {preventDefault}">
+						a:capture="click:createScene {preventDefault}">
 					<i class="fas fa-plus-square"></i>
 				</a>
 			</div>
 		</section>
-		<h3>Heroes</h3>
-		<a:embed name="Heroes" type="hero" list></a:embed>
+		<div>
+			<section class="hero-container">
+				<h3><i class="fas fa-mask"></i> Heroes</h3>
+				<nav class="pure-menu pure-menu-horizontal">
+					<ul class="pure-menu-list">
+						<a:embed name="heroChooser" type="heroButton" list control></a:embed>
+						<li class="pure-menu-item">
+							<a class="pure-menu-link create" a:capture="click:createHero">
+								<i class="fas fa-plus-square"></i>
+							</a>
+						</li>
+					</ul>
+				</nav>
+				<a:embed name="hero" type="heroForm" args="data" control></a:embed>
+			</section>
+		</div>
 	</article>
 </a:component>
 

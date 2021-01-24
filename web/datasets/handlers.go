@@ -123,22 +123,17 @@ func (o *system) commit() {
 	}()
 }
 
-func (o *hero) init(data *shared.Hero) {
-	o.Name.Value.Set(data.Name)
-	o.Description.Value.Set(data.Description)
-}
-
 func (o *group) init(data *shared.Group) {
 	for _, s := range web.Data.Systems {
 		o.Systems.AddItem(s.Name, false)
 	}
+	o.reset()
+
 	for _, s := range data.Scenes {
 		o.Scenes.Append(newListItem(s.Name, true, o.Scenes.Len()))
 	}
-	for i := range data.Heroes {
-		o.Heroes.Append(newHero(&data.Heroes[i]))
-	}
-	o.reset()
+
+	o.refreshHeroData()
 }
 
 func (o *group) reset() {
@@ -179,7 +174,7 @@ func (o *group) delete(index int) {
 	}()
 }
 
-func (o *group) newScene() {
+func (o *group) createScene() {
 	go func() {
 		pluginIndex, templateIndex, name :=
 			site.Popup.TemplateSelect(controls.SceneTemplate)
@@ -191,6 +186,85 @@ func (o *group) newScene() {
 			}
 			site.Refresh("g-" + o.data.ID)
 		}
+	}()
+}
+
+func (o *group) createHero() {
+	go func() {
+		if name := site.Popup.TextInput("Create Hero", "Name:"); name != nil {
+			if err := server.Fetch(api.Post, "data/groups/"+o.data.ID+"/heroes",
+				*name, &o.data.Heroes); err != nil {
+				panic(err)
+			}
+			o.heroChooser.RemoveAll()
+			for i, h := range o.data.Heroes {
+				o.heroChooser.Append(newHeroButton(h.Name, i))
+			}
+			o.heroChooser.Item(o.heroChooser.Len() - 1).selected.Set(true)
+			o.hero.disabled.Set(false)
+			o.hero.loadHero(&o.data.Heroes[len(o.data.Heroes)-1])
+		}
+	}()
+}
+
+func (o *group) heroClicked(index int) {
+	o.hero.loadHero(&o.data.Heroes[index])
+	for i := 0; i < o.heroChooser.Len(); i++ {
+		o.heroChooser.Item(i).selected.Set(i == index)
+	}
+}
+
+func (o *group) refreshHeroData() {
+	var oldID string
+	if o.hero.data != nil {
+		oldID = o.hero.data.ID
+	}
+	o.heroChooser.RemoveAll()
+	o.hero.disabled.Set(len(o.data.Heroes) == 0)
+	var selectedIndex int
+	if len(o.data.Heroes) > 0 {
+		for i, h := range o.data.Heroes {
+			o.heroChooser.Append(newHeroButton(h.Name, i))
+			if h.ID == oldID {
+				selectedIndex = i
+			}
+		}
+		o.heroChooser.Item(selectedIndex).selected.Set(true)
+		o.hero.loadHero(&o.data.Heroes[selectedIndex])
+	}
+}
+
+func (o *heroForm) loadHero(data *shared.Hero) {
+	o.data = data
+	o.reset()
+}
+
+func (o *heroForm) reset() {
+	o.Name.ResetTo(o.data.Name)
+	o.Description.ResetTo(o.data.Description)
+}
+
+func (o *heroForm) commit() {
+	go func() {
+		if err := server.Fetch(api.Put,
+			"data/groups/"+o.g.ID+"/heroes/"+o.data.ID,
+			shared.HeroModificationRequest{Name: o.Name.Value.Get(),
+				Description: o.Description.Value.Get()}, &o.g.Heroes); err != nil {
+			panic(err)
+		}
+		o.Controller.refreshHeroData()
+	}()
+}
+
+func (o *heroForm) delete() {
+	go func() {
+		if err := server.Fetch(api.Delete,
+			"data/groups/"+o.g.ID+"/heroes/"+o.data.ID,
+			shared.HeroModificationRequest{Name: o.Name.Value.Get(),
+				Description: o.Description.Value.Get()}, &o.g.Heroes); err != nil {
+			panic(err)
+		}
+		o.Controller.refreshHeroData()
 	}()
 }
 

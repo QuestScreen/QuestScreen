@@ -680,12 +680,7 @@ func (dhe dataHeroesEndpoint) Handle(method httpMethods, ids []string,
 	if group == nil {
 		return nil, &server.NotFound{Name: ids[0]}
 	}
-	value := struct {
-		Name        comms.ValidatedString `json:"name"`
-		Description string                `json:"description"`
-	}{
-		Name: comms.ValidatedString{MinLen: 1, MaxLen: -1},
-	}
+	value := comms.ValidatedString{MinLen: 1, MaxLen: -1}
 	if err := comms.ReceiveData(raw, &value); err != nil {
 		return nil, &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
@@ -696,7 +691,7 @@ func (dhe dataHeroesEndpoint) Handle(method httpMethods, ids []string,
 	defer req.Close()
 	heroes := group.Heroes()
 	if err := dhe.qs.persistence.CreateHero(
-		group, heroes, value.Name.Value, value.Description); err != nil {
+		group, heroes, value.Value, ""); err != nil {
 		return nil, &server.InternalError{Description: "while creating hero", Inner: err}
 	}
 	propagateHeroesChange(groups.HeroAdded, heroes.NumHeroes()-1, dhe.qs,

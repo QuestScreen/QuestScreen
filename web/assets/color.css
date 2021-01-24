@@ -99,7 +99,8 @@ nav .pure-menu-heading {
 	background-color: var(--danger);
 }
 
-.data-list-link.create:hover {
+.data-list-link.create:hover,
+.pure-menu-link.create:hover {
   background-color: var(--success);
 }
 
@@ -119,16 +120,19 @@ nav .pure-menu-heading {
   background-color: var(--medium);
 }
 
-.data-sheet, .messages {
+.data-sheet, .messages, .hero-container > nav .pure-menu-selected,
+.hero-container > form {
   background-color: var(--light);
 }
 
 .data-sheet .data-sheet-header,
-.messages .message-list-header {
+.messages .message-list-header,
+.hero-container, .hero-container > nav {
   background-color: var(--strong);
 }
 
-.data-sheet .pure-button.delete {
+.data-sheet .pure-button.delete,
+.hero-container .pure-button.delete {
   background-color: var(--danger);
 }
 

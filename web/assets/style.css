@@ -611,7 +611,8 @@ input[type="range"] {
 }
 
 .data-list-link.delete,
-.data-list-item.create {
+.data-list-item.create,
+.hero-container > nav .pure-menu-link {
 	cursor: pointer;
 }
 
@@ -679,6 +680,43 @@ input[type="range"] {
 
 .data-sheet form.pure-form .pure-controls :not(.hfill) {
 	flex: 0 0 auto;
+}
+
+.hero-container {
+	display: inline-block;
+	margin: .5em;
+	padding: 0;
+}
+
+.hero-container > nav.pure-menu-horizontal {
+	white-space: normal;
+	width: auto;
+}
+
+.hero-container > nav .pure-menu-link.create {
+	text-align: center;
+	min-width: 2em;
+}
+
+.hero-container > h3,
+.hero-container > nav {
+	margin: .5em;
+	padding: 0;
+}
+
+.hero-container > form {
+	margin: .5em;
+	padding: .5em;
+}
+
+.hero-container > form > p {
+	margin: 0;
+	padding: 1.5em .5em;
+}
+
+.hero-container > form.no-hero-selected > fieldset,
+.hero-container > form:not(.no-hero-selected) > p {
+	display: none;
 }
 
 table.module-list,
