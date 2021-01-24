@@ -1,8 +1,10 @@
 
 <a:component name="Switch">
-  <a:controller>Swapped(value bool)</a:controller>
+  <a:controller>Swapped()</a:controller>
   <label class="switch">
-    <input type="checkbox" a:capture="change:Swapped(value=prop(value))">
+    <input type="checkbox"
+				a:bindings="prop(checked):(Value bool)"
+				a:capture="change:Swapped">
     <span class="slider"></span>
   </label>
 </a:component>

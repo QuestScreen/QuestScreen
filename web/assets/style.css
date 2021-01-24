@@ -612,7 +612,7 @@ input[type="range"] {
 
 .data-list-link.delete,
 .data-list-item.create,
-.hero-container > nav .pure-menu-link {
+.pure-menu-link {
 	cursor: pointer;
 }
 

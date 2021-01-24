@@ -28,6 +28,13 @@ type SceneCreationRequest struct {
 	SceneTemplateIndex int    `json:"sceneTemplateIndex"`
 }
 
+// SceneModificationRequest is sent from the client to the server to request the
+// modification of a scene's name and modules.
+type SceneModificationRequest struct {
+	Name    string `json:"name"`
+	Modules []bool `json:"modules"`
+}
+
 // HeroModificationRequest is sent from the client to the server to request the
 // modification of a hero.
 type HeroModificationRequest struct {

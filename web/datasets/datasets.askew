@@ -168,21 +168,22 @@
 	</article>
 </a:component>
 
-<a:component name="sceneModule" params="pluginName string, moduleName string">
-	<div class="data-list-item">
+<a:component name="sceneModule"
+		params="pluginName string, moduleName string, var origValue bool">
+	<div class="data-list-item" a:bindings="class(edited):edited">
 		<span class="data-list-text">
 			<span a:assign="prop(textContent) = pluginName"></span>
 			<i class="fas fa-angle-right"></i>
 			<span a:assign="prop(textContent) = moduleName"></span>
 		</span>
 		<span class="module-toggle">
-			<a:embed name="Toggle" type="controls.Switch"></a:embed>
+			<a:embed name="Toggle" type="controls.Switch" control></a:embed>
 		</span>
 		<span class="data-list-text edited"><i class="fas fa-edit"></i></span>
 	</div>
 </a:component>
 
-<a:component name="scene" params="var groupID string, var data *shared.Scene" init>
+<a:component name="scene" params="var g *shared.Group, var sceneIndex int" init>
 	<a:handlers>
 		commit()
 		reset()
@@ -192,6 +193,7 @@
 			<div class="pure-control-group" a:slot="value">
 				<label>Modules</label>
 				<div class="data-list modules">
+					<a:embed name="modules" type="sceneModule" list></a:embed>
 				</div>
 			</div>
 		</a:include>

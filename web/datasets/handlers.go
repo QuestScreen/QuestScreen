@@ -268,14 +268,48 @@ func (o *heroForm) delete() {
 	}()
 }
 
-func (o *scene) init(groupID string, data *shared.Scene) {
+func (o *sceneModule) Swapped() {
+	o.edited.Set(o.Toggle.Value.Get() != o.origValue)
+}
+
+func (o *sceneModule) reset() {
+	o.Toggle.Value.Set(o.origValue)
+	o.edited.Set(false)
+}
+
+func (o *scene) init(g *shared.Group, sceneIndex int) {
 	o.reset()
+	for i, m := range web.StaticData.Modules {
+		ui := newSceneModule(web.StaticData.Plugins[m.PluginIndex].Name, m.Name,
+			o.g.Scenes[o.sceneIndex].Modules[i])
+		o.modules.Append(ui)
+		ui.Toggle.Value.Set(ui.origValue)
+	}
 }
 
 func (o *scene) reset() {
-	o.name.ResetTo(o.data.Name)
+	o.name.ResetTo(o.g.Scenes[o.sceneIndex].Name)
+	for i := 0; i < o.modules.Len(); i++ {
+		o.modules.Item(i).reset()
+	}
 }
 
 func (o *scene) commit() {
-	panic("not implemented")
+	go func() {
+		modules := make([]bool, o.modules.Len())
+		for i := 0; i < o.modules.Len(); i++ {
+			modules[i] = o.modules.Item(i).Toggle.Value.Get()
+		}
+		if err := server.Fetch(api.Put,
+			"data/groups/"+o.g.ID+"/scenes/"+o.g.Scenes[o.sceneIndex].ID,
+			shared.SceneModificationRequest{Name: o.name.Value.Get(),
+				Modules: modules}, &o.g.Scenes); err != nil {
+			panic(err)
+		}
+		s := &o.g.Scenes[o.sceneIndex]
+		for i := 0; i < o.modules.Len(); i++ {
+			o.modules.Item(i).origValue = s.Modules[i]
+		}
+		o.reset()
+	}()
 }
