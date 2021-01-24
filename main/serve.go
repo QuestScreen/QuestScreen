@@ -600,28 +600,24 @@ type dataScenesEndpoint struct {
 }
 
 type sceneCreationReceiver struct {
-	data struct {
-		Name               string `json:"name"`
-		PluginIndex        int    `json:"pluginIndex"`
-		SceneTemplateIndex int    `json:"sceneTemplateIndex"`
-	}
+	shared.SceneCreationRequest
 	plugins []pluginData
 }
 
 func (scr *sceneCreationReceiver) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data,
-		&comms.ValidatedStruct{Value: &scr.data}); err != nil {
+		&comms.ValidatedStruct{Value: &scr.SceneCreationRequest}); err != nil {
 		return err
 	}
-	if scr.data.Name == "" {
+	if scr.Name == "" {
 		return errors.New("name must not be empty")
-	} else if scr.data.PluginIndex < 0 ||
-		scr.data.PluginIndex >= len(scr.plugins) {
+	} else if scr.PluginIndex < 0 ||
+		scr.PluginIndex >= len(scr.plugins) {
 		return fmt.Errorf("pluginIndex out of range [0..%d]", len(scr.plugins)-1)
-	} else if scr.data.SceneTemplateIndex < 0 ||
-		scr.data.SceneTemplateIndex >= len(scr.plugins[scr.data.PluginIndex].SceneTemplates) {
+	} else if scr.SceneTemplateIndex < 0 ||
+		scr.SceneTemplateIndex >= len(scr.plugins[scr.PluginIndex].SceneTemplates) {
 		return fmt.Errorf("groupTemplateIndex out of range [0..%d]",
-			len(scr.plugins[scr.data.PluginIndex].SceneTemplates)-1)
+			len(scr.plugins[scr.PluginIndex].SceneTemplates)-1)
 	}
 	return nil
 }
@@ -637,9 +633,10 @@ func (dse dataScenesEndpoint) Handle(method httpMethods, ids []string,
 		return nil, &server.BadRequest{Inner: err, Message: "received invalid data"}
 	}
 
-	if err := dse.qs.persistence.CreateScene(group, value.data.Name,
-		&dse.qs.plugins[value.data.PluginIndex].SceneTemplates[value.data.SceneTemplateIndex]); err != nil {
-		return nil, &server.InternalError{Description: "while creating group", Inner: err}
+	if err := dse.qs.persistence.CreateScene(group, value.Name,
+		&dse.qs.plugins[value.PluginIndex].SceneTemplates[value.SceneTemplateIndex]); err != nil {
+		return nil, &server.InternalError{
+			Description: "while creating scene", Inner: err}
 	}
 	return dse.qs.communication.ViewScenes(group), nil
 }

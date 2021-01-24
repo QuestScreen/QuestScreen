@@ -107,6 +107,7 @@
 	<a:handlers>
 		commit()
 		reset()
+		newScene()
 	</a:handlers>
 	<article>
 		<a:include name="dataSheet">
@@ -119,8 +120,9 @@
 		<section class="data-sheet">
 			<h4 class="data-sheet-header"><i class="fas fa-image"></i> Scenes</h4>
 			<div class="data-list scenes">
-				<a:embed name="Scenes" type="listItem" list></a:embed>
-				<a class="data-list-link create">
+				<a:embed name="Scenes" type="listItem" list control></a:embed>
+				<a class="data-list-link create"
+						a:capture="click:newScene {preventDefault}">
 					<i class="fas fa-plus-square"></i>
 				</a>
 			</div>

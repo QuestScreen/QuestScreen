@@ -18,7 +18,12 @@ func (pb *PopupBase) show(title string, content runtime.Component, confirmCaptio
 	pb.Title.Set(title)
 	pb.Content.Set(content)
 	pb.ConfirmCaption.Set(confirmCaption)
-	pb.CancelCaption.Set(cancelCaption)
+	if cancelCaption == "" {
+		pb.cancelVisible.Set("hidden")
+	} else {
+		pb.cancelVisible.Set("visible")
+		pb.CancelCaption.Set(cancelCaption)
+	}
 	if pb.controller != nil && pb.controller.needsDoShow() {
 		pb.Visibility.Set("hidden")
 		pb.Display.Set("flex")
@@ -57,6 +62,12 @@ func (pb *PopupBase) cleanup() {
 	pb.Display.Set("")
 	pb.Content.Set(nil)
 	pb.controller = nil
+}
+
+// ErrorMsg shows the popup containing the given text titled as 'Error'.
+// Does not block.
+func (pb *PopupBase) ErrorMsg(text string) {
+	pb.show("Error", newPopupText(text), "OK", "")
 }
 
 type confirmController struct {

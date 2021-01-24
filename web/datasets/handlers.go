@@ -45,7 +45,7 @@ type groupItemsController struct {
 func (c *groupItemsController) delete(index int) {
 	go func() {
 		group := web.Data.Groups[index]
-		if ok := site.Popup.Confirm("Really delete group " + group.Name + "?"); ok {
+		if site.Popup.Confirm("Really delete group " + group.Name + "?") {
 			if err := server.Fetch(api.Delete, "data/groups/"+group.ID, nil, &web.Data.Groups); err != nil {
 				panic(err)
 			}
@@ -160,6 +160,38 @@ func (o *group) commit() {
 func (o *group) ItemClicked(index int) bool {
 	o.systemEdited.Set(true)
 	return true
+}
+
+func (o *group) delete(index int) {
+	go func() {
+		if len(o.data.Scenes) == 1 {
+			site.Popup.ErrorMsg("Cannot delete last scene (group needs at least one scene).")
+			return
+		}
+		s := o.data.Scenes[index]
+		if site.Popup.Confirm("Really delete scene " + s.Name + "?") {
+			if err := server.Fetch(api.Delete,
+				"data/groups/"+o.data.ID+"/scenes/"+s.ID, nil, &o.data.Scenes); err != nil {
+				panic(err)
+			}
+			site.Refresh("g-" + o.data.ID)
+		}
+	}()
+}
+
+func (o *group) newScene() {
+	go func() {
+		pluginIndex, templateIndex, name :=
+			site.Popup.TemplateSelect(controls.SceneTemplate)
+		if pluginIndex != -1 {
+			if err := server.Fetch(api.Post, "data/groups/"+o.data.ID+"/scenes",
+				shared.SceneCreationRequest{
+					name, pluginIndex, templateIndex}, &o.data.Scenes); err != nil {
+				panic(err)
+			}
+			site.Refresh("g-" + o.data.ID)
+		}
+	}()
 }
 
 func (o *scene) init(groupID string, data *shared.Scene) {
