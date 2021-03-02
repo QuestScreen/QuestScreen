@@ -1,2 +1,2 @@
-web/herolist/components.go
-web/title/components.go
+*.askew.go
+web/*/configitems.go

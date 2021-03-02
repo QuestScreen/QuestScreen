@@ -32,7 +32,7 @@ func newState(input *yaml.Node, ctx server.Context,
 		for i := range tmp {
 			found := false
 			for j := range s.items {
-				if s.items[j].Name() == tmp[i] {
+				if s.items[j].Name == tmp[i] {
 					found = true
 					s.visible[j] = true
 					break
@@ -57,22 +57,22 @@ func (s *state) CreateRendererData(ctx server.Context) interface{} {
 	return &fullRequest{resources: resources}
 }
 
-// WebView returns a list of resources descriptors (name & visible)
-func (s *state) WebView(ctx server.Context) interface{} {
+// Send returns a list of resources descriptors (name & visible)
+func (s *state) Send(ctx server.Context) interface{} {
 	ret := make(shared.OverlayState, len(s.items))
 	for i := range s.items {
-		ret[i].Name = s.items[i].Name()
+		ret[i].Name = s.items[i].Name
 		ret[i].Selected = s.visible[i]
 	}
 	return ret
 }
 
-// PersistingView returns a list of selected resource names
-func (s *state) PersistingView(ctx server.Context) interface{} {
+// Persist returns a list of selected resource names
+func (s *state) Persist(ctx server.Context) interface{} {
 	ret := make([]string, 0, len(s.items))
 	for i := range s.visible {
 		if s.visible[i] {
-			ret = append(ret, s.items[i].Name())
+			ret = append(ret, s.items[i].Name)
 		}
 	}
 	return ret

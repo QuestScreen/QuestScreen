@@ -90,7 +90,7 @@ var Descriptor = modules.Module{
 
 func (o *Overlays) loadTexture(r render.Renderer, td *textureData,
 	resource resources.Resource, resourceIndex int) (loadedWidth int32) {
-	tex, err := r.LoadImageFile(resource.Path(), true)
+	tex, err := r.LoadImageFile(resource.Location, true)
 	if err != nil {
 		log.Println(err)
 		return

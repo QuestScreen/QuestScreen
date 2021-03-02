@@ -35,13 +35,13 @@ func (s *state) CreateRendererData(ctx server.Context) interface{} {
 	return ret
 }
 
-// WebView returns the current caption of the title as string.
-func (s *state) WebView(ctx server.Context) interface{} {
+// Send returns the current caption of the title as string.
+func (s *state) Send(ctx server.Context) interface{} {
 	return s.caption
 }
 
-// PersistingView returns the current caption of the title as string.
-func (s *state) PersistingView(ctx server.Context) interface{} {
+// Persist returns the current caption of the title as string.
+func (s *state) Persist(ctx server.Context) interface{} {
 	return s.caption
 }
 

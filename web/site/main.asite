@@ -1,7 +1,7 @@
 <!doctype html>
 <a:site lang="en">
 	<a:import>
-		"github.com/QuestScreen/QuestScreen/web/controls"
+		"github.com/QuestScreen/api/web/controls"
 	</a:import>
 	<head>
 		<title>QuestScreen Control Center</title>

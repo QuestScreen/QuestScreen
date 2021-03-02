@@ -3,7 +3,8 @@ package datasets
 import (
 	"github.com/QuestScreen/QuestScreen/web"
 	"github.com/QuestScreen/QuestScreen/web/site"
-	"github.com/flyx/askew/runtime"
+	"github.com/QuestScreen/api/server"
+	askew "github.com/flyx/askew/runtime"
 )
 
 // BaseView is the default view of the dataset page.
@@ -25,7 +26,7 @@ func (bv BaseView) IsChild() bool {
 }
 
 // GenerateUI implements site.View
-func (bv BaseView) GenerateUI() runtime.Component {
+func (bv BaseView) GenerateUI(ctx server.Context) askew.Component {
 	return newBase()
 }
 
@@ -50,7 +51,7 @@ func (sv *SystemView) IsChild() bool {
 }
 
 // GenerateUI implements site.View
-func (sv *SystemView) GenerateUI() runtime.Component {
+func (sv *SystemView) GenerateUI(ctx server.Context) askew.Component {
 	s := &web.Data.Systems[sv.systemIndex]
 	return newSystem(s)
 }
@@ -76,7 +77,7 @@ func (gv *GroupView) IsChild() bool {
 }
 
 // GenerateUI implements site.View
-func (gv *GroupView) GenerateUI() runtime.Component {
+func (gv *GroupView) GenerateUI(ctx server.Context) askew.Component {
 	g := &web.Data.Groups[gv.groupIndex]
 	return newGroup(g)
 }
@@ -102,7 +103,7 @@ func (sv *SceneView) IsChild() bool {
 }
 
 // GenerateUI implements site.View.
-func (sv *SceneView) GenerateUI() runtime.Component {
+func (sv *SceneView) GenerateUI(ctx server.Context) askew.Component {
 	g := &web.Data.Groups[sv.groupIndex]
 	return newScene(g, sv.sceneIndex)
 }

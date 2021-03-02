@@ -3,10 +3,9 @@ package datasets
 import (
 	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/QuestScreen/web"
-	"github.com/QuestScreen/QuestScreen/web/controls"
-	"github.com/QuestScreen/QuestScreen/web/server"
+	"github.com/QuestScreen/QuestScreen/web/comms"
 	"github.com/QuestScreen/QuestScreen/web/site"
-	api "github.com/QuestScreen/api/web/server"
+	api "github.com/QuestScreen/api/web"
 )
 
 func (o *editableText) setEdited() {
@@ -29,7 +28,7 @@ func (c *systemItemsController) delete(index int) {
 	go func() {
 		system := web.Data.Systems[index]
 		if ok := site.Popup.Confirm("Really delete system " + system.Name + "?"); ok {
-			if err := server.Fetch(
+			if err := comms.Fetch(
 				api.Delete, "data/systems/"+system.ID, nil, &web.Data.Systems); err != nil {
 				panic(err)
 			}
@@ -46,7 +45,7 @@ func (c *groupItemsController) delete(index int) {
 	go func() {
 		group := web.Data.Groups[index]
 		if site.Popup.Confirm("Really delete group " + group.Name + "?") {
-			if err := server.Fetch(api.Delete, "data/groups/"+group.ID, nil, &web.Data.Groups); err != nil {
+			if err := comms.Fetch(api.Delete, "data/groups/"+group.ID, nil, &web.Data.Groups); err != nil {
 				panic(err)
 			}
 			site.Refresh("")
@@ -68,7 +67,14 @@ func (o *base) regenGroups() {
 	}
 }
 
+func newBase() *base {
+	ret := new(base)
+	ret.init()
+	return ret
+}
+
 func (o *base) init() {
+	o.askewInit()
 	o.sc.base = o
 	o.gc.base = o
 	o.SystemList.DefaultController = &o.sc
@@ -81,7 +87,7 @@ func (o *base) addSystem() {
 	go func() {
 		name := site.Popup.TextInput("Create system", "Name:")
 		if name != nil {
-			if err := server.Fetch(api.Post, "data/systems", *name,
+			if err := comms.Fetch(api.Post, "data/systems", *name,
 				&web.Data.Systems); err != nil {
 				panic(err)
 			}
@@ -93,9 +99,9 @@ func (o *base) addSystem() {
 func (o *base) addGroup() {
 	go func() {
 		pluginIndex, templateIndex, name :=
-			site.Popup.TemplateSelect(controls.GroupTemplate)
+			TemplateSelect(&site.Popup, GroupTemplate)
 		if pluginIndex != -1 {
-			if err := server.Fetch(api.Post, "data/groups", shared.GroupCreationRequest{
+			if err := comms.Fetch(api.Post, "data/groups", shared.GroupCreationRequest{
 				name, pluginIndex, templateIndex}, &web.Data.Groups); err != nil {
 				panic(err)
 			}
@@ -104,7 +110,14 @@ func (o *base) addGroup() {
 	}()
 }
 
+func newSystem(data *shared.System) *system {
+	ret := new(system)
+	ret.init(data)
+	return ret
+}
+
 func (o *system) init(data *shared.System) {
+	o.askewInit(data)
 	o.reset()
 }
 
@@ -114,7 +127,7 @@ func (o *system) reset() {
 
 func (o *system) commit() {
 	go func() {
-		if err := server.Fetch(api.Put, "data/systems/"+o.data.ID,
+		if err := comms.Fetch(api.Put, "data/systems/"+o.data.ID,
 			shared.SystemModificationRequest{Name: o.name.Value.Get()},
 			&web.Data.Systems); err != nil {
 			panic(err)
@@ -123,7 +136,14 @@ func (o *system) commit() {
 	}()
 }
 
+func newGroup(data *shared.Group) *group {
+	ret := new(group)
+	ret.init(data)
+	return ret
+}
+
 func (o *group) init(data *shared.Group) {
+	o.askewInit(data)
 	for _, s := range web.Data.Systems {
 		o.Systems.AddItem(s.Name, false)
 	}
@@ -144,7 +164,7 @@ func (o *group) reset() {
 
 func (o *group) commit() {
 	go func() {
-		if err := server.Fetch(api.Put, "data/groups/"+o.data.ID, o.name.Value.Get(),
+		if err := comms.Fetch(api.Put, "data/groups/"+o.data.ID, o.name.Value.Get(),
 			&web.Data.Groups); err != nil {
 			panic(err)
 		}
@@ -165,7 +185,7 @@ func (o *group) delete(index int) {
 		}
 		s := o.data.Scenes[index]
 		if site.Popup.Confirm("Really delete scene " + s.Name + "?") {
-			if err := server.Fetch(api.Delete,
+			if err := comms.Fetch(api.Delete,
 				"data/groups/"+o.data.ID+"/scenes/"+s.ID, nil, &o.data.Scenes); err != nil {
 				panic(err)
 			}
@@ -177,9 +197,9 @@ func (o *group) delete(index int) {
 func (o *group) createScene() {
 	go func() {
 		pluginIndex, templateIndex, name :=
-			site.Popup.TemplateSelect(controls.SceneTemplate)
+			TemplateSelect(&site.Popup, SceneTemplate)
 		if pluginIndex != -1 {
-			if err := server.Fetch(api.Post, "data/groups/"+o.data.ID+"/scenes",
+			if err := comms.Fetch(api.Post, "data/groups/"+o.data.ID+"/scenes",
 				shared.SceneCreationRequest{
 					name, pluginIndex, templateIndex}, &o.data.Scenes); err != nil {
 				panic(err)
@@ -192,11 +212,11 @@ func (o *group) createScene() {
 func (o *group) createHero() {
 	go func() {
 		if name := site.Popup.TextInput("Create Hero", "Name:"); name != nil {
-			if err := server.Fetch(api.Post, "data/groups/"+o.data.ID+"/heroes",
+			if err := comms.Fetch(api.Post, "data/groups/"+o.data.ID+"/heroes",
 				*name, &o.data.Heroes); err != nil {
 				panic(err)
 			}
-			o.heroChooser.RemoveAll()
+			o.heroChooser.DestroyAll()
 			for i, h := range o.data.Heroes {
 				o.heroChooser.Append(newHeroButton(h.Name, i))
 			}
@@ -219,7 +239,7 @@ func (o *group) refreshHeroData() {
 	if o.hero.data != nil {
 		oldID = o.hero.data.ID
 	}
-	o.heroChooser.RemoveAll()
+	o.heroChooser.DestroyAll()
 	o.hero.disabled.Set(len(o.data.Heroes) == 0)
 	var selectedIndex int
 	if len(o.data.Heroes) > 0 {
@@ -246,7 +266,7 @@ func (o *heroForm) reset() {
 
 func (o *heroForm) commit() {
 	go func() {
-		if err := server.Fetch(api.Put,
+		if err := comms.Fetch(api.Put,
 			"data/groups/"+o.g.ID+"/heroes/"+o.data.ID,
 			shared.HeroModificationRequest{Name: o.Name.Value.Get(),
 				Description: o.Description.Value.Get()}, &o.g.Heroes); err != nil {
@@ -258,7 +278,7 @@ func (o *heroForm) commit() {
 
 func (o *heroForm) delete() {
 	go func() {
-		if err := server.Fetch(api.Delete,
+		if err := comms.Fetch(api.Delete,
 			"data/groups/"+o.g.ID+"/heroes/"+o.data.ID,
 			shared.HeroModificationRequest{Name: o.Name.Value.Get(),
 				Description: o.Description.Value.Get()}, &o.g.Heroes); err != nil {
@@ -277,7 +297,14 @@ func (o *sceneModule) reset() {
 	o.edited.Set(false)
 }
 
+func newScene(g *shared.Group, sceneIndex int) *scene {
+	ret := new(scene)
+	ret.init(g, sceneIndex)
+	return ret
+}
+
 func (o *scene) init(g *shared.Group, sceneIndex int) {
+	o.askewInit(g, sceneIndex)
 	o.reset()
 	for i, m := range web.StaticData.Modules {
 		ui := newSceneModule(web.StaticData.Plugins[m.PluginIndex].Name, m.Name,
@@ -300,7 +327,7 @@ func (o *scene) commit() {
 		for i := 0; i < o.modules.Len(); i++ {
 			modules[i] = o.modules.Item(i).Toggle.Value.Get()
 		}
-		if err := server.Fetch(api.Put,
+		if err := comms.Fetch(api.Put,
 			"data/groups/"+o.g.ID+"/scenes/"+o.g.Scenes[o.sceneIndex].ID,
 			shared.SceneModificationRequest{Name: o.name.Value.Get(),
 				Modules: modules}, &o.g.Scenes); err != nil {

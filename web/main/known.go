@@ -15,14 +15,15 @@ type pluginLoader struct {
 	tmp   shared.Static
 }
 
-func (pl *pluginLoader) RegisterModule(id string, constructor modules.Constructor) error {
+func (pl *pluginLoader) RegisterModule(id string,
+	constructor modules.Constructor, configItems []modules.ConfigItem) error {
 	path := pl.id + "/" + id
 	found := false
 	for i := range pl.tmp.Modules {
 		serverItem := &pl.tmp.Modules[i]
 		if path == serverItem.Path {
 			found = true
-			module := &web.StaticData.Modules[i]
+			module := web.StaticData.Modules[i]
 			if module.Constructor != nil {
 				return fmt.Errorf("[plugin %s] duplicate module ID during registration: %s", pl.id, id)
 			}
@@ -30,6 +31,7 @@ func (pl *pluginLoader) RegisterModule(id string, constructor modules.Constructo
 			module.Name = serverItem.Name
 			module.ID = id
 			module.PluginIndex = pl.index
+			module.ConfigItems = configItems
 			break
 		}
 	}

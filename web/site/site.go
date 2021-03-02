@@ -17,7 +17,9 @@
 package site
 
 import (
-	"github.com/flyx/askew/runtime"
+	"github.com/QuestScreen/QuestScreen/web/comms"
+	"github.com/QuestScreen/api/server"
+	askew "github.com/flyx/askew/runtime"
 )
 
 // View describes a collection of UI elements that fill the main part of the
@@ -46,7 +48,7 @@ type View interface {
 	// changed. The given id parameter must match the view's ID().
 	//
 	// popup is the reference to the singleton handling popups.
-	GenerateUI() runtime.Component
+	GenerateUI(ctx server.Context) askew.Component
 }
 
 // ViewCollection describes a set of views.
@@ -119,6 +121,11 @@ func (sc *siteContent) page() Page {
 
 var site siteContent
 
+func (sc *siteContent) showConfig() {
+	sc.curPage = ConfigPage
+	Refresh("")
+}
+
 func (sc *siteContent) showDatasets() {
 	sc.curPage = DataPage
 	Refresh("")
@@ -148,7 +155,7 @@ func Boot(headerDisabled bool) {
 // Refresh will load the view with the given id after regenerating the
 // sidebar, or the first view if no view with that id is found.
 func Refresh(id string) {
-	sidebar.items.RemoveAll()
+	sidebar.items.DestroyAll()
 	viewColls := site.page().GenViews()
 	if len(viewColls) == 1 && len(viewColls[0].Items) == 1 {
 		// single-view page. leave the sidebar empty, display the view.
@@ -184,10 +191,12 @@ func Refresh(id string) {
 
 func loadView(v View, parent, name string) {
 	sidebar.expanded.Set(false)
-	content.Set(v.GenerateUI())
-	if parent == "" {
-		setTitle(name, "")
-	} else {
-		setTitle(parent, name)
-	}
+	go func() {
+		content.Set(v.GenerateUI(&comms.ServerState{""}))
+		if parent == "" {
+			setTitle(name, "")
+		} else {
+			setTitle(parent, name)
+		}
+	}()
 }

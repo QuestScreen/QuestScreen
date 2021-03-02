@@ -1,4 +1,4 @@
-package server
+package comms
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	api "github.com/QuestScreen/api/web/server"
+	api "github.com/QuestScreen/api/web"
 )
 
 // Fetch makes a request to the server and returns the response.

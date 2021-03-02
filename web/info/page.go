@@ -3,7 +3,8 @@ package info
 import (
 	"github.com/QuestScreen/QuestScreen/web"
 	"github.com/QuestScreen/QuestScreen/web/site"
-	"github.com/flyx/askew/runtime"
+	"github.com/QuestScreen/api/server"
+	askew "github.com/flyx/askew/runtime"
 )
 
 // View implements info.View
@@ -20,7 +21,7 @@ func (v View) ID() string {
 }
 
 // GenerateUI creates the info view.
-func (v View) GenerateUI() runtime.Component {
+func (v View) GenerateUI(ctx server.Context) askew.Component {
 	return newViewContent(web.StaticData.AppVersion)
 }
 
@@ -50,6 +51,12 @@ func (p Page) GenViews() []site.ViewCollection {
 // Register registers this page with the site.
 func Register() {
 	site.RegisterPage(site.InfoPage, &Page{})
+}
+
+func newViewContent(version string) *viewContent {
+	ret := new(viewContent)
+	ret.init(version)
+	return ret
 }
 
 func (c *viewContent) init(version string) {

@@ -3,9 +3,8 @@ package herolist
 import (
 	"time"
 
-	"github.com/QuestScreen/QuestScreen/plugins/base/bgcolor"
-	"github.com/QuestScreen/QuestScreen/plugins/base/fonts"
 	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/config"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/render"
 	"github.com/QuestScreen/api/server"
@@ -33,10 +32,10 @@ const (
 	hidingHero
 )
 
-type config struct {
-	NameFont   *fonts.Config   `yaml:"nameFont"`
-	DescrFont  *fonts.Config   `yaml:"descrFont"`
-	Background *bgcolor.Config `yaml:"background"`
+type mConfig struct {
+	NameFont   *config.FontSelect       `yaml:"nameFont"`
+	DescrFont  *config.FontSelect       `yaml:"descrFont"`
+	Background *config.BackgroundSelect `yaml:"background"`
 }
 
 type heroRequest struct {
@@ -55,7 +54,7 @@ type fullRequest struct {
 
 // HeroList is a module for displaying a list of heroes.
 type HeroList struct {
-	*config
+	config                      *mConfig
 	heroes                      []displayedHero
 	curGlobalVisible            bool
 	curHero                     int32
@@ -82,11 +81,11 @@ var Descriptor = modules.Module{
 	ID:                  "herolist",
 	ResourceCollections: nil,
 	EndpointPaths:       []string{"", "/"},
-	DefaultConfig: &config{NameFont: fonts.NewConfig(0, api.ContentFont,
+	DefaultConfig: &mConfig{NameFont: config.NewFontSelect(0, api.ContentFont,
 		api.RegularFont, api.RGBA{R: 0, G: 0, B: 0, A: 255}),
-		DescrFont: fonts.NewConfig(0, api.ContentFont, api.RegularFont,
+		DescrFont: config.NewFontSelect(0, api.ContentFont, api.RegularFont,
 			api.RGBA{R: 0, G: 0, B: 0, A: 255}),
-		Background: bgcolor.NewConfig(
+		Background: config.NewBackgroundSelect(
 			api.RGBA{R: 255, G: 255, B: 255, A: 255}.AsBackground())},
 	CreateRenderer: newRenderer, CreateState: newState,
 }
@@ -105,9 +104,9 @@ func (l *HeroList) buildHeroBox(r render.Renderer, h heroData) render.Image {
 		l.boxHeight(unit)-2*unit, l.config.Background.Background,
 		render.North|render.East|render.South)
 	_, frame = frame.Carve(render.West, 2*unit)
-	nameImg := r.RenderText(h.name, l.NameFont.Font)
+	nameImg := r.RenderText(h.name, l.config.NameFont.Font)
 	defer r.FreeImage(&nameImg)
-	descrImg := r.RenderText(h.desc, l.DescrFont.Font)
+	descrImg := r.RenderText(h.desc, l.config.DescrFont.Font)
 	defer r.FreeImage(&descrImg)
 	nameFrame := frame.Position(nameImg.Width, nameImg.Height, render.Left,
 		render.Top)
@@ -219,7 +218,7 @@ func (l *HeroList) Render(r render.Renderer) {
 
 // Rebuild receives state data and config and immediately updates everything.
 func (l *HeroList) Rebuild(r render.Renderer, data interface{}, configVal interface{}) {
-	l.config = configVal.(*config)
+	l.config = configVal.(*mConfig)
 	for i := range l.heroes {
 		r.FreeImage(&l.heroes[i].box)
 	}

@@ -565,10 +565,6 @@ input[type="range"] {
 	display: block;
 }
 
-.config-edit-indicator:not(.edited) {
-	visibility: hidden;
-}
-
 /* datasets */
 
 .data-list-container {

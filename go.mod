@@ -3,7 +3,7 @@ module github.com/QuestScreen/QuestScreen
 go 1.12
 
 require (
-	github.com/QuestScreen/api v0.3.1-0.20201215214703-bf9f7c03d5a2
+	github.com/QuestScreen/api v0.3.1-0.20210302210211-66176a7fc90a
 	github.com/flyx/askew v0.0.0-20201223225015-de138e79a966
 	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/pborman/getopt v0.0.0-20190409184431-ee0cd42419d3

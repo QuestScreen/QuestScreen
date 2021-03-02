@@ -3,45 +3,43 @@ package herolist
 import (
 	"encoding/json"
 
-	"github.com/flyx/askew/runtime"
-
-	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
-	"github.com/QuestScreen/api/web/groups"
+	"github.com/QuestScreen/api/web"
 	"github.com/QuestScreen/api/web/modules"
-	"github.com/QuestScreen/api/web/server"
 )
 
-// State implements api.ModuleState
-type State struct {
-	server.State
-	groups.Group
-	data shared.HerolistState
-}
-
 // NewState implements modules.Constructor.
-func NewState(data json.RawMessage, srv server.State, group groups.Group) (modules.State, error) {
-	ret := &State{State: srv, Group: group}
-	return ret, json.Unmarshal(data, &ret.data)
-}
+func NewState(data json.RawMessage, srv web.Server) (modules.State, error) {
+	ret := &State{srv: srv}
 
-// UI generates the herolist widget.
-func (s *State) UI(srv server.State) runtime.Component {
-	ret := NewWidget(s.data.Global)
-	heroes := s.Heroes()
+	if err := json.Unmarshal(data, &ret.data); err != nil {
+		return nil, err
+	}
+
+	ret.askewInit(ret.data.Global)
+	heroes := srv.ActiveGroup().Heroes()
 	for i := 0; i < heroes.NumHeroes(); i++ {
 		hero := heroes.Hero(i)
-		ret.Heroes.AddItem(hero.Name(), s.data.Heroes[i])
+		ret.Heroes.AddItem(hero.Name(), ret.data.Heroes[i])
 	}
-	ret.Controller = s
-	return ret
+	return ret, nil
 }
 
 func (s *State) switchAll() bool {
-	s.Fetch(server.Post, "", !s.data.Global, &s.data.Global)
+	s.srv.Fetch(web.Post, "", !s.data.Global, &s.data.Global)
 	return s.data.Global
 }
 
 func (s *State) switchHero(index int) bool {
-	s.Fetch(server.Post, s.Heroes().Hero(index).ID(), s.data.Heroes[index], &s.data.Heroes[index])
+	s.srv.Fetch(web.Post, s.srv.ActiveGroup().Heroes().Hero(index).ID(),
+		s.data.Heroes[index], &s.data.Heroes[index])
 	return s.data.Heroes[index]
+}
+
+func (s *State) allClicked() {
+	s.allState.Set(s.switchAll())
+}
+
+// ItemClicked implements the controller of controls.Dropdown
+func (s *State) ItemClicked(index int) bool {
+	return s.switchHero(index)
 }

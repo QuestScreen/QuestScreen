@@ -1,9 +1,4 @@
-config/config.go
-controls/controls.go
-datasets/datasets.go
-info/info.go
-state/state.go
-site/core.go
-site/init.go
+*.askew.go
+*.asite.go
 main/plugins.go
 main/main.js.map

@@ -32,7 +32,7 @@ func newState(input *yaml.Node, ctx server.Context,
 		}
 		if input.Tag != "!!null" {
 			for i := range s.resources {
-				if s.resources[i].Name() == input.Value {
+				if s.resources[i].Name == input.Value {
 					s.curIndex = i
 					break
 				}
@@ -47,23 +47,23 @@ func newState(input *yaml.Node, ctx server.Context,
 
 func (s *state) CreateRendererData(ctx server.Context) interface{} {
 	if s.curIndex == -1 {
-		return &request{file: nil}
+		return &request{file: resources.Resource{Location: nil}}
 	}
 	return &request{file: s.resources[s.curIndex]}
 }
 
-// WebView returns the list of all available resources plus the current index
-func (s *state) WebView(env server.Context) interface{} {
-	return shared.BackgroundState{CurIndex: s.curIndex, Items: resources.Names(s.resources)}
+// Send returns the list of all available resources plus the current index
+func (s *state) Send(env server.Context) interface{} {
+	return shared.BackgroundState{CurIndex: s.curIndex}
 }
 
-// PersistingView returns the name of the currently selected resource
+// Persist returns the name of the currently selected resource
 //(nil if none)
-func (s *state) PersistingView(env server.Context) interface{} {
+func (s *state) Persist(env server.Context) interface{} {
 	if s.curIndex == -1 {
 		return nil
 	}
-	return s.resources[s.curIndex].Name()
+	return s.resources[s.curIndex].Name
 }
 
 func (s *state) PureEndpoint(index int) modules.PureEndpoint {

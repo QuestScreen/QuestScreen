@@ -4,6 +4,7 @@ package display
 import "C"
 import (
 	"log"
+	"net/url"
 	"unsafe"
 
 	"github.com/QuestScreen/api"
@@ -181,8 +182,11 @@ func (d *Display) surfaceToTexture(
 // LoadImageFile loads an image file from the specified path.
 // if an error is returned, the returned image is empty.
 func (d *Display) LoadImageFile(
-	path string, scaleDownToOutput bool) (render.Image, error) {
-	surface, err := img.Load(path)
+	location *url.URL, scaleDownToOutput bool) (render.Image, error) {
+	if location.Scheme != "file" {
+		panic("unsupported URL scheme: " + location.String())
+	}
+	surface, err := img.Load(location.Path)
 	if err != nil {
 		return render.EmptyImage(), err
 	}
@@ -286,7 +290,11 @@ func (d *Display) drawMasked(
 	}
 	loadedTexture := &d.r.textureCache[bg.TextureIndex]
 	if loadedTexture.IsEmpty() {
-		path := d.owner.GetTextures()[bg.TextureIndex].Path()
+		url := d.owner.GetTextures()[bg.TextureIndex].Location
+		if url.Scheme != "file" {
+			panic("unsupported URL scheme for texture: " + url.String())
+		}
+		path := url.Path
 		surface, err := img.Load(path)
 		if err != nil {
 			log.Printf("unable to load %s: %s\n", path, err.Error())

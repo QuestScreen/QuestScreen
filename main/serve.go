@@ -711,8 +711,16 @@ func (dhe dataHeroEndpoint) Handle(method httpMethods, ids []string,
 		return nil, &server.NotFound{Name: ids[0]}
 	}
 	heroes := group.Heroes()
-	heroIndex, hero := heroes.HeroByID(ids[1])
-	if hero == nil {
+	var hero groups.Hero
+	var heroIndex int = -1
+	for i := 0; i < heroes.NumHeroes(); i++ {
+		hero = heroes.Hero(i)
+		if hero.ID() == ids[1] {
+			heroIndex = i
+			break
+		}
+	}
+	if heroIndex == -1 {
 		return nil, &server.NotFound{Name: ids[1]}
 	}
 	req, err := dhe.qs.display.StartRequest(dhe.events.HeroesChangedID, 0)

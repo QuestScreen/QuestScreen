@@ -1,11 +1,13 @@
-<a:import>"github.com/QuestScreen/QuestScreen/web/controls"</a:import>
+<a:import>"github.com/QuestScreen/api/web/controls"</a:import>
 
-<a:component name="Widget" params="allState bool">
-	<a:controller>
+<a:component name="State" params="allState bool">
+	<a:data>
+		srv  web.Server
+		data shared.HerolistState
+	</a:data>
+	<a:handlers>
 		switchAll() bool
 		switchHero(index int) bool
-	</a:controller>
-	<a:handlers>
 		allClicked()
 	</a:handlers>
 	<div class="herolist-container">

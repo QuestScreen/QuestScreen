@@ -2,12 +2,14 @@ package web
 
 import (
 	"github.com/QuestScreen/QuestScreen/shared"
+	"github.com/QuestScreen/api/resources"
 	"github.com/QuestScreen/api/web/modules"
 )
 
 // MappedModule is a module known to the client.
 type MappedModule struct {
 	modules.Constructor
+	ConfigItems []modules.ConfigItem
 	PluginIndex int
 	Name, ID    string
 }
@@ -15,7 +17,7 @@ type MappedModule struct {
 // StaticData is loaded when booting and is constant everafter.
 var StaticData struct {
 	Fonts            []string
-	Textures         []string
+	Textures         []resources.Resource
 	NumPluginSystems int
 	Plugins          []shared.Plugin
 	FontDir          string

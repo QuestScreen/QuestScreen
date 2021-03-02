@@ -4,17 +4,16 @@ import (
 	"log"
 	"time"
 
-	"github.com/QuestScreen/QuestScreen/plugins/base/bgcolor"
-	"github.com/QuestScreen/QuestScreen/plugins/base/fonts"
 	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/config"
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/render"
 	"github.com/QuestScreen/api/server"
 )
 
 type titleConfig struct {
-	Font       *fonts.Config   `yaml:"font"`
-	Background *bgcolor.Config `yaml:"background"`
+	Font       *config.FontSelect       `yaml:"font"`
+	Background *config.BackgroundSelect `yaml:"background"`
 }
 
 type changeRequest struct {
@@ -46,9 +45,9 @@ var Descriptor = modules.Module{
 	Name:          "Scene Title",
 	ID:            "title",
 	EndpointPaths: []string{""},
-	DefaultConfig: &titleConfig{Font: fonts.NewConfig(0, api.HeadingFont,
+	DefaultConfig: &titleConfig{Font: config.NewFontSelect(0, api.HeadingFont,
 		api.BoldFont, api.RGBA{R: 0, G: 0, B: 0, A: 255}),
-		Background: bgcolor.NewConfig(
+		Background: config.NewBackgroundSelect(
 			api.RGBA{R: 255, G: 255, B: 255, A: 255}.AsBackground())},
 	CreateRenderer: newRenderer, CreateState: newState,
 }

@@ -2,8 +2,7 @@ package shared
 
 // BackgroundState is the background module's state as shared with the web app.
 type BackgroundState struct {
-	CurIndex int      `json:"curIndex"`
-	Items    []string `json:"items"`
+	CurIndex int `json:"curIndex"`
 }
 
 // HerolistState is the herolist module's state as shared with the web app.

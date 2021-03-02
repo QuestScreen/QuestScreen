@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -28,22 +29,8 @@ import (
 	"github.com/veandco/go-sdl2/ttf"
 )
 
-// implements resources.Resource
-type resourceFile struct {
-	name string
-	path string
-}
-
-func (r *resourceFile) Name() string {
-	return r.name
-}
-
-func (r *resourceFile) Path() string {
-	return r.path
-}
-
 type ownedResourceFile struct {
-	resourceFile
+	resources.Resource
 	group  int
 	system int
 }
@@ -242,8 +229,8 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 					log.Printf("could not read file %s: %s\n", path, err.Error())
 					continue
 				}
-				qs.textures = append(qs.textures, &resourceFile{
-					name: file.Name(), path: path})
+				qs.textures = append(qs.textures, resources.Resource{
+					Name: file.Name(), Location: &url.URL{Scheme: "file", Path: path}})
 			}
 		}
 	}
@@ -337,11 +324,11 @@ func (qs *QuestScreen) Plugin(index int) *app.Plugin {
 	return qs.plugins[index].Plugin
 }
 
-func appendBySelector(resources []ownedResourceFile, basePath string,
+func appendBySelector(rFiles []ownedResourceFile, basePath string,
 	selector resources.Selector, group int, system int) []ownedResourceFile {
 	if selector.Name == "" {
 		if _, err := os.Stat(basePath); os.IsNotExist(err) {
-			return resources
+			return rFiles
 		}
 		files, err := ioutil.ReadDir(basePath)
 		if err == nil {
@@ -366,9 +353,10 @@ func appendBySelector(resources []ownedResourceFile, basePath string,
 						}
 					}
 
-					resources = append(resources, ownedResourceFile{
-						resourceFile: resourceFile{name: file.Name(), path: path},
-						group:        group, system: system})
+					rFiles = append(rFiles, ownedResourceFile{
+						Resource: resources.Resource{Name: file.Name(),
+							Location: &url.URL{Scheme: "file", Path: path}},
+						group: group, system: system})
 				}
 			}
 		} else {
@@ -378,15 +366,16 @@ func appendBySelector(resources []ownedResourceFile, basePath string,
 		path := filepath.Join(basePath, selector.Name)
 		_, err := os.Stat(path)
 		if err == nil {
-			resources = append(resources, ownedResourceFile{
-				resourceFile: resourceFile{name: selector.Name, path: path},
-				group:        group, system: system,
+			rFiles = append(rFiles, ownedResourceFile{
+				Resource: resources.Resource{Name: selector.Name,
+					Location: &url.URL{Scheme: "file", Path: path}},
+				group: group, system: system,
 			})
 		} else if !os.IsNotExist(err) {
 			log.Printf("could not read file %s: %s\n", path, err.Error())
 		}
 	}
-	return resources
+	return rFiles
 }
 
 // listFiles queries the list of all files matching the given selector.
@@ -464,7 +453,7 @@ func (qs *QuestScreen) GetResources(
 	for i := range complete {
 		if (complete[i].group == -1 || complete[i].group == qs.activeGroupIndex) &&
 			(complete[i].system == -1 || complete[i].system == qs.activeSystemIndex) {
-			ret = append(ret, &complete[i])
+			ret = append(ret, complete[i].Resource)
 			if qs.modules[moduleIndex].ResourceCollections[index].Name != "" {
 				// single file
 				return ret

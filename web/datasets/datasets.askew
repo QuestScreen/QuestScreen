@@ -1,14 +1,14 @@
 <a:import>
-  "github.com/QuestScreen/QuestScreen/web/controls"
+  "github.com/QuestScreen/api/web/controls"
 	"github.com/QuestScreen/QuestScreen/shared"
 </a:import>
 
-<a:component name="listItem" params="name string, removable bool, index int">
+<a:component name="listItem" params="name string, removable bool, index int" gen-new-init>
 	<a:controller>delete(index int)</a:controller>
 	<div class="data-list-item">
 		<span class="data-list-text" a:assign="prop(textContent) = name"></span>
 		<a class="data-list-link"
-				a:assign="class(delete) = removable, data(index) = index"
+				a:assign="class(delete) = removable, dataset(index) = index"
 				a:capture="click:delete">
 			<i class="fas fa-minus-square" a:if="removable"></i>
 			<i class="fas fa-cubes" a:if="!removable"></i>
@@ -16,7 +16,7 @@
 	</div>
 </a:component>
 
-<a:component name="base" init>
+<a:component name="base">
 	<a:data>
 		sc systemItemsController
 		gc groupItemsController
@@ -47,7 +47,7 @@
 	</article>
 </a:component>
 
-<a:component name="editableText" params="title string, inputName string">
+<a:component name="editableText" params="title string, inputName string" gen-new-init>
 	<a:handlers>setEdited()</a:handlers>
 	<div class="pure-control-group" a:bindings="class(edited):edited">
 		<label a:assign="prop(textContent) = title"></label>
@@ -75,7 +75,7 @@
 	</section>
 </a:macro>
 
-<a:component name="system" params="var data *shared.System" init>
+<a:component name="system" params="var data *shared.System">
 	<a:handlers>
 		commit()
 		reset()
@@ -85,16 +85,16 @@
 	</article>
 </a:component>
 
-<a:component name="heroButton" params="name string, var index int">
+<a:component name="heroButton" params="name string, var index int" gen-new-init>
 	<a:controller>heroClicked(index int)</a:controller>
 	<li class="pure-menu-item" a:bindings="class(pure-menu-selected):selected">
 		<a class="pure-menu-link"
-				a:assign="data(index)=index, prop(textContent)=name"
+				a:assign="dataset(index)=index, prop(textContent)=name"
 				a:capture="click:heroClicked {preventDefault}"></a>
 	</li>
 </a:component>
 
-<a:component name="heroForm" params="var g *shared.Group">
+<a:component name="heroForm" params="var g *shared.Group" gen-new-init>
 	<a:data>
 		data *shared.Hero
 	</a:data>
@@ -124,7 +124,7 @@
 	</form>
 </a:component>
 
-<a:component name="group" params="var data *shared.Group" init>
+<a:component name="group" params="var data *shared.Group">
 	<a:handlers>
 		commit()
 		reset()
@@ -169,7 +169,7 @@
 </a:component>
 
 <a:component name="sceneModule"
-		params="pluginName string, moduleName string, var origValue bool">
+		params="pluginName string, moduleName string, var origValue bool" gen-new-init>
 	<div class="data-list-item" a:bindings="class(edited):edited">
 		<span class="data-list-text">
 			<span a:assign="prop(textContent) = pluginName"></span>
@@ -183,7 +183,7 @@
 	</div>
 </a:component>
 
-<a:component name="scene" params="var g *shared.Group, var sceneIndex int" init>
+<a:component name="scene" params="var g *shared.Group, var sceneIndex int">
 	<a:handlers>
 		commit()
 		reset()
@@ -198,4 +198,44 @@
 			</div>
 		</a:include>
 	</article>
+</a:component>
+
+<a:component name="popupSelectableTemplate"
+		params="pluginName string, templateName string, descr string" gen-new-init>
+  <a:data>
+    pluginIndex, templateIndex int
+  </a:data>
+	<a:handlers>
+		click()
+	</a:handlers>
+	<a:controller>
+		choose(pluginIndex int, templateIndex int, active bool)
+	</a:controller>
+	<li class="pure-menu-item template-item" a:bindings="class(pure-menu-active):Active, style(height):Height">
+		<a class="pure-menu-link" href="#" a:capture="click:click() {preventDefault}">
+			<div class="template-container" a:bindings="prop(offsetHeight):OffsetHeight">
+				<p class="template-identifier">
+					<span a:assign="prop(textContent) = pluginName"></span>
+					<i class="fas fa-angle-right"></i>
+					<span a:assign="prop(textContent) = templateName"></span>
+				</p>
+				<p class="template-descr" a:assign="prop(textContent) = descr"></p>
+			</div>
+			<i class="fas fa-sort"></i>
+		</a>
+	</li>
+</a:component>
+
+<a:component name="popupFromTemplate" gen-new-init>
+	<a:data>
+		selectedPlugin int
+		selectedTemplate int
+		val chan bool = make(chan bool, 1)
+	</a:data>
+	<label>Name: </label><input type="text" required a:bindings="prop(value):Name"/>
+	<div class="pure-menu template-list" a:bindings="class(menu-expanded):Expanded">
+		<ul class="pure-menu-list">
+			<a:embed name="Templates" type="popupSelectableTemplate" list control></a:embed>
+		</ul>
+	</div>
 </a:component>

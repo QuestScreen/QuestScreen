@@ -121,7 +121,7 @@ func (p Persistence) loadModuleConfigInto(heroes groups.HeroList,
 			}
 			targetSetting := targetModule.Field(i).Interface().(config.Item)
 
-			if err := targetSetting.LoadPersisted(&inValue,
+			if err := targetSetting.Load(&inValue,
 				p.d.owner.ServerContext(moduleIndex)); err != nil {
 				if wasNil {
 					targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
@@ -217,7 +217,7 @@ func (p Persistence) persistingModuleConfigs(heroes groups.HeroList,
 					fields = make(map[string]interface{})
 				}
 				fields[fieldName] =
-					fieldVal.Interface().(config.Item).PersistingView(
+					fieldVal.Interface().(config.Item).Persist(
 						p.d.owner.ServerContext(i))
 			}
 		}
@@ -874,7 +874,7 @@ func (s *State) buildYaml() ([]byte, error) {
 		for j := shared.FirstModule; j < s.a.NumModules(); j++ {
 			if sceneDescr.UsesModule(j) {
 				data[s.a.ModuleAt(j).ID] =
-					s.scenes[i][j].PersistingView(s.a.ServerContext(j))
+					s.scenes[i][j].Persist(s.a.ServerContext(j))
 			}
 		}
 		structure.Scenes[sceneDescr.ID()] = data

@@ -116,11 +116,7 @@ func (c Communication) plugins(a app.App) []shared.Plugin {
 // will never change during the execution of PnPScreen)
 func (c Communication) StaticData(a app.App, plugins interface{}) interface{} {
 	textures := a.GetTextures()
-	textureNames := make([]string, len(textures))
-	for i := range textures {
-		textureNames[i] = textures[i].Name()
-	}
-	return shared.Static{Fonts: a.FontNames(), Textures: textureNames,
+	return shared.Static{Fonts: a.FontNames(), Textures: textures,
 		Modules: c.modules(a), Plugins: c.plugins(a),
 		NumPluginSystems: c.d.numPluginSystems,
 		FontDir:          a.DataDir("fonts"), Messages: a.Messages(),
@@ -332,7 +328,7 @@ func (c Communication) loadModuleConfigInto(
 		}
 		targetSetting := targetModule.Field(i).Interface()
 
-		if err := targetSetting.(config.Item).LoadWeb(input, ctx); err != nil {
+		if err := targetSetting.(config.Item).Receive(input, ctx); err != nil {
 			if wasNil {
 				targetModule.Field(i).Set(reflect.Zero(targetModuleType.Field(i).Type))
 			}
@@ -409,7 +405,7 @@ func (c Communication) ViewSceneState(a app.App) interface{} {
 	scene := c.d.State.scenes[c.d.State.activeScene]
 	for i := shared.FirstModule; i < a.NumModules(); i++ {
 		if scene[i] != nil {
-			list[i] = scene[i].WebView(a.ServerContext(i))
+			list[i] = scene[i].Send(a.ServerContext(i))
 		}
 	}
 	return list

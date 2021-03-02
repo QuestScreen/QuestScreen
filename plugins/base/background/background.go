@@ -45,7 +45,7 @@ var Descriptor = modules.Module{
 
 func (bg *Background) genTexture(
 	renderer render.Renderer, file resources.Resource) render.Image {
-	tex, err := renderer.LoadImageFile(file.Path(), true)
+	tex, err := renderer.LoadImageFile(file.Location, true)
 	if err != nil {
 		log.Println(err)
 		return render.Image{}
@@ -78,7 +78,7 @@ func (bg *Background) InitTransition(r render.Renderer, data interface{}) time.D
 
 	if req.file != bg.curFile {
 		bg.curFile = req.file
-		if bg.curFile != nil {
+		if bg.curFile.Location != nil {
 			bg.newTexture = bg.genTexture(r, bg.curFile)
 		}
 		ret = time.Second
@@ -127,7 +127,7 @@ func (bg *Background) Rebuild(
 		if req.file != bg.curFile {
 			r.FreeImage(&bg.curTexture)
 			bg.curFile = req.file
-			if bg.curFile != nil {
+			if bg.curFile.Location != nil {
 				bg.curTexture = bg.genTexture(r, bg.curFile)
 			}
 		}

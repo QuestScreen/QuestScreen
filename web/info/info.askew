@@ -4,7 +4,7 @@
 	<span a:assign="prop(textContent)=moduleName"></span>
 </a:macro>
 
-<a:component name="Module" params="plugin string, moduleName string, moduleID string">
+<a:component name="Module" params="plugin string, moduleName string, moduleID string" gen-new-init>
 	<tr>
 		<td a:assign="prop(textContent)=plugin"></td>
 		<td a:assign="prop(textContent)=moduleName"></td>
@@ -12,7 +12,7 @@
 </a:component>
 
 <!-- give empty plugin name for core messages, which will ignore moduleName and moduleID. -->
-<a:component name="Message" params="plugin string, moduleName string, moduleID string, message string, isError bool">
+<a:component name="Message" params="plugin string, moduleName string, moduleID string, message string, isError bool" gen-new-init>
 	<tr a:assign="class(error)=isError,class(warning)=!isError">
 		<td><i class="fas" a:assign="class(fa-times-circle)=isError,class(fa-exclamation-triangle)=!isError"></i></td>
 		<td a:if="plugin == ``">Core</td>
@@ -23,7 +23,7 @@
 	</tr>
 </a:component>
 
-<a:component name="MessageContainer">
+<a:component name="MessageContainer" gen-new-init>
 	<section class="messages">
 		<h4 class="message-list-header">Messages</h4>
 		<table class="message-list">
@@ -34,7 +34,7 @@
 	</section>
 </a:component>
 
-<a:component name="viewContent" params="version string" init>
+<a:component name="viewContent" params="version string">
 	<section class="data-sheet">
 		<h4 class="data-sheet-header"><i class="fas fa-film"></i> Loaded Modules</h4>
 		<table class="module-list">

@@ -1,7 +1,8 @@
-<a:component name="topBar">
+<a:component name="topBar" gen-new-init>
 	<a:controller>
 		backButtonClicked()
 		showDatasets()
+		showConfig()
 	</a:controller>
 	<a:handlers>
 		headerToggleClicked(target js.Value)
@@ -21,7 +22,8 @@
 			<div class="pure-u-1 pure-u-sm-1-3 pure-menu">
 				<ul class="pure-menu-list">
 					<li class="pure-menu-item">
-						<a id="show-config" class="pure-menu-link" href="#"><i class="fas fa-cog"></i> Configuration</a>
+						<a id="show-config" class="pure-menu-link" href="#"
+								a:capture="click:showConfig() {preventDefault}"><i class="fas fa-cog"></i> Configuration</a>
 					</li>
 				</ul>
 			</div>
@@ -51,21 +53,21 @@
 	</h2>
 </a:component>
 
-<a:component name="GroupMenuItem" params="title string">
+<a:component name="GroupMenuItem" params="title string" gen-new-init>
 	<a:handlers>clicked()</a:handlers>
 	<li class="pure-menu-item group-list-item">
 		<a class="pure-menu-link" a:assign="prop(textContent)= title" a:capture="click:clicked"></a>
 	</li>
 </a:component>
 
-<a:component name="pageMenuEntry" params="var name string, var parent string, var view View">
+<a:component name="pageMenuEntry" params="var name string, var parent string, var view View" gen-new-init>
 	<a:handlers>clicked()</a:handlers>
 	<li class="pure-menu-item" a:bindings="class(pure-menu-active):active">
 		<a class="pure-menu-link" a:assign="class(submenu-link)= parent != ``" a:capture="click:clicked"><span class="submenu-parent-name" a:if="parent != ``"> <a:text expr="parent"></a:text> –</span> <a:text expr="name"></a:text><i class="fas fa-sort"></i></a>
 	</li>
 </a:component>
 
-<a:component name="sidebarColl" params="title string">
+<a:component name="sidebarColl" params="title string" gen-new-init>
 	<li class="pure-menu-heading" a:if="title != ``">
 		<!-- this is an <a> so that it can include padding as the surrounding <li>
 				 needs `padding: 0;` to support hiding responsively. -->
@@ -74,7 +76,7 @@
 	<a:embed name="items" type="pageMenuEntry" list></a:embed>
 </a:component>
 
-<a:component name="sidebarType">
+<a:component name="sidebarType" gen-new-init>
 	<nav id="pagemenu" class="pure-menu" a:bindings="class(pagemenu-expanded):expanded">
 		<ul class="pure-menu-list" a:bindings="class(menu-disabled):Disabled">
 			<a:embed name="items" type="sidebarColl" list></a:embed>

@@ -2,16 +2,17 @@ package main
 
 import (
 	"github.com/QuestScreen/QuestScreen/web"
+	"github.com/QuestScreen/QuestScreen/web/comms"
+	"github.com/QuestScreen/QuestScreen/web/config"
 	"github.com/QuestScreen/QuestScreen/web/datasets"
 	"github.com/QuestScreen/QuestScreen/web/info"
-	"github.com/QuestScreen/QuestScreen/web/server"
 	"github.com/QuestScreen/QuestScreen/web/site"
-	api "github.com/QuestScreen/api/web/server"
+	api "github.com/QuestScreen/api/web"
 )
 
 func main() {
 	var loader pluginLoader
-	if err := server.Fetch(api.Get, "/static", nil, &loader.tmp); err != nil {
+	if err := comms.Fetch(api.Get, "/static", nil, &loader.tmp); err != nil {
 		panic(err)
 	}
 	web.StaticData.Fonts = loader.tmp.Fonts
@@ -39,11 +40,12 @@ func main() {
 		}
 	}
 
-	if err := server.Fetch(api.Get, "/data", nil, &web.Data); err != nil {
+	if err := comms.Fetch(api.Get, "/data", nil, &web.Data); err != nil {
 		panic(err)
 	}
 
 	datasets.Register()
 	info.Register()
+	config.Register()
 	site.Boot(headerDisabled)
 }

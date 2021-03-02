@@ -100,15 +100,15 @@ func (s *state) visibleHeroesList(ctx server.Context) []string {
 	return ret
 }
 
-// WebView returns a structure containing the global flag and a list containing
+// Send returns a structure containing the global flag and a list containing
 // boolean flags for each hero
-func (s *state) WebView(ctx server.Context) interface{} {
+func (s *state) Send(ctx server.Context) interface{} {
 	return shared.HerolistState{Global: s.globalVisible, Heroes: s.heroVisible}
 }
 
-// PersistingView returns a structure containing the `global` flag and a list
+// Persist returns a structure containing the `global` flag and a list
 // containing each visible hero as ID
-func (s *state) PersistingView(ctx server.Context) interface{} {
+func (s *state) Persist(ctx server.Context) interface{} {
 	return persistedState{GlobalVisible: s.globalVisible,
 		HeroVisible: s.visibleHeroesList(ctx)}
 }

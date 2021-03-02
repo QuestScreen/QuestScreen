@@ -1,7 +1,8 @@
-<a:component name="Widget" params="caption string">
-  <a:controller>
-	  update(caption string) string
-	</a:controller>
+<a:component name="State" params="caption string">
+	<a:data>
+		srv web.Server
+		caption string
+	</a:data>
 	<a:handlers>
 	  submit(caption string)
 	</a:handlers>
