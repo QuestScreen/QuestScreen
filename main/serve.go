@@ -500,6 +500,7 @@ func (se systemEndpoint) Handle(method httpMethods, ids []string,
 	if s == nil {
 		return nil, &server.NotFound{Name: ids[0]}
 	}
+	var err server.Error
 	if method == httpPut {
 		if err := se.qs.communication.UpdateSystem(raw, s); err != nil {
 			return nil, err
@@ -507,9 +508,10 @@ func (se systemEndpoint) Handle(method httpMethods, ids []string,
 		if err := se.qs.persistence.WriteSystem(s); err != nil {
 			log.Println("failed to persist system: " + err.Error())
 		}
-		return se.qs.communication.ViewSystems(), nil
+	} else {
+		err = se.qs.persistence.DeleteSystem(index)
 	}
-	return nil, se.qs.persistence.DeleteSystem(index)
+	return se.qs.communication.ViewSystems(), err
 }
 
 type dataGroupEndpoint struct {

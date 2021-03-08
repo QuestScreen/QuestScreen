@@ -1,4 +1,7 @@
-<a:import>"github.com/QuestScreen/api/web/controls"</a:import>
+<a:import>
+	"github.com/QuestScreen/api/web/controls"
+	"github.com/QuestScreen/QuestScreen/plugins/base/shared"
+</a:import>
 
 <a:component name="State" params="allState bool">
 	<a:data>

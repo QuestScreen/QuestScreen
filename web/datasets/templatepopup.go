@@ -7,11 +7,10 @@ import (
 )
 
 func (o *popupFromTemplate) Confirm() {
-	o.val <- true
+	go o.cb(o.selectedPlugin, o.selectedTemplate, o.Name.Get())
 }
 
 func (o *popupFromTemplate) Cancel() {
-	o.val <- false
 }
 
 func (o *popupFromTemplate) NeedsDoShow() bool {
@@ -66,8 +65,8 @@ const (
 
 // TemplateSelect shows the popup and lets the user enter a name and select a
 // template out of the available templates for the given kind.
-func TemplateSelect(pb *controls.PopupBase, kind TemplateKind) (pluginIndex int, tmplIndex int, name string) {
-	pft := newPopupFromTemplate()
+func TemplateSelect(pb *controls.PopupBase, kind TemplateKind, cb func(pluginIndex int, tmplIndex int, name string)) {
+	pft := newPopupFromTemplate(cb)
 
 	for pIndex, p := range web.StaticData.Plugins {
 		var templates []shared.TemplateDescr
@@ -87,7 +86,7 @@ func TemplateSelect(pb *controls.PopupBase, kind TemplateKind) (pluginIndex int,
 			pft.Templates.Append(item)
 		}
 	}
-	pb.Controller = pft
+
 	switch kind {
 	case SystemTemplate:
 		pb.Show("Create System", pft, "OK", "Cancel")
@@ -96,14 +95,4 @@ func TemplateSelect(pb *controls.PopupBase, kind TemplateKind) (pluginIndex int,
 	case SceneTemplate:
 		pb.Show("Create Scene", pft, "OK", "Cancel")
 	}
-	if <-pft.val {
-		pluginIndex = pft.selectedPlugin
-		tmplIndex = pft.selectedTemplate
-		name = pft.Name.Get()
-	} else {
-		pluginIndex = -1
-		tmplIndex = -1
-	}
-	pb.Controller = nil
-	return
 }

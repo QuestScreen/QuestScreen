@@ -60,6 +60,7 @@ func newViewContent(version string) *viewContent {
 }
 
 func (c *viewContent) init(version string) {
+	c.askewInit(version)
 	for _, module := range web.StaticData.Modules {
 		c.Modules.Append(NewModule(
 			web.StaticData.Plugins[module.PluginIndex].Name, module.Name, module.ID))

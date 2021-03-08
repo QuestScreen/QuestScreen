@@ -226,11 +226,10 @@
 	</li>
 </a:component>
 
-<a:component name="popupFromTemplate" gen-new-init>
+<a:component name="popupFromTemplate" params="var cb func(pluginIndex int, templateIndex int, name string)" gen-new-init>
 	<a:data>
 		selectedPlugin int
 		selectedTemplate int
-		val chan bool = make(chan bool, 1)
 	</a:data>
 	<label>Name: </label><input type="text" required a:bindings="prop(value):Name"/>
 	<div class="pure-menu template-list" a:bindings="class(menu-expanded):Expanded">

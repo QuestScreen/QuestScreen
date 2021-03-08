@@ -1,6 +1,8 @@
 package datasets
 
 import (
+	"syscall/js"
+
 	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/QuestScreen/web"
 	"github.com/QuestScreen/QuestScreen/web/comms"
@@ -25,16 +27,14 @@ type systemItemsController struct {
 }
 
 func (c *systemItemsController) delete(index int) {
-	go func() {
-		system := web.Data.Systems[index]
-		if ok := site.Popup.Confirm("Really delete system " + system.Name + "?"); ok {
-			if err := comms.Fetch(
-				api.Delete, "data/systems/"+system.ID, nil, &web.Data.Systems); err != nil {
-				panic(err)
-			}
-			site.Refresh("")
+	system := web.Data.Systems[index]
+	site.Popup.Confirm("Really delete system "+system.Name+"?", func() {
+		if err := comms.Fetch(
+			api.Delete, "data/systems/"+system.ID, nil, &web.Data.Systems); err != nil {
+			panic(err)
 		}
-	}()
+		site.Refresh("")
+	})
 }
 
 type groupItemsController struct {
@@ -42,15 +42,13 @@ type groupItemsController struct {
 }
 
 func (c *groupItemsController) delete(index int) {
-	go func() {
-		group := web.Data.Groups[index]
-		if site.Popup.Confirm("Really delete group " + group.Name + "?") {
-			if err := comms.Fetch(api.Delete, "data/groups/"+group.ID, nil, &web.Data.Groups); err != nil {
-				panic(err)
-			}
-			site.Refresh("")
+	group := web.Data.Groups[index]
+	site.Popup.Confirm("Really delete group "+group.Name+"?", func() {
+		if err := comms.Fetch(api.Delete, "data/groups/"+group.ID, nil, &web.Data.Groups); err != nil {
+			panic(err)
 		}
-	}()
+		site.Refresh("")
+	})
 }
 
 func (o *base) regenSystems() {
@@ -84,30 +82,24 @@ func (o *base) init() {
 }
 
 func (o *base) addSystem() {
-	go func() {
-		name := site.Popup.TextInput("Create system", "Name:")
-		if name != nil {
-			if err := comms.Fetch(api.Post, "data/systems", *name,
-				&web.Data.Systems); err != nil {
-				panic(err)
-			}
-			site.Refresh("")
+	js.Global().Get("console").Call("log", "adding system")
+	site.Popup.TextInput("Create system", "Name:", func(name string) {
+		if err := comms.Fetch(api.Post, "data/systems", name,
+			&web.Data.Systems); err != nil {
+			panic(err)
 		}
-	}()
+		site.Refresh("")
+	})
 }
 
 func (o *base) addGroup() {
-	go func() {
-		pluginIndex, templateIndex, name :=
-			TemplateSelect(&site.Popup, GroupTemplate)
-		if pluginIndex != -1 {
-			if err := comms.Fetch(api.Post, "data/groups", shared.GroupCreationRequest{
-				name, pluginIndex, templateIndex}, &web.Data.Groups); err != nil {
-				panic(err)
-			}
-			site.Refresh("")
+	TemplateSelect(&site.Popup, GroupTemplate, func(pluginIndex int, templateIndex int, name string) {
+		if err := comms.Fetch(api.Post, "data/groups", shared.GroupCreationRequest{
+			name, pluginIndex, templateIndex}, &web.Data.Groups); err != nil {
+			panic(err)
 		}
-	}()
+		site.Refresh("")
+	})
 }
 
 func newSystem(data *shared.System) *system {
@@ -178,53 +170,45 @@ func (o *group) ItemClicked(index int) bool {
 }
 
 func (o *group) delete(index int) {
-	go func() {
-		if len(o.data.Scenes) == 1 {
-			site.Popup.ErrorMsg("Cannot delete last scene (group needs at least one scene).")
-			return
+	if len(o.data.Scenes) == 1 {
+		site.Popup.ErrorMsg("Cannot delete last scene (group needs at least one scene).", nil)
+		return
+	}
+	s := o.data.Scenes[index]
+	site.Popup.Confirm("Really delete scene "+s.Name+"?", func() {
+		if err := comms.Fetch(api.Delete,
+			"data/groups/"+o.data.ID+"/scenes/"+s.ID, nil, &o.data.Scenes); err != nil {
+			panic(err)
 		}
-		s := o.data.Scenes[index]
-		if site.Popup.Confirm("Really delete scene " + s.Name + "?") {
-			if err := comms.Fetch(api.Delete,
-				"data/groups/"+o.data.ID+"/scenes/"+s.ID, nil, &o.data.Scenes); err != nil {
-				panic(err)
-			}
-			site.Refresh("g-" + o.data.ID)
-		}
-	}()
+		site.Refresh("g-" + o.data.ID)
+	})
 }
 
 func (o *group) createScene() {
-	go func() {
-		pluginIndex, templateIndex, name :=
-			TemplateSelect(&site.Popup, SceneTemplate)
-		if pluginIndex != -1 {
-			if err := comms.Fetch(api.Post, "data/groups/"+o.data.ID+"/scenes",
-				shared.SceneCreationRequest{
-					name, pluginIndex, templateIndex}, &o.data.Scenes); err != nil {
-				panic(err)
-			}
-			site.Refresh("g-" + o.data.ID)
+	TemplateSelect(&site.Popup, SceneTemplate, func(pluginIndex, templateIndex int, name string) {
+		if err := comms.Fetch(api.Post, "data/groups/"+o.data.ID+"/scenes",
+			shared.SceneCreationRequest{
+				name, pluginIndex, templateIndex}, &o.data.Scenes); err != nil {
+			panic(err)
 		}
-	}()
+		site.Refresh("g-" + o.data.ID)
+	})
 }
 
 func (o *group) createHero() {
-	go func() {
-		if name := site.Popup.TextInput("Create Hero", "Name:"); name != nil {
-			if err := comms.Fetch(api.Post, "data/groups/"+o.data.ID+"/heroes",
-				*name, &o.data.Heroes); err != nil {
-				panic(err)
-			}
-			o.heroChooser.DestroyAll()
-			for i, h := range o.data.Heroes {
-				o.heroChooser.Append(newHeroButton(h.Name, i))
-			}
-			o.heroChooser.Item(o.heroChooser.Len() - 1).selected.Set(true)
-			o.hero.disabled.Set(false)
-			o.hero.loadHero(&o.data.Heroes[len(o.data.Heroes)-1])
+	site.Popup.TextInput("Create Hero", "Name:", func(name string) {
+		if err := comms.Fetch(api.Post, "data/groups/"+o.data.ID+"/heroes",
+			name, &o.data.Heroes); err != nil {
+			panic(err)
 		}
-	}()
+		o.heroChooser.DestroyAll()
+		for i, h := range o.data.Heroes {
+			o.heroChooser.Append(newHeroButton(h.Name, i))
+		}
+		o.heroChooser.Item(o.heroChooser.Len() - 1).selected.Set(true)
+		o.hero.disabled.Set(false)
+		o.hero.loadHero(&o.data.Heroes[len(o.data.Heroes)-1])
+	})
 }
 
 func (o *group) heroClicked(index int) {
