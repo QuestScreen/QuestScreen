@@ -16,8 +16,11 @@ func (o *pageMenuEntry) clicked() {
 }
 
 func setTitle(caption, subtitle string) {
-	top.Title.Set(caption)
-	top.Subtitle.Set(subtitle)
+	if subtitle == "" {
+		top.Subtitle.Set(caption)
+	} else {
+		top.Subtitle.Set(caption + ": " + subtitle)
+	}
 	bb := site.page().BackButton()
 	if bb == NoBackButton {
 		top.BackButtonCaption.Set("")

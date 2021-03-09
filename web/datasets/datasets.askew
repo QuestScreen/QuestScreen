@@ -135,7 +135,7 @@
 		<a:include name="dataSheet">
 			<div class="pure-control-group with-edited" a:slot="value" a:bindings="class(edited):systemEdited">
 				<label>System</label>
-				<a:embed name="Systems" type="controls.Dropdown" args="controls.SelectAtMostOne, controls.SelectionIndicator" control></a:embed>
+				<a:embed name="system" type="controls.Dropdown" args="controls.SelectAtMostOne, controls.SelectionIndicator" control></a:embed>
 				<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
 			</div>
 		</a:include>

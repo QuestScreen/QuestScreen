@@ -137,7 +137,7 @@ func newGroup(data *shared.Group) *group {
 func (o *group) init(data *shared.Group) {
 	o.askewInit(data)
 	for _, s := range web.Data.Systems {
-		o.Systems.AddItem(s.Name, false)
+		o.system.AddItem(s.Name, false)
 	}
 	o.reset()
 
@@ -150,14 +150,15 @@ func (o *group) init(data *shared.Group) {
 
 func (o *group) reset() {
 	o.name.ResetTo(o.data.Name)
-	o.Systems.SetItem(o.data.SystemIndex, true)
+	o.system.SetItem(o.data.SystemIndex, true)
 	o.systemEdited.Set(false)
 }
 
 func (o *group) commit() {
 	go func() {
-		if err := comms.Fetch(api.Put, "data/groups/"+o.data.ID, o.name.Value.Get(),
-			&web.Data.Groups); err != nil {
+		if err := comms.Fetch(api.Put, "data/groups/"+o.data.ID,
+			&shared.GroupModificationRequest{Name: o.name.Value.Get(),
+				SystemIndex: o.system.CurIndex}, &web.Data.Groups); err != nil {
 			panic(err)
 		}
 		site.Refresh("g-" + o.data.ID)

@@ -65,7 +65,7 @@ type SystemView struct {
 
 // Title implements site.View, returns the system's name prefixed with "System "
 func (sv *SystemView) Title() string {
-	return "System " + web.Data.Systems[sv.systemIndex].Name
+	return web.Data.Systems[sv.systemIndex].Name
 }
 
 // ID implements site.View, returns the system's ID prefixed with "s-"
@@ -91,7 +91,7 @@ type GroupView struct {
 
 // Title implements site.View, returns the group's name prefixed with "Group "
 func (gv *GroupView) Title() string {
-	return "Group " + web.Data.Groups[gv.groupIndex].Name
+	return web.Data.Groups[gv.groupIndex].Name
 }
 
 // ID implements site.View, returns the group's ID prefixed with "g-"
@@ -117,7 +117,7 @@ type SceneView struct {
 
 // Title implements site.View, returns the scene's name prefixed with "System "
 func (sv *SceneView) Title() string {
-	return "System " + web.Data.Groups[sv.groupIndex].Scenes[sv.sceneIndex].Name
+	return web.Data.Groups[sv.groupIndex].Scenes[sv.sceneIndex].Name
 }
 
 // ID implements site.View, returns the scene's ID prefixed with "gs-"

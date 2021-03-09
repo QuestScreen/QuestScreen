@@ -77,7 +77,7 @@ const (
 // Page describes a collection of views and the sidebar used to navigate between
 // them.
 type Page interface {
-	// Title returns the label that should be written to the title bare when a
+	// Title returns the label that should be written to the title bar when a
 	// view of this page is being displayed. It is used as prefix for the view's
 	// title.
 	Title() string
@@ -157,23 +157,24 @@ func Boot(headerDisabled bool) {
 func Refresh(id string) {
 	sidebar.items.DestroyAll()
 	viewColls := site.page().GenViews()
+	top.Title.Set(site.page().Title())
 	if len(viewColls) == 1 && len(viewColls[0].Items) == 1 {
 		// single-view page. leave the sidebar empty, display the view.
 		v := viewColls[0].Items[0]
 		sidebar.Disabled.Set(true)
-		loadView(v, "", v.Title())
+		loadView(v, "", "")
 		return
 	}
 	var newSelectedEntry *pageMenuEntry
-	for _, c := range viewColls {
+	for cIndex, c := range viewColls {
 		coll := newSidebarColl(c.Title)
 		var parentName string
 		for _, v := range c.Items {
 			var entry *pageMenuEntry
 			if v.IsChild() {
-				entry = newPageMenuEntry(v.Title(), parentName, v)
+				entry = newPageMenuEntry(v.Title(), parentName, v, cIndex+2)
 			} else {
-				entry = newPageMenuEntry(v.Title(), "", v)
+				entry = newPageMenuEntry(v.Title(), "", v, cIndex+1)
 				parentName = v.Title()
 			}
 			coll.items.Append(entry)

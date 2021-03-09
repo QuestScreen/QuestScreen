@@ -17,7 +17,8 @@ type GroupCreationRequest struct {
 // GroupModificationRequest is sent from the client to the server to request
 // the modification of a group.
 type GroupModificationRequest struct {
-	Name string `json:"name"`
+	Name        string `json:"name"`
+	SystemIndex int    `json:"systemIndex"`
 }
 
 // SceneCreationRequest is sent from the client to the server to request the
