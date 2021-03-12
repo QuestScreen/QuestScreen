@@ -1,4 +1,4 @@
-package info
+package home
 
 import (
 	"github.com/QuestScreen/QuestScreen/web"
@@ -7,20 +7,20 @@ import (
 	askew "github.com/flyx/askew/runtime"
 )
 
-// View implements info.View
+// View implements site.View
 type View struct{}
 
-// Title returns "Info"
+// Title returns "Home"
 func (v View) Title() string {
-	return "Info"
+	return "Home"
 }
 
-// ID returns "info"
+// ID returns "home"
 func (v View) ID() string {
-	return "info"
+	return "home"
 }
 
-// GenerateUI creates the info view.
+// GenerateUI creates the home view.
 func (v View) GenerateUI(ctx server.Context) askew.Component {
 	return newViewContent(web.StaticData.AppVersion)
 }
@@ -30,12 +30,12 @@ func (v View) IsChild() bool {
 	return false
 }
 
-// Page implements info.Page
+// Page implements site.Page
 type Page struct{}
 
-// Title returns "Info"
+// Title returns "Home"
 func (p Page) Title() string {
-	return "Info"
+	return "Home"
 }
 
 // BackButton returns NoBackButton.
@@ -43,14 +43,14 @@ func (p Page) BackButton() site.BackButtonKind {
 	return site.NoBackButton
 }
 
-// GenViews returns a view list containing the only view of the info page.
+// GenViews returns a view list containing the only view of the home page.
 func (p Page) GenViews() []site.ViewCollection {
 	return []site.ViewCollection{{Title: "", Items: []site.View{View{}}}}
 }
 
 // Register registers this page with the site.
 func Register() {
-	site.RegisterPage(site.InfoPage, &Page{})
+	site.RegisterPage(site.HomePage, &Page{})
 }
 
 func newViewContent(version string) *viewContent {
@@ -60,7 +60,17 @@ func newViewContent(version string) *viewContent {
 }
 
 func (c *viewContent) init(version string) {
-	c.askewInit(version)
+	state := 0
+	if len(web.Data.Groups) > 0 {
+		state = 1
+	}
+	if len(web.StaticData.Messages) > 0 {
+		state = 2
+	}
+	c.askewInit(version, state)
+	for _, group := range web.Data.Groups {
+		c.groups.Append(NewChooseableGroup(group.Name))
+	}
 	for _, module := range web.StaticData.Modules {
 		c.Modules.Append(NewModule(
 			web.StaticData.Plugins[module.PluginIndex].Name, module.Name, module.ID))

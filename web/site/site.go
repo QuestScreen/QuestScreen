@@ -100,10 +100,10 @@ func (o *GroupMenuItem) clicked() {
 type PageKind int
 
 const (
-	// InfoPage ist the info page shown at startup.
-	InfoPage PageKind = iota
-	// StatePage is the page shown during a session.
-	StatePage
+	// HomePage ist the home page shown at startup.
+	HomePage PageKind = iota
+	// SessionPage is the page shown during a session.
+	SessionPage
 	// ConfigPage is the page for customizing configuration.
 	ConfigPage
 	// DataPage is the page for manipulating systems & groups.
@@ -145,7 +145,7 @@ func RegisterPage(kind PageKind, page Page) {
 func Boot(headerDisabled bool) {
 	top.Disabled.Set(headerDisabled)
 	top.Controller = &site
-	site.curPage = InfoPage
+	site.curPage = HomePage
 	Refresh("")
 }
 

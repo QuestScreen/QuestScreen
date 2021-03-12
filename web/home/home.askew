@@ -34,7 +34,28 @@
 	</section>
 </a:component>
 
-<a:component name="viewContent" params="version string">
+<a:component name="ChooseableGroup" params="name string" gen-new-init>
+	<tr>
+		<td>
+			<a><i class="fas fa-users"></i> <a:text expr="name"></a:text></a>
+		</td>
+	</tr>
+</a:component>
+
+<!-- group list state: 0 == no groups, 1 == groups, 2 == unavailable because of
+     server errors -->
+<a:component name="viewContent" params="version string, groupListState int">
+	<div style="text-align: center">
+		<section class="group-chooser data-sheet">
+			<h4 class="data-sheet-header"><i class="fas fa-play"></i> Start a session</h4>
+			<p a:if="groupListState == 0">No groups available. Create one via the Datasets page!</p>
+			<table class="group-chooser-list" a:if="groupListState == 1">
+				<a:embed list type="ChooseableGroup" name="groups"></a:embed>
+			</table>
+			<p a:if="groupListState == 2">Cannot start a session. Please fix server errors.</p>
+		</section>
+	</div>
+	<h3>Software information</h3>
 	<section class="data-sheet">
 		<h4 class="data-sheet-header"><i class="fas fa-film"></i> Loaded Modules</h4>
 		<table class="module-list">

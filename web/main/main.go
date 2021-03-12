@@ -5,7 +5,7 @@ import (
 	"github.com/QuestScreen/QuestScreen/web/comms"
 	"github.com/QuestScreen/QuestScreen/web/config"
 	"github.com/QuestScreen/QuestScreen/web/datasets"
-	"github.com/QuestScreen/QuestScreen/web/info"
+	"github.com/QuestScreen/QuestScreen/web/home"
 	"github.com/QuestScreen/QuestScreen/web/site"
 	api "github.com/QuestScreen/api/web"
 )
@@ -45,7 +45,7 @@ func main() {
 	}
 
 	datasets.Register()
-	info.Register()
+	home.Register()
 	config.Register()
 	site.Boot(headerDisabled)
 }

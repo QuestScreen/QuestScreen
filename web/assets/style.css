@@ -632,6 +632,10 @@ input[type="range"] {
 	min-width: 12.5em;
 }
 
+.data-sheet.group-chooser {
+	text-align: left;
+}
+
 .data-sheet-header, .message-list-header {
 	margin: 0;
 	padding: .5em 1em;
@@ -716,14 +720,21 @@ input[type="range"] {
 }
 
 table.module-list,
+table.group-chooser-list,
 table.message-list {
 	width: 100%;
 }
 
 table.module-list td,
 table.module-list th,
+table.group-chooser-list td a,
+.group-chooser p,
 table.message-list td {
 	padding: .5em 1em;
+}
+
+table.group-chooser-list td a {
+	display: block;
 }
 
 table.module-list .text,
