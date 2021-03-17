@@ -399,13 +399,17 @@ func (c Communication) sceneConfig(config []sceneModule) []shared.ModuleConfig {
 	return ret
 }
 
-// ViewSceneState returns a serializatable view of the current scene.
-func (c Communication) ViewSceneState(a app.App) interface{} {
-	list := make([]interface{}, a.NumModules())
+// ViewSceneState returns the current scene's serialized state
+func (c Communication) ViewSceneState(a app.App) []json.RawMessage {
+	list := make([]json.RawMessage, a.NumModules())
 	scene := c.d.State.scenes[c.d.State.activeScene]
 	for i := shared.FirstModule; i < a.NumModules(); i++ {
 		if scene[i] != nil {
-			list[i] = scene[i].Send(a.ServerContext(i))
+			var err error
+			list[i], err = json.Marshal(scene[i].Send(a.ServerContext(i)))
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 	return list

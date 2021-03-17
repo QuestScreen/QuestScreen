@@ -62,3 +62,11 @@ type Data struct {
 	Systems []System `json:"systems"`
 	Groups  []Group  `json:"groups"`
 }
+
+// State contains the current state, including currently active group and scene.
+// The state of the modules is local to the session page and not available
+// globally.
+type State struct {
+	ActiveGroup int
+	ActiveScene int
+}

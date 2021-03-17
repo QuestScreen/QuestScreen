@@ -1,8 +1,8 @@
 <a:component name="topBar" gen-new-init>
 	<a:controller>
-		backButtonClicked()
 		showDatasets()
 		showConfig()
+		showHome()
 	</a:controller>
 	<a:handlers>
 		headerToggleClicked(target js.Value)
@@ -11,12 +11,14 @@
 		<h1 class="pure-u-1">QuestScreen</h1>
 		<nav id="mainmenu" class="pure-g" a:bindings="class(disabled):Disabled">
 			<div id="error-menu-overlay" class="pure-u-1">Menu disabled due to errors in core, see messages</div>
-			<div class="pure-u-1 pure-u-sm-1-3 pure-menu pure-menu-horizontal">
+			<div class="pure-u-1 pure-u-sm-1-3 pure-menu">
 				<ul class="pure-menu-list">
-					<li class="pure-menu-item pure-menu-has-children">
-						<a id="open-group-menu" class="pure-menu-link" href="#">Switch Group <i class="fas fa-caret-down"></i></a>
-						<ul id="menu-groups" class="pure-menu-children"></ul>
+					<li class="pure-menu-item">
+						<a id="open-group-menu" class="pure-menu-link" href="#"
+								a:capture="click:showHome() {preventDefault}"
+								><i class="fas fa-home"></i> <span a:bindings="prop(textContent):homeLabel"></span></a>
 					</li>
+					<li
 				</ul>
 			</div>
 			<div class="pure-u-1 pure-u-sm-1-3 pure-menu">
@@ -39,9 +41,6 @@
 	</header>
 	<h2 id="title-wrapper">
 		<div id="title-buttons">
-			<a id="back-button" class="empty" href="#" a:capture="click:backButtonClicked"
-					a:bindings="class(empty):BackButtonEmpty"><i class="fas fa-angle-left"></i>
-				<span id="back-button-caption" a:bindings="prop(textContent):BackButtonCaption"></span></a>
 			<a id="header-toggle"
 			    a:capture="click:headerToggleClicked(target=event(currentTarget))"><i
 					    class="fas fa-angle-up"

@@ -42,46 +42,6 @@ nav .pure-menu-heading {
   background-color: var(--strong);
 }
 
-#back-button {
-  background-color: var(--medium);
-  z-index: 0;
-}
-
-#back-button:hover,
-#back-button:active {
-  background-color: var(--medium-highlight);
-}
-
-#back-button:before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  border-top: .5em solid var(--strong);
-  border-right: .5em solid var(--medium);
-  z-index: 0;
-}
-
-#back-button:hover:before,
-#back-button:active:before {
-  border-right: .5em solid var(--medium-highlight);
-}
-
-#back-button:hover:after,
-#back-button:active:after {
-  border-right: .5em solid var(--medium-highlight);
-}
-
-#back-button:after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  border-bottom: .5em solid var(--strong);
-  border-right: .5em solid var(--medium);
-  z-index: 0;
-}
-
 .state-module-header, .config-module-header, .config-item-header {
   background-color: var(--strong);
 }
@@ -141,7 +101,8 @@ nav .pure-menu-heading {
 }
 
 .data-list-item:hover,
-table.module-list > tbody > tr:hover {
+table.module-list > tbody > tr:hover,
+table.group-chooser-list tr:hover {
   background-color: var(--light-highlight);
 }
 

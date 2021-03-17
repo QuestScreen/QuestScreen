@@ -21,16 +21,4 @@ func setTitle(caption, subtitle string) {
 	} else {
 		top.Subtitle.Set(caption + ": " + subtitle)
 	}
-	bb := site.page().BackButton()
-	if bb == NoBackButton {
-		top.BackButtonCaption.Set("")
-		top.BackButtonEmpty.Set(true)
-	} else {
-		if bb == BackButtonBack {
-			top.BackButtonCaption.Set("Back")
-		} else {
-			top.BackButtonCaption.Set("Leave")
-		}
-		top.BackButtonEmpty.Set(false)
-	}
 }

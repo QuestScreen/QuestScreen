@@ -1,4 +1,4 @@
-package home
+package info
 
 import (
 	"github.com/QuestScreen/QuestScreen/web"
@@ -10,14 +10,14 @@ import (
 // View implements site.View
 type View struct{}
 
-// Title returns "Home"
+// Title returns "Info"
 func (v View) Title() string {
-	return "Home"
+	return "Info"
 }
 
-// ID returns "home"
+// ID returns "info"
 func (v View) ID() string {
-	return "home"
+	return "info"
 }
 
 // GenerateUI creates the home view.
@@ -38,11 +38,6 @@ func (p Page) Title() string {
 	return "Home"
 }
 
-// BackButton returns NoBackButton.
-func (p Page) BackButton() site.BackButtonKind {
-	return site.NoBackButton
-}
-
 // GenViews returns a view list containing the only view of the home page.
 func (p Page) GenViews() []site.ViewCollection {
 	return []site.ViewCollection{{Title: "", Items: []site.View{View{}}}}
@@ -50,7 +45,7 @@ func (p Page) GenViews() []site.ViewCollection {
 
 // Register registers this page with the site.
 func Register() {
-	site.RegisterPage(site.HomePage, &Page{})
+	site.RegisterPage(site.InfoPage, &Page{})
 }
 
 func newViewContent(version string) *viewContent {
@@ -68,8 +63,8 @@ func (c *viewContent) init(version string) {
 		state = 2
 	}
 	c.askewInit(version, state)
-	for _, group := range web.Data.Groups {
-		c.groups.Append(NewChooseableGroup(group.Name))
+	for i, group := range web.Data.Groups {
+		c.groups.Append(NewChooseableGroup(group.Name, i))
 	}
 	for _, module := range web.StaticData.Modules {
 		c.Modules.Append(NewModule(

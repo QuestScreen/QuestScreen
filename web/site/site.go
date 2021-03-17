@@ -17,6 +17,7 @@
 package site
 
 import (
+	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/QuestScreen/web/comms"
 	"github.com/QuestScreen/api/server"
 	askew "github.com/flyx/askew/runtime"
@@ -60,20 +61,6 @@ type ViewCollection struct {
 	Items []View
 }
 
-// BackButtonKind describes the kind of action the back button in the title bar
-// is used for.
-type BackButtonKind int
-
-const (
-	// NoBackButton defines that the back button is invisible
-	NoBackButton BackButtonKind = iota
-	// BackButtonBack defines that the back button returns the user to the
-	// previous page
-	BackButtonBack
-	// BackButtonLeave defines that the back button leaves the current session.
-	BackButtonLeave
-)
-
 // Page describes a collection of views and the sidebar used to navigate between
 // them.
 type Page interface {
@@ -81,8 +68,6 @@ type Page interface {
 	// view of this page is being displayed. It is used as prefix for the view's
 	// title.
 	Title() string
-	// BackButton defines what the back button on this page is used for.
-	BackButton() BackButtonKind
 	// GenViews generates the list of views of the page and returns it.
 	// The views are organized in collections. This affects their rendering in the
 	// sidebar; each collection will be rendered with its title above it.
@@ -100,8 +85,8 @@ func (o *GroupMenuItem) clicked() {
 type PageKind int
 
 const (
-	// HomePage ist the home page shown at startup.
-	HomePage PageKind = iota
+	// InfoPage ist the info page shown at startup or when no session is active.
+	InfoPage PageKind = iota
 	// SessionPage is the page shown during a session.
 	SessionPage
 	// ConfigPage is the page for customizing configuration.
@@ -111,6 +96,7 @@ const (
 )
 
 type siteContent struct {
+	shared.State
 	pages   [4]Page
 	curPage PageKind
 }
@@ -120,6 +106,15 @@ func (sc *siteContent) page() Page {
 }
 
 var site siteContent
+
+func (sc *siteContent) showHome() {
+	if sc.ActiveGroup == -1 {
+		sc.curPage = InfoPage
+	} else {
+		sc.curPage = SessionPage
+	}
+	Refresh("")
+}
 
 func (sc *siteContent) showConfig() {
 	sc.curPage = ConfigPage
@@ -131,8 +126,10 @@ func (sc *siteContent) showDatasets() {
 	Refresh("")
 }
 
-func (sc *siteContent) backButtonClicked() {
-
+// ShowHome shows the info page if no session is in progress.
+// It shows the current session state if one is in progress.
+func ShowHome() {
+	site.showHome()
 }
 
 // RegisterPage registers the page implementation for the given page kind with
@@ -145,8 +142,8 @@ func RegisterPage(kind PageKind, page Page) {
 func Boot(headerDisabled bool) {
 	top.Disabled.Set(headerDisabled)
 	top.Controller = &site
-	site.curPage = HomePage
-	Refresh("")
+	top.homeLabel.Set("Info")
+	site.ActiveGroup = -1
 }
 
 // Refresh must be called from a view when it modified system, group or
@@ -193,11 +190,26 @@ func Refresh(id string) {
 func loadView(v View, parent, name string) {
 	sidebar.expanded.Set(false)
 	go func() {
-		content.Set(v.GenerateUI(&comms.ServerState{""}))
+		content.Set(v.GenerateUI(&comms.ServerState{&site.State, ""}))
 		if parent == "" {
 			setTitle(name, "")
 		} else {
 			setTitle(parent, name)
 		}
 	}()
+}
+
+func UpdateSession(groupIndex, sceneIndex int) {
+	if (site.State.ActiveGroup == -1) != (groupIndex == -1) {
+		if groupIndex == -1 {
+			top.homeLabel.Set("Info")
+		} else {
+			top.homeLabel.Set("Session")
+		}
+	}
+	site.ActiveGroup, site.ActiveScene = groupIndex, sceneIndex
+}
+
+func State() *shared.State {
+	return &site.State
 }

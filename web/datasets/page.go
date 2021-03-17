@@ -116,11 +116,6 @@ func (p Page) Title() string {
 	return "Datasets"
 }
 
-// BackButton returns BackButtonBack
-func (p Page) BackButton() site.BackButtonKind {
-	return site.BackButtonBack
-}
-
 // GenViews implements site.Page
 func (p Page) GenViews() []site.ViewCollection {
 	ret := make([]site.ViewCollection, 3)

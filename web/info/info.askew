@@ -34,10 +34,13 @@
 	</section>
 </a:component>
 
-<a:component name="ChooseableGroup" params="name string" gen-new-init>
+<a:component name="ChooseableGroup" params="name string, var index int" gen-new-init>
+	<a:handlers>
+		click()
+	</a:handlers>
 	<tr>
 		<td>
-			<a><i class="fas fa-users"></i> <a:text expr="name"></a:text></a>
+			<a a:capture="click:click() {preventDefault}"><i class="fas fa-users"></i> <a:text expr="name"></a:text></a>
 		</td>
 	</tr>
 </a:component>

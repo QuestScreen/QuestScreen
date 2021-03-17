@@ -294,32 +294,6 @@ div#title-buttons {
 	z-index: 1;
 }
 
-#back-button {
-	flex: 0 0 auto;
-	position: relative;
-	padding-right: .2em;
-	text-decoration: none !important;
-	color: inherit !important;
-}
-
-#back-button-caption {
-	font-weight: normal;
-	font-size: 85%;
-	vertical-align: middle;
-	display: inline-block;
-}
-
-#back-button.empty {
-	visibility: hidden;
-}
-
-#back-button > i {
-  position: relative;
-	top: .05em;
-	left: .05em;
-  z-index: 1;
-}
-
 #header-toggle {
 	flex: 0 0 auto;
 	cursor: pointer;
@@ -735,6 +709,7 @@ table.message-list td {
 
 table.group-chooser-list td a {
 	display: block;
+	cursor: pointer;
 }
 
 table.module-list .text,

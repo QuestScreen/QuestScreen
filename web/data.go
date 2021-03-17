@@ -14,6 +14,11 @@ type MappedModule struct {
 	Name, ID    string
 }
 
+func (mm MappedModule) StateBasePath() string {
+	return "/state/" + StaticData.Plugins[mm.PluginIndex].ID + "/" +
+		mm.ID + "/"
+}
+
 // StaticData is loaded when booting and is constant everafter.
 var StaticData struct {
 	Fonts            []string

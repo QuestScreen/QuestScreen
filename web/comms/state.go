@@ -3,6 +3,7 @@ package comms
 import (
 	"strings"
 
+	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/QuestScreen/web"
 	"github.com/QuestScreen/api/groups"
 	"github.com/QuestScreen/api/resources"
@@ -11,7 +12,44 @@ import (
 
 // ServerState implements web.Server.
 type ServerState struct {
+	*shared.State
 	Base string
+}
+
+type groupWrapper struct {
+	*shared.Group
+}
+
+func (gw groupWrapper) Heroes() groups.HeroList {
+	return herolist{gw.Group.Heroes}
+}
+
+type herolist struct {
+	data []shared.Hero
+}
+
+func (hl herolist) NumHeroes() int {
+	return len(hl.data)
+}
+
+func (hl herolist) Hero(index int) groups.Hero {
+	return heroWrapper{&hl.data[index]}
+}
+
+type heroWrapper struct {
+	*shared.Hero
+}
+
+func (hw heroWrapper) ID() string {
+	return hw.Hero.ID
+}
+
+func (hw heroWrapper) Name() string {
+	return hw.Hero.Name
+}
+
+func (hw heroWrapper) Description() string {
+	return hw.Hero.Description
 }
 
 // GetResources implements resources.Provider.
@@ -36,8 +74,7 @@ func (s *ServerState) FontFamilyName(index int) string {
 
 // ActiveGroup implements web.Server.
 func (s *ServerState) ActiveGroup() groups.Group {
-	// TODO
-	return nil
+	return groupWrapper{&web.Data.Groups[s.State.ActiveGroup]}
 }
 
 // Fetch implements web.ServerState (see there for description)

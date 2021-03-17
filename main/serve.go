@@ -288,7 +288,7 @@ func (vsa *validatedStateAction) UnmarshalJSON(data []byte) error {
 func (se stateEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, server.Error) {
 	activeScene := -1
-	var modules interface{} = nil
+	var modules []json.RawMessage = nil
 	if method == httpPost {
 		g := se.qs.activeGroup()
 		maxScenes := -1
@@ -348,11 +348,7 @@ func (se stateEndpoint) Handle(method httpMethods, ids []string,
 		}
 	}
 
-	return struct {
-		ActiveGroup int         `json:"activeGroup"`
-		ActiveScene int         `json:"activeScene"`
-		Modules     interface{} `json:"modules"`
-	}{
+	return shared.StateResponse{
 		ActiveGroup: se.qs.activeGroupIndex,
 		ActiveScene: activeScene,
 		Modules:     modules,
