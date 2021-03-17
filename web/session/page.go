@@ -31,8 +31,7 @@ func (View) IsChild() bool {
 }
 
 func (v View) GenerateUI(ctx server.Context) askew.Component {
-
-	return nil
+	return newViewContent(v.modules)
 }
 
 // Page implements site.Page
@@ -60,8 +59,7 @@ func (p *Page) loadState(data *shared.StateResponse) error {
 	site.UpdateSession(data.ActiveGroup, data.ActiveScene)
 	for i := range data.Modules {
 		descr := &web.StaticData.Modules[i]
-		server := &comms.ServerState{State: p.State,
-			Base: descr.StateBasePath()}
+		server := &comms.ServerState{State: p.State, Base: descr.BasePath()}
 		var err error
 		p.modules[i], err = descr.Constructor(data.Modules[i], server)
 		if err != nil {

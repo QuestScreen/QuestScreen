@@ -18,6 +18,7 @@ package site
 
 import (
 	"github.com/QuestScreen/QuestScreen/shared"
+	"github.com/QuestScreen/QuestScreen/web"
 	"github.com/QuestScreen/QuestScreen/web/comms"
 	"github.com/QuestScreen/api/server"
 	askew "github.com/flyx/askew/runtime"
@@ -110,10 +111,11 @@ var site siteContent
 func (sc *siteContent) showHome() {
 	if sc.ActiveGroup == -1 {
 		sc.curPage = InfoPage
+		Refresh("")
 	} else {
 		sc.curPage = SessionPage
+		Refresh(web.Data.Groups[sc.ActiveGroup].Scenes[sc.ActiveScene].ID)
 	}
-	Refresh("")
 }
 
 func (sc *siteContent) showConfig() {
@@ -155,7 +157,7 @@ func Refresh(id string) {
 	sidebar.items.DestroyAll()
 	viewColls := site.page().GenViews()
 	top.Title.Set(site.page().Title())
-	if len(viewColls) == 1 && len(viewColls[0].Items) == 1 {
+	if site.curPage == InfoPage {
 		// single-view page. leave the sidebar empty, display the view.
 		v := viewColls[0].Items[0]
 		sidebar.Disabled.Set(true)

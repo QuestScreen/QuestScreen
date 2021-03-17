@@ -1,6 +1,7 @@
 package comms
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/QuestScreen/QuestScreen/shared"
@@ -13,6 +14,7 @@ import (
 // ServerState implements web.Server.
 type ServerState struct {
 	*shared.State
+	// currently <module-id>, may change to <plugin-id>/<module-id> in the future
 	Base string
 }
 
@@ -54,7 +56,16 @@ func (hw heroWrapper) Description() string {
 
 // GetResources implements resources.Provider.
 func (s *ServerState) GetResources(index resources.CollectionIndex) []resources.Resource {
-	panic("GetResources not implemented")
+	var urlBuilder strings.Builder
+	urlBuilder.WriteString("/resources/")
+	urlBuilder.WriteString(s.Base)
+	urlBuilder.WriteByte('/')
+	urlBuilder.WriteString(strconv.Itoa(int(index)))
+	var ret []resources.Resource
+	if err := Fetch(api.Get, urlBuilder.String(), nil, &ret); err != nil {
+		panic(err)
+	}
+	return ret
 }
 
 // GetTextures implements resources.Provider.
@@ -81,6 +92,7 @@ func (s *ServerState) ActiveGroup() groups.Group {
 func (s *ServerState) Fetch(method api.RequestMethod, subpath string,
 	payload interface{}, target interface{}) {
 	var urlBuilder strings.Builder
+	urlBuilder.WriteString("/state/")
 	urlBuilder.WriteString(s.Base)
 	if subpath != "" {
 		if subpath[0] == '/' {

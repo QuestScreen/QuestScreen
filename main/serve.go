@@ -16,6 +16,7 @@ import (
 	"github.com/QuestScreen/api/comms"
 	"github.com/QuestScreen/api/groups"
 	"github.com/QuestScreen/api/modules"
+	"github.com/QuestScreen/api/resources"
 	"github.com/QuestScreen/api/server"
 
 	"github.com/QuestScreen/QuestScreen/display"
@@ -57,6 +58,9 @@ import (
 //   POST: Changes active group or scene, returns same data as GET.
 // /state/<module-id>[/<endpoint-path>][/<entity-id>]
 //   PUT: Trigger an animation by changing the state of the given module.
+// /resources/<module-id>/<index>
+//   GET: Returns the list of resources for the given module at the given
+//        resource index.
 // /config/base
 //   GET: Returns the base configuration.
 //   PUT: Updates the base configuration.
@@ -353,6 +357,17 @@ func (se stateEndpoint) Handle(method httpMethods, ids []string,
 		ActiveScene: activeScene,
 		Modules:     modules,
 	}, nil
+}
+
+type resourceEndpoint struct {
+	*endpointEnv
+	moduleIndex   shared.ModuleIndex
+	resourceIndex resources.CollectionIndex
+}
+
+func (re resourceEndpoint) Handle(method httpMethods, ids []string,
+	raw []byte) (interface{}, server.Error) {
+	return re.qs.GetResources(re.moduleIndex, re.resourceIndex), nil
 }
 
 type baseConfigEndpoint struct {
@@ -790,6 +805,17 @@ func startServer(owner *QuestScreen, events display.Events,
 
 			desc := owner.modules[i]
 			seen := make(map[string]struct{})
+
+			for j := range desc.ResourceCollections {
+				var builder strings.Builder
+				builder.WriteString("/resources/")
+				builder.WriteString(desc.ID)
+				builder.WriteByte('/')
+				builder.WriteString(strconv.Itoa(j))
+				reg(fmt.Sprintf("ResourceEndpoint(%v/%v)", desc.ID, j), builder.String(),
+					mutex, endpoint{httpGet, resourceEndpoint{
+						endpointEnv: env, moduleIndex: i, resourceIndex: resources.CollectionIndex(j)}})
+			}
 
 			for j := range desc.EndpointPaths {
 				path := desc.EndpointPaths[j]
