@@ -31,7 +31,7 @@ func (s *State) switchAll() bool {
 
 func (s *State) switchHero(index int) bool {
 	s.srv.Fetch(web.Post, s.srv.ActiveGroup().Heroes().Hero(index).ID(),
-		s.data.Heroes[index], &s.data.Heroes[index])
+		!s.data.Heroes[index], &s.data.Heroes[index])
 	return s.data.Heroes[index]
 }
 

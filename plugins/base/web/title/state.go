@@ -14,10 +14,17 @@ func NewState(data json.RawMessage, srv web.Server) (modules.State, error) {
 		return nil, err
 	}
 	ret.askewInit(ret.caption)
+	ret.Caption.Set(ret.caption)
 	return ret, nil
 }
 
 func (s *State) submit(caption string) {
-	s.srv.Fetch(web.Post, "", caption, &s.caption)
-	s.Caption.Set(s.caption)
+	go func() {
+		s.srv.Fetch(web.Post, "", caption, &s.caption)
+		s.Caption.Set(s.caption)
+	}()
+}
+
+func (s *State) clear() {
+	s.submit("")
 }

@@ -20,12 +20,16 @@ type State struct {
 // NewState implements modules.Constructor.
 func NewState(data json.RawMessage, srv web.Server) (modules.State, error) {
 	ret := &State{srv: srv}
-	ret.Dropdown.Init(controls.SelectOne, controls.SelectionIndicator)
+	ret.Dropdown.Init(controls.SelectAtMostOne, controls.SelectionIndicator, "")
 	for index, item := range srv.GetResources(0) {
 		ret.Dropdown.AddItem(item.Name, ret.data.CurIndex == index)
 	}
 	ret.Dropdown.Controller = ret
-	return ret, json.Unmarshal(data, &ret.data)
+	if err := json.Unmarshal(data, &ret.data); err != nil {
+		return nil, err
+	}
+	ret.Dropdown.SetItem(ret.data.CurIndex, true)
+	return ret, nil
 }
 
 // Destroy calls the dropdown's Destroy.

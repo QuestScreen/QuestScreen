@@ -18,6 +18,6 @@
 		    a:assign="class(pure-button-primary)=allState"
 				a:bindings="class(pure-button-primary):allState"
 				a:capture="click:allClicked{preventDefault}"><span class="hide-all">Hide All</span><span class="show-all">Show All</span></button>
-		<a:embed name="Heroes" type="controls.Dropdown" args="controls.SelectMultiple, controls.InvisibilityIndicator" control></a:embed>
+		<a:embed name="Heroes" type="controls.Dropdown" args="controls.SelectMultiple, controls.InvisibilityIndicator, `Heroes`" control></a:embed>
 	</div>
 </a:component>

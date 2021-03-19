@@ -24,7 +24,7 @@ func NewState(data json.RawMessage, srv web.Server) (modules.State, error) {
 	if err := json.Unmarshal(data, &ret.data); err != nil {
 		return nil, err
 	}
-	ret.Dropdown.Init(controls.SelectMultiple, controls.VisibilityIndicator)
+	ret.Dropdown.Init(controls.SelectMultiple, controls.VisibilityIndicator, "Items")
 	for _, item := range ret.data {
 		ret.Dropdown.AddItem(item.Name, item.Selected)
 	}
