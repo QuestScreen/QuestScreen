@@ -55,9 +55,9 @@ func (s *State) InsertInto(parent js.Value, before js.Value) {
 // ItemClicked implements the Dropdown's controller.
 func (s *State) ItemClicked(index int) bool {
 	s.srv.Fetch(web.Post, "", struct {
-		resourceIndex int
-		visible       bool
-	}{index, s.data[index].Selected},
+		ResourceIndex int  `json:"resourceIndex"`
+		Visible       bool `json:"visible"`
+	}{index, !s.data[index].Selected},
 		&s.data[index].Selected)
 	return s.data[index].Selected
 }

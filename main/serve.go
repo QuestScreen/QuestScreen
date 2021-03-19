@@ -460,6 +460,10 @@ type moduleEndpoint struct {
 
 func (me *moduleEndpoint) Handle(method httpMethods, ids []string,
 	raw []byte) (interface{}, server.Error) {
+	if me.endpointEnv.qs.activeGroupIndex == -1 {
+		return nil, &server.BadRequest{
+			Message: "Cannot query module endpoint when no session is active"}
+	}
 	state := me.qs.data.State.StateOf(me.moduleIndex)
 	if state == nil {
 		return nil, &server.BadRequest{

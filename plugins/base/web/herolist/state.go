@@ -36,7 +36,9 @@ func (s *State) switchHero(index int) bool {
 }
 
 func (s *State) allClicked() {
-	s.allState.Set(s.switchAll())
+	go func() {
+		s.allState.Set(s.switchAll())
+	}()
 }
 
 // ItemClicked implements the controller of controls.Dropdown
