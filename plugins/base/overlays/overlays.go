@@ -228,7 +228,7 @@ func (o *Overlays) FinishTransition(r render.Renderer) {
 
 // Render renders the module.
 func (o *Overlays) Render(r render.Renderer) {
-	frame := r.OutputSize()
+	//frame := r.OutputSize()
 	curX := o.curXOffset
 
 	for i := range o.textures {
@@ -241,9 +241,13 @@ func (o *Overlays) Render(r render.Renderer) {
 			targetHeight = int32(float32(cur.tex.Height)*o.curInactiveScale) - 1
 			targetWidth = int32(float32(cur.tex.Width)*o.curInactiveScale) - 1
 		}
-		rect := render.Rectangle{X: curX, Y: frame.Height - targetHeight,
+		rect := render.Rectangle{X: curX, Y: 0,
 			Width: targetWidth, Height: targetHeight}
-		cur.tex.Draw(r, rect, o.alphaMod)
+		if i == o.curActive {
+			cur.tex.Draw(r, rect, o.alphaMod)
+		} else {
+			cur.tex.Draw(r, rect, 255)
+		}
 		curX += targetWidth
 		if i == o.curActive || i+1 == o.curActive {
 			curX += o.activeBorderWidth

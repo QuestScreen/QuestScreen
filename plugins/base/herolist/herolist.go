@@ -153,8 +153,10 @@ func (l *HeroList) TransitionStep(r render.Renderer, elapsed time.Duration) {
 	switch l.status {
 	case showingAll:
 		l.curXOffset = int32((1.0 - pos) * float32(l.boxWidth(unit)))
+		l.alphaMod = uint8(pos * 255)
 	case hidingAll:
 		l.curXOffset = int32(pos * float32(l.boxWidth(unit)))
+		l.alphaMod = uint8((1.0 - pos) * 255)
 	case showingHero:
 		l.curXOffset = int32((1.0 - pos) * float32((l.boxWidth(unit))))
 		l.curYOffset = int32(pos * float32(l.boxHeight(unit)+l.contentHeight/4))
@@ -200,18 +202,17 @@ func (l *HeroList) Render(r render.Renderer) {
 		var targetRect render.Rectangle
 		targetRect, frame = frame.Carve(render.North, l.boxHeight(unit))
 
-		if l.status == showingAll || l.status == hidingAll ||
-			((l.status == showingHero || l.status == hidingHero) && l.curHero == int32(i)) {
+		if l.status == showingAll || l.status == hidingAll {
+			targetRect.X -= l.curXOffset
+			_, frame = frame.Carve(render.North, unit*4)
+			l.heroes[i].box.Draw(r, targetRect, l.alphaMod)
+		} else if (l.status == showingHero || l.status == hidingHero) && l.curHero == int32(i) {
 			targetRect.X -= l.curXOffset
 			_, frame = frame.Carve(render.North, l.curYOffset-l.boxHeight(unit))
+			l.heroes[i].box.Draw(r, targetRect, l.alphaMod)
 		} else {
 			_, frame = frame.Carve(render.North, unit*4)
-		}
-
-		if targetRect.X == 0 {
 			l.heroes[i].box.Draw(r, targetRect, 255)
-		} else {
-			l.heroes[i].box.Draw(r, targetRect, l.alphaMod)
 		}
 	}
 }
