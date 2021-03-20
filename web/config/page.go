@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 
 	"github.com/QuestScreen/QuestScreen/web"
@@ -40,10 +41,16 @@ func genView(url string, ctx server.Context) *view {
 		mView := newModule(m.Name)
 		mData := data[i]
 		for j, item := range m.ConfigItems {
-			ui := newItem()
-			ctrl := item.Constructor(ctx, nil) // TODO: edithandler
-			ui.content.Set(ctrl)
-			ctrl.Receive(mData[j], ctx)
+			wasEnabled := !bytes.HasPrefix(mData[j], []byte("null"))
+			ctrl := item.Constructor(ctx)
+			ui := newItem(ctrl, wasEnabled)
+			ctrl.SetEditHandler(ui)
+			if wasEnabled {
+				ctrl.Receive(mData[j], ctx)
+				ui.enabled.Set(true)
+			} else {
+				ui.enabled.Set(false)
+			}
 			mView.items.Append(ui)
 		}
 

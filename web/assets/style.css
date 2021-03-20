@@ -501,6 +501,7 @@ article {
 	display: inline-flex;
 	flex-direction: column;
 	padding: .5em;
+	vertical-align: top;
 }
 
 .config-item-fragment > label {
@@ -516,6 +517,12 @@ input[type="range"] {
 	width: 6em;
 }
 
+.config-item-table {
+	display: inline-table;
+	vertical-align: top;
+	margin: .5em;
+}
+
 .config-item-table > thead th {
 	text-align: left;
 	font-weight: normal;
@@ -528,7 +535,7 @@ input[type="range"] {
 
 .config-item-table th,
 .config-item-table td {
-	padding: .25em;
+	padding: .5em;
 }
 
 .config-view-controls {

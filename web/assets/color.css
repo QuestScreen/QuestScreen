@@ -54,6 +54,10 @@ nav .pure-menu-heading {
   background-color: var(--light);
 }
 
+.config-item-table {
+  background-color: var(--medium);
+}
+
 .data-list-link.delete:hover,
 .data-list-link.delete:active {
 	background-color: var(--danger);

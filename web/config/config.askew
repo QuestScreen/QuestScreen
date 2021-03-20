@@ -1,20 +1,26 @@
 <a:import>
-  "github.com/QuestScreen/QuestScreen/web/controls"
+  "github.com/QuestScreen/api/web/config"
+	"github.com/QuestScreen/QuestScreen/web/controls"
 </a:import>
 
-<a:component name="item" gen-new-init>
+<a:component name="item" params="ui config.Widget, var wasEnabled bool">
 	<a:handlers>
 		Edited()
+		editedEnabled()
 	</a:handlers>
+	<a:data>
+		valuesEdited bool
+	</a:data>
 	<fieldset>
 		<label class="config-item-header">
 			<input type="checkbox" class="config-item-checkbox"
-					a:capture="change:Edited"/>
+					a:bindings="prop(checked):(enabled bool)"
+					a:capture="change:editedEnabled"/>
 			<span class="config-item-name"></span>
 			<i class="fas fa-edit" a:bindings="style(visibility):editIndicator"></i>
 		</label>
 		<div class="config-item-container">
-			<a:embed optional name="content"></a:embed>
+			<a:embed type="config.Widget" name="content" value="ui"></a:embed>
 		</div>
 	</fieldset>
 </a:component>
