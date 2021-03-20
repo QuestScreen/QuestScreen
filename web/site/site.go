@@ -21,6 +21,7 @@ import (
 	"github.com/QuestScreen/QuestScreen/web"
 	"github.com/QuestScreen/QuestScreen/web/comms"
 	"github.com/QuestScreen/api/server"
+	"github.com/QuestScreen/api/web/config"
 	askew "github.com/flyx/askew/runtime"
 )
 
@@ -78,8 +79,30 @@ type Page interface {
 	GenViews() []ViewCollection
 }
 
-func (o *GroupMenuItem) clicked() {
+// CommitablePage is a page whose views have a UI state which can be commited or
+// reset. Moving away from a CommitablePage shall prompt the user that data will
+// be discarded if it has not been saved.
+//
+// A CommitablePage will have „Save“ and „Reset“ button in its title bar which
+// will call the page's Commit() / Reset() functions.
+type CommitablePage interface {
+	Page
+	// RegisterEditHandler registers a handler with the page which will be called
+	// when the page enters an uncommited state.
+	RegisterEditHandler(handler config.EditHandler)
+	// Commit instructs the page to commit the current state.
+	// The page is assumed to be in commited state afterwards.
+	Commit()
+	// Reset instructs the page to reset the current state to the last commited /
+	// initial state.
+	Reset()
+}
 
+// EndablePage is a page that can be „ended“.
+type EndablePage interface {
+	Page
+	// End ends the entity the current page visualizes.
+	End()
 }
 
 // PageKind describes the known kinds of pages.
@@ -128,6 +151,18 @@ func (sc *siteContent) showDatasets() {
 	Refresh("")
 }
 
+func (sc *siteContent) commitablePageReset() {
+	sc.page().(CommitablePage).Reset()
+}
+
+func (sc *siteContent) commitablePageCommit() {
+	sc.page().(CommitablePage).Commit()
+}
+
+func (sc *siteContent) endablePageEnd() {
+	sc.page().(EndablePage).End()
+}
+
 // ShowHome shows the info page if no session is in progress.
 // It shows the current session state if one is in progress.
 func ShowHome() {
@@ -154,6 +189,7 @@ func Boot(headerDisabled bool) {
 // Refresh will load the view with the given id after regenerating the
 // sidebar, or the first view if no view with that id is found.
 func Refresh(id string) {
+	// TODO: ask commitable page whether it is edited and prompt the user.
 	sidebar.items.DestroyAll()
 	viewColls := site.page().GenViews()
 	top.Title.Set(site.page().Title())
@@ -164,6 +200,7 @@ func Refresh(id string) {
 		loadView(v, "", "")
 		return
 	}
+
 	var newSelectedEntry *pageMenuEntry
 	for cIndex, c := range viewColls {
 		coll := newSidebarColl(c.Title)
@@ -190,15 +227,23 @@ func Refresh(id string) {
 }
 
 func loadView(v View, parent, name string) {
+	controls := NoControls
+	switch site.curPage {
+	case ConfigPage:
+		controls = CommitControls
+	case SessionPage:
+		controls = EndControls
+	}
+
 	sidebar.expanded.Set(false)
-	go func() {
+	go func(controls PageControls) {
 		content.Set(v.GenerateUI(&comms.ServerState{&site.State, ""}))
 		if parent == "" {
-			setTitle(name, "")
+			setTitle(name, "", controls)
 		} else {
-			setTitle(parent, name)
+			setTitle(parent, name, controls)
 		}
-	}()
+	}(controls)
 }
 
 func UpdateSession(groupIndex, sceneIndex int) {

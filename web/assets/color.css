@@ -96,7 +96,8 @@ nav .pure-menu-heading {
 }
 
 .data-sheet .pure-button.delete,
-.hero-container .pure-button.delete {
+.hero-container .pure-button.delete,
+#endable-page-controls .pure-button.delete {
   background-color: var(--danger);
 }
 

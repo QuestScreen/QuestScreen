@@ -1,7 +1,7 @@
 package session
 
 import (
-	"errors"
+	"encoding/json"
 
 	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/QuestScreen/web"
@@ -31,13 +31,29 @@ func (View) IsChild() bool {
 }
 
 func (v View) GenerateUI(ctx server.Context) askew.Component {
-	return newViewContent(v.modules)
+	modules := make([]modules.State, len(v.modules))
+	for i := range v.modules {
+		descr := &web.StaticData.Modules[i]
+		server := &comms.ServerState{State: p.State, Base: descr.BasePath()}
+		var err error
+		modules[i], err = descr.Constructor(v.modules[i], server)
+		if err != nil {
+			panic("invalid data for module " +
+				web.StaticData.Modules[i].Name + ": " + err.Error())
+		}
+	}
+
+	return newViewContent(modules)
 }
 
-// Page implements site.Page
+// Page implements site.EndablePage
 type Page struct {
 	*shared.State
-	modules []modules.State
+	modules []json.RawMessage
+}
+
+func (p *Page) End() {
+	// TODO
 }
 
 func (p *Page) Title() string {
@@ -57,16 +73,7 @@ func (p *Page) GenViews() []site.ViewCollection {
 
 func (p *Page) loadState(data *shared.StateResponse) error {
 	site.UpdateSession(data.ActiveGroup, data.ActiveScene)
-	for i := range data.Modules {
-		descr := &web.StaticData.Modules[i]
-		server := &comms.ServerState{State: p.State, Base: descr.BasePath()}
-		var err error
-		p.modules[i], err = descr.Constructor(data.Modules[i], server)
-		if err != nil {
-			return errors.New("invalid data for module " +
-				web.StaticData.Modules[i].Name + ": " + err.Error())
-		}
-	}
+	p.modules = data.Modules
 	return nil
 }
 
@@ -97,7 +104,6 @@ func CheckSession() {
 
 // Register registers this page with the site.
 func Register() {
-	p.modules = make([]modules.State, len(web.StaticData.Modules))
 	site.RegisterPage(site.SessionPage, &p)
 	p.State = site.State()
 }

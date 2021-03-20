@@ -278,20 +278,49 @@ nav#mainmenu > div > a > i.fas {
 	flex: 0 0 2em;
 	position: relative;
 	margin: 0;
-	padding: .5em 0;
+	padding: 0;
 	box-sizing: border-box;
+	align-items: stretch;
 }
 
-div#title-buttons {
+#title-wrapper > p {
+	padding: .5em 0;
+}
+
+#title-buttons {
 	position: absolute;
-	top: .5em;
+	top: .25em;
 	left: .5em;
 	right: .5em;
+	bottom: .25em;
 	display: flex;
 	flex-direction: row;
 	justify-content: space-between;
-	align-items: baseline;
+	align-items: center;
 	z-index: 1;
+}
+
+#title-buttons > div {
+	display: none;
+	font-size: medium;
+}
+
+#title-buttons:not(.commitable-page):not(.endable-page) > #no-page-controls {
+	display: unset;
+}
+
+#title-buttons.commitable-page > #commitable-page-controls {
+	display: unset;
+	flex: 0 0 auto;
+}
+
+.commitable-page-controls > i:not(.edited) {
+	visibility: hidden;
+}
+
+#title-buttons.endable-page > #endable-page-controls {
+	display: unset;
+	flex: 0 0 auto;
 }
 
 #header-toggle {
@@ -327,15 +356,15 @@ nav#pagemenu .menu-disabled {
 }
 
 @media screen and (max-width: 35.5em) {
-	div#title-buttons {
+	div#title-buttons.commitable-page,
+	div#title-buttons.endable-page {
 		position: static;
-		padding-left: .5em;
-		padding-right: .5em;
-		padding-bottom: .5em;
+		padding: .5em;
 	}
 
 	p#title-content {
-		padding: 0;
+		padding-left: 2em;
+		padding-right: 2em;
 	}
 
 	#subtitle {

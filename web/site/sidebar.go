@@ -15,10 +15,19 @@ func (o *pageMenuEntry) clicked() {
 	loadView(o.view, o.parent, o.name)
 }
 
-func setTitle(caption, subtitle string) {
+type PageControls int
+
+const (
+	NoControls PageControls = iota
+	CommitControls
+	EndControls
+)
+
+func setTitle(caption, subtitle string, controls PageControls) {
 	if subtitle == "" {
 		top.Subtitle.Set(caption)
 	} else {
 		top.Subtitle.Set(caption + ": " + subtitle)
 	}
+	top.pageKind.Set(int(controls))
 }

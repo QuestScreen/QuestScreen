@@ -9,11 +9,14 @@ import (
 	"github.com/QuestScreen/QuestScreen/web/site"
 	"github.com/QuestScreen/api/server"
 	api "github.com/QuestScreen/api/web"
+	"github.com/QuestScreen/api/web/config"
 	askew "github.com/flyx/askew/runtime"
 )
 
 // BaseView shows the base configuration for all modules.
-type BaseView struct{}
+type BaseView struct {
+	*Page
+}
 
 // Title implements site.View, returns "Base"
 func (bv BaseView) Title() string {
@@ -67,6 +70,7 @@ func (bv BaseView) GenerateUI(ctx server.Context) askew.Component {
 
 // SystemView shows the configuration of a given system.
 type SystemView struct {
+	*Page
 	systemIndex int
 }
 
@@ -93,6 +97,7 @@ func (sv *SystemView) GenerateUI(ctx server.Context) askew.Component {
 
 // GroupView shows the configuration of the given group.
 type GroupView struct {
+	*Page
 	groupIndex int
 }
 
@@ -119,6 +124,7 @@ func (gv *GroupView) GenerateUI(ctx server.Context) askew.Component {
 
 // SceneView shows the configuration of the given scene.
 type SceneView struct {
+	*Page
 	groupIndex, sceneIndex int
 }
 
@@ -145,30 +151,44 @@ func (sv *SceneView) GenerateUI(ctx server.Context) askew.Component {
 }
 
 // Page is the controller for the Configuration page and implements site.Page.
-type Page struct{}
+type Page struct {
+	config.EditHandler
+}
 
 // Title returns "Datasets"
 func (p Page) Title() string {
 	return "Configuration"
 }
 
+func (p *Page) RegisterEditHandler(handler config.EditHandler) {
+	p.EditHandler = handler
+}
+
+func (p *Page) Commit() {
+	// TODO
+}
+
+func (p *Page) Reset() {
+	// TODO
+}
+
 // GenViews implements site.Page
-func (p Page) GenViews() []site.ViewCollection {
+func (p *Page) GenViews() []site.ViewCollection {
 	ret := make([]site.ViewCollection, 3)
-	ret[0].Items = []site.View{BaseView{}}
+	ret[0].Items = []site.View{BaseView{Page: p}}
 
 	systemItems := make([]site.View, len(web.Data.Systems))
 	for index := range web.Data.Systems {
-		systemItems[index] = &SystemView{systemIndex: index}
+		systemItems[index] = &SystemView{Page: p, systemIndex: index}
 	}
 	ret[1].Title = "Systems"
 	ret[1].Items = systemItems
 
 	groupItems := make([]site.View, 0, len(web.Data.Groups)*4)
 	for index, g := range web.Data.Groups {
-		groupItems = append(groupItems, &GroupView{groupIndex: index})
+		groupItems = append(groupItems, &GroupView{Page: p, groupIndex: index})
 		for sIndex := range g.Scenes {
-			groupItems = append(groupItems, &SceneView{groupIndex: index, sceneIndex: sIndex})
+			groupItems = append(groupItems, &SceneView{Page: p, groupIndex: index, sceneIndex: sIndex})
 		}
 	}
 	ret[2].Title = "Groups"

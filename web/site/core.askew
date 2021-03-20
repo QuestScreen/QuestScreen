@@ -3,6 +3,9 @@
 		showDatasets()
 		showConfig()
 		showHome()
+		commitablePageReset()
+		commitablePageCommit()
+		endablePageEnd()
 	</a:controller>
 	<a:handlers>
 		headerToggleClicked(target js.Value)
@@ -40,23 +43,29 @@
 		</nav>
 	</header>
 	<h2 id="title-wrapper">
-		<div id="title-buttons">
+		<p id="title-content">
+			<span id="title" a:bindings="prop(textContent):Title"></span><span id="subtitle" a:bindings="prop(textContent):Subtitle"></span>
+		</p>
+		<div id="title-buttons"
+				a:bindings="class(commitable-page, endable-page):pageKind">
+			<div id="commitable-page-controls">
+				<button class="pure-button"
+						a:capture="click:commitablePageReset() {preventDefault}">Reset</button>
+				<button class="pure-button pure-button-primary"
+						a:capture="click:commitablePageCommit() {preventDefault}">Save</button>
+				<i class="fas fa-edited" a:bindings="class(edited):commitablePageEdited"></i>
+			</div>
+			<div id="endable-page-controls">
+				<button class="pure-button delete"
+						a:capture="click:endablePageEnd() {preventDefault}">End</button>
+			</div>
+			<div id="no-page-controls"></div>
 			<a id="header-toggle"
 			    a:capture="click:headerToggleClicked(target=event(currentTarget))"><i
 					    class="fas fa-angle-up"
 							a:bindings="class(fa-angle-up, fa-angle-down):ToggleOrientation"></i></a>
 		</div>
-		<p id="title-content">
-			<span id="title" a:bindings="prop(textContent):Title"></span><span id="subtitle" a:bindings="prop(textContent):Subtitle"></span>
-		</p>
 	</h2>
-</a:component>
-
-<a:component name="GroupMenuItem" params="title string" gen-new-init>
-	<a:handlers>clicked()</a:handlers>
-	<li class="pure-menu-item group-list-item">
-		<a class="pure-menu-link" a:assign="prop(textContent)= title" a:capture="click:clicked"></a>
-	</li>
 </a:component>
 
 <a:component name="pageMenuEntry" params="var name string, var parent string, var view View, icon int" gen-new-init>

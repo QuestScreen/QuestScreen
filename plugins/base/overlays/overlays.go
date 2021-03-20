@@ -228,7 +228,6 @@ func (o *Overlays) FinishTransition(r render.Renderer) {
 
 // Render renders the module.
 func (o *Overlays) Render(r render.Renderer) {
-	//frame := r.OutputSize()
 	curX := o.curXOffset
 
 	for i := range o.textures {
