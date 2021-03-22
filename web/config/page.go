@@ -9,7 +9,6 @@ import (
 	"github.com/QuestScreen/QuestScreen/web/site"
 	"github.com/QuestScreen/api/server"
 	api "github.com/QuestScreen/api/web"
-	"github.com/QuestScreen/api/web/config"
 	askew "github.com/flyx/askew/runtime"
 )
 
@@ -33,7 +32,7 @@ func (bv BaseView) IsChild() bool {
 	return false
 }
 
-func genView(url string, ctx server.Context) *view {
+func genView(url string, ctx server.Context, p *Page) *view {
 	var data [][]json.RawMessage
 	if err := comms.Fetch(api.Get, url, nil, &data); err != nil {
 		panic(err)
@@ -46,7 +45,7 @@ func genView(url string, ctx server.Context) *view {
 		for j, item := range m.ConfigItems {
 			wasEnabled := !bytes.HasPrefix(mData[j], []byte("null"))
 			ctrl := item.Constructor(ctx)
-			ui := newItem(ctrl, wasEnabled)
+			ui := newItem(ctrl, item.Name, wasEnabled, p)
 			ctrl.SetEditHandler(ui)
 			if wasEnabled {
 				ctrl.Receive(mData[j], ctx)
@@ -65,7 +64,10 @@ func genView(url string, ctx server.Context) *view {
 // GenerateUI implements site.View, returns the UI for changing module base
 // configuration.
 func (bv BaseView) GenerateUI(ctx server.Context) askew.Component {
-	return genView("config/base", ctx)
+	bv.curID = bv.ID()
+	bv.curUrl = "config/base"
+	bv.curView = genView(bv.curUrl, ctx, bv.Page)
+	return bv.curView
 }
 
 // SystemView shows the configuration of a given system.
@@ -92,7 +94,10 @@ func (sv *SystemView) IsChild() bool {
 // GenerateUI implements site.View, returns the UI for changing module system
 // configuration.
 func (sv *SystemView) GenerateUI(ctx server.Context) askew.Component {
-	return genView("config/system/"+web.Data.Systems[sv.systemIndex].ID, ctx)
+	sv.curID = sv.ID()
+	sv.curUrl = "config/systems/" + web.Data.Systems[sv.systemIndex].ID
+	sv.curView = genView(sv.curUrl, ctx, sv.Page)
+	return sv.curView
 }
 
 // GroupView shows the configuration of the given group.
@@ -119,7 +124,10 @@ func (gv *GroupView) IsChild() bool {
 // GenerateUI implements site.View, returns the UI for changing module system
 // configuration.
 func (gv *GroupView) GenerateUI(ctx server.Context) askew.Component {
-	return genView("config/group/"+web.Data.Groups[gv.groupIndex].ID, ctx)
+	gv.curID = gv.ID()
+	gv.curUrl = "config/groups/" + web.Data.Groups[gv.groupIndex].ID
+	gv.curView = genView(gv.curUrl, ctx, gv.Page)
+	return gv.curView
 }
 
 // SceneView shows the configuration of the given scene.
@@ -146,13 +154,18 @@ func (sv *SceneView) IsChild() bool {
 // GenerateUI implements site.View, returns the UI for changing module system
 // configuration.
 func (sv *SceneView) GenerateUI(ctx server.Context) askew.Component {
-	return genView("config/system/"+
-		web.Data.Groups[sv.groupIndex].Scenes[sv.sceneIndex].ID, ctx)
+	g := &web.Data.Groups[sv.groupIndex]
+	sv.curID = sv.ID()
+	sv.curUrl = "config/groups/" + g.ID + "/scenes/" + g.Scenes[sv.sceneIndex].ID
+	sv.curView = genView(sv.curUrl, ctx, sv.Page)
+	return sv.curView
 }
 
 // Page is the controller for the Configuration page and implements site.Page.
 type Page struct {
-	config.EditHandler
+	site.PageEditHandler
+	curView       *view
+	curID, curUrl string
 }
 
 // Title returns "Datasets"
@@ -160,16 +173,31 @@ func (p Page) Title() string {
 	return "Configuration"
 }
 
-func (p *Page) RegisterEditHandler(handler config.EditHandler) {
-	p.EditHandler = handler
+func (p *Page) RegisterEditHandler(handler site.PageEditHandler) {
+	p.PageEditHandler = handler
 }
 
 func (p *Page) Commit() {
-	// TODO
+	data := make([][]interface{}, len(web.StaticData.Modules))
+	for i := 0; i < len(web.StaticData.Modules); i++ {
+		m := web.StaticData.Modules[i]
+		mView := p.curView.modules.Item(i)
+		data[i] = make([]interface{}, len(m.ConfigItems))
+		for j := 0; j < len(m.ConfigItems); j++ {
+			if mView.items.Item(j).enabled.Get() {
+				data[i][j] = mView.items.Item(j).content.Send(
+					&comms.ServerState{site.State(), ""})
+			}
+		}
+	}
+	if err := comms.Fetch(api.Put, p.curUrl, data, nil); err != nil {
+		panic(err)
+	}
+	site.Refresh(p.curID)
 }
 
 func (p *Page) Reset() {
-	// TODO
+	site.Refresh(p.curID)
 }
 
 // GenViews implements site.Page
@@ -194,6 +222,25 @@ func (p *Page) GenViews() []site.ViewCollection {
 	ret[2].Title = "Groups"
 	ret[2].Items = groupItems
 	return ret
+}
+
+func (p *Page) updateEdited(force bool) {
+	if force {
+		p.PageEditHandler.SetEdited(true)
+	} else {
+		for i := 0; i < p.curView.modules.Len(); i++ {
+			m := p.curView.modules.Item(i)
+			for j := 0; j < m.items.Len(); j++ {
+				item := m.items.Item(j)
+				if item.wasEnabled != item.enabled.Get() ||
+					(item.wasEnabled && item.valuesEdited) {
+					p.PageEditHandler.SetEdited(true)
+					return
+				}
+			}
+		}
+		p.PageEditHandler.SetEdited(false)
+	}
 }
 
 // Register registers this page with the site.

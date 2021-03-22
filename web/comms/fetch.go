@@ -3,8 +3,11 @@ package comms
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"strconv"
 
 	api "github.com/QuestScreen/api/web"
 )
@@ -32,13 +35,25 @@ func Fetch(method api.RequestMethod, url string, payload interface{}, target int
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode == 200 {
+	switch resp.StatusCode {
+	case 200:
 		if target != nil {
 			dec := json.NewDecoder(resp.Body)
 			err = dec.Decode(target)
+		} else {
+			return errors.New("got content when none was expected")
 		}
 		resp.Body.Close()
-		return err
+	case 204:
+		if target != nil {
+			return errors.New("got no content what some was expected")
+		}
+		resp.Body.Close()
+	default:
+		content, _ := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		return errors.New(url + ": " + strconv.Itoa(resp.StatusCode) +
+			": " + string(content))
 	}
 	return nil
 }

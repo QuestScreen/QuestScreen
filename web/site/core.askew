@@ -53,7 +53,7 @@
 						a:capture="click:commitablePageReset() {preventDefault}">Reset</button>
 				<button class="pure-button pure-button-primary"
 						a:capture="click:commitablePageCommit() {preventDefault}">Save</button>
-				<i class="fas fa-edited" a:bindings="class(edited):commitablePageEdited"></i>
+				<i class="fas fa-edit" a:bindings="class(edited):commitablePageEdited"></i>
 			</div>
 			<div id="endable-page-controls">
 				<button class="pure-button delete"

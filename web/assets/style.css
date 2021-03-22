@@ -10,6 +10,10 @@ body {
 	flex-direction: column;
 }
 
+fieldset {
+	border: 0;
+}
+
 /* remove triangle. we use the nicer font-awesome triangle. */
 .pure-menu-horizontal .pure-menu-has-children > .pure-menu-link::after {
 	content: "";
@@ -314,7 +318,7 @@ nav#mainmenu > div > a > i.fas {
 	flex: 0 0 auto;
 }
 
-.commitable-page-controls > i:not(.edited) {
+#commitable-page-controls > i:not(.edited) {
 	visibility: hidden;
 }
 
@@ -509,10 +513,11 @@ article {
 	padding: 0;
 }
 
-.pure-form label.config-item-header {
+label.config-item-header {
 	display: flex;
 	margin: 0;
 	padding: 0;
+	align-items: center;
 }
 
 .config-item-header > input,
@@ -524,6 +529,7 @@ article {
 .config-item-header > span {
 	flex: 1 1 auto;
 	margin: .5em;
+	font-weight: bold;
 }
 
 .config-item-fragment {

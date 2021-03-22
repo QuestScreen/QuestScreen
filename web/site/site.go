@@ -21,7 +21,6 @@ import (
 	"github.com/QuestScreen/QuestScreen/web"
 	"github.com/QuestScreen/QuestScreen/web/comms"
 	"github.com/QuestScreen/api/server"
-	"github.com/QuestScreen/api/web/config"
 	askew "github.com/flyx/askew/runtime"
 )
 
@@ -79,6 +78,12 @@ type Page interface {
 	GenViews() []ViewCollection
 }
 
+// PageEditHandler is a callback that is used by commitable pages to indicate
+// whether their state differs from the currently commited state.
+type PageEditHandler interface {
+	SetEdited(value bool)
+}
+
 // CommitablePage is a page whose views have a UI state which can be commited or
 // reset. Moving away from a CommitablePage shall prompt the user that data will
 // be discarded if it has not been saved.
@@ -88,8 +93,8 @@ type Page interface {
 type CommitablePage interface {
 	Page
 	// RegisterEditHandler registers a handler with the page which will be called
-	// when the page enters an uncommited state.
-	RegisterEditHandler(handler config.EditHandler)
+	// whenever the state page switches between commited and uncommited.
+	RegisterEditHandler(handler PageEditHandler)
 	// Commit instructs the page to commit the current state.
 	// The page is assumed to be in commited state afterwards.
 	Commit()
@@ -156,11 +161,15 @@ func (sc *siteContent) commitablePageReset() {
 }
 
 func (sc *siteContent) commitablePageCommit() {
-	sc.page().(CommitablePage).Commit()
+	go sc.page().(CommitablePage).Commit()
 }
 
 func (sc *siteContent) endablePageEnd() {
-	sc.page().(EndablePage).End()
+	go sc.page().(EndablePage).End()
+}
+
+func (sc *siteContent) SetEdited(value bool) {
+	top.commitablePageEdited.Set(value)
 }
 
 // ShowHome shows the info page if no session is in progress.
@@ -173,6 +182,9 @@ func ShowHome() {
 // the site. This must be done before calling Boot().
 func RegisterPage(kind PageKind, page Page) {
 	site.pages[int(kind)] = page
+	if commitable, ok := page.(CommitablePage); ok {
+		commitable.RegisterEditHandler(&site)
+	}
 }
 
 // Boot starts the site and loads the info page.
@@ -231,6 +243,7 @@ func loadView(v View, parent, name string) {
 	switch site.curPage {
 	case ConfigPage:
 		controls = CommitControls
+		top.commitablePageEdited.Set(false)
 	case SessionPage:
 		controls = EndControls
 	}

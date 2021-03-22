@@ -3,7 +3,7 @@
 	"github.com/QuestScreen/QuestScreen/web/controls"
 </a:import>
 
-<a:component name="item" params="ui config.Widget, var wasEnabled bool">
+<a:component name="item" params="ui config.Widget, name string, var wasEnabled bool, var p *Page">
 	<a:handlers>
 		Edited()
 		editedEnabled()
@@ -16,7 +16,7 @@
 			<input type="checkbox" class="config-item-checkbox"
 					a:bindings="prop(checked):(enabled bool)"
 					a:capture="change:editedEnabled"/>
-			<span class="config-item-name"></span>
+			<span a:assign="prop(textContent)=name"></span>
 			<i class="fas fa-edit" a:bindings="style(visibility):editIndicator"></i>
 		</label>
 		<div class="config-item-container">
@@ -35,13 +35,7 @@
 </a:component>
 
 <a:component name="view" gen-new-init>
-	<article>
-		<form class="pure-form">
-			<a:embed list type="module" name="modules"></a:embed>
-			<fieldset class="config-view-controls">
-				<button type="reset" class="pure-button">Reset</button>
-				<button type="submit" class="pure-button pure-button-primary">Save</button>
-			</fieldset>
-		</form>
+	<article class="pure-form">
+		<a:embed list type="module" name="modules"></a:embed>
 	</article>
 </a:component>
