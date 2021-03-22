@@ -10,18 +10,18 @@ import (
 // View implements site.View
 type View struct{}
 
-// Title returns "Info"
+// Title returns "Home"
 func (v View) Title() string {
-	return "Info"
+	return "Home"
 }
 
-// ID returns "info"
+// ID returns "home"
 func (v View) ID() string {
-	return "info"
+	return "home"
 }
 
-// GenerateUI creates the home view.
-func (v View) GenerateUI(ctx server.Context) askew.Component {
+// SwitchTo creates the home view.
+func (v View) SwitchTo(ctx server.Context) askew.Component {
 	return newViewContent(web.StaticData.AppVersion)
 }
 

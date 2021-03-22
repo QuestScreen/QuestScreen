@@ -12,11 +12,11 @@
 	</div>
 </a:component>
 
-<a:component name="viewContent" params="states []modules.State" gen-new-init>
+<a:component name="viewContent" params="states []namedState" gen-new-init>
 	<article id="module-state-wrapper">
     <a:embed name="modules" type="moduleState" list>
-			<a:construct a:for="i := range web.StaticData.Modules"
-					args="web.StaticData.Modules[i].Name, states[i]"></a:construct>
+			<a:construct a:for="i := range states"
+					args="states[i].name, states[i].state"></a:construct>
 		</a:embed>
 	</article>
 </a:component>

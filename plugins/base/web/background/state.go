@@ -55,6 +55,7 @@ func (s *State) InsertInto(parent js.Value, before js.Value) {
 // ItemClicked handles a click by switching to the clicked background and
 // returning true.
 func (s *State) ItemClicked(index int) bool {
-	s.srv.Fetch(web.Post, "", index, nil)
-	return true
+	var ret int
+	s.srv.Fetch(web.Post, "", index, &ret)
+	return ret == index
 }

@@ -61,9 +61,9 @@ func genView(url string, ctx server.Context, p *Page) *view {
 	return ret
 }
 
-// GenerateUI implements site.View, returns the UI for changing module base
+// SwitchTo implements site.View, returns the UI for changing module base
 // configuration.
-func (bv BaseView) GenerateUI(ctx server.Context) askew.Component {
+func (bv BaseView) SwitchTo(ctx server.Context) askew.Component {
 	bv.curID = bv.ID()
 	bv.curUrl = "config/base"
 	bv.curView = genView(bv.curUrl, ctx, bv.Page)
@@ -91,9 +91,9 @@ func (sv *SystemView) IsChild() bool {
 	return false
 }
 
-// GenerateUI implements site.View, returns the UI for changing module system
+// SwitchTo implements site.View, returns the UI for changing module system
 // configuration.
-func (sv *SystemView) GenerateUI(ctx server.Context) askew.Component {
+func (sv *SystemView) SwitchTo(ctx server.Context) askew.Component {
 	sv.curID = sv.ID()
 	sv.curUrl = "config/systems/" + web.Data.Systems[sv.systemIndex].ID
 	sv.curView = genView(sv.curUrl, ctx, sv.Page)
@@ -121,9 +121,9 @@ func (gv *GroupView) IsChild() bool {
 	return false
 }
 
-// GenerateUI implements site.View, returns the UI for changing module system
+// SwitchTo implements site.View, returns the UI for changing module system
 // configuration.
-func (gv *GroupView) GenerateUI(ctx server.Context) askew.Component {
+func (gv *GroupView) SwitchTo(ctx server.Context) askew.Component {
 	gv.curID = gv.ID()
 	gv.curUrl = "config/groups/" + web.Data.Groups[gv.groupIndex].ID
 	gv.curView = genView(gv.curUrl, ctx, gv.Page)
@@ -151,9 +151,9 @@ func (sv *SceneView) IsChild() bool {
 	return true
 }
 
-// GenerateUI implements site.View, returns the UI for changing module system
+// SwitchTo implements site.View, returns the UI for changing module system
 // configuration.
-func (sv *SceneView) GenerateUI(ctx server.Context) askew.Component {
+func (sv *SceneView) SwitchTo(ctx server.Context) askew.Component {
 	g := &web.Data.Groups[sv.groupIndex]
 	sv.curID = sv.ID()
 	sv.curUrl = "config/groups/" + g.ID + "/scenes/" + g.Scenes[sv.sceneIndex].ID

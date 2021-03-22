@@ -9,13 +9,13 @@ import (
 	"github.com/QuestScreen/QuestScreen/web/site"
 	"github.com/QuestScreen/api/server"
 	api "github.com/QuestScreen/api/web"
-	"github.com/QuestScreen/api/web/modules"
 	askew "github.com/flyx/askew/runtime"
 )
 
 type View struct {
 	*Page
-	scene *shared.Scene
+	scene      *shared.Scene
+	sceneIndex int
 }
 
 func (v View) Title() string {
@@ -30,17 +30,29 @@ func (View) IsChild() bool {
 	return false
 }
 
-func (v View) GenerateUI(ctx server.Context) askew.Component {
-	modules := make([]modules.State, len(v.modules))
+func (v View) SwitchTo(ctx server.Context) askew.Component {
+	if v.ActiveScene != v.sceneIndex {
+		var state shared.StateResponse
+		if err := comms.Fetch(api.Post, "/state", shared.StateRequest{
+			Action: "setscene", Index: v.sceneIndex}, &state); err != nil {
+			panic(err)
+		}
+		v.Page.loadState(&state)
+	}
+
+	modules := make([]namedState, 0, len(v.modules))
 	for i := range v.modules {
+		if !web.Data.Groups[v.ActiveGroup].Scenes[v.ActiveScene].Modules[i] {
+			continue
+		}
 		descr := &web.StaticData.Modules[i]
 		server := &comms.ServerState{State: p.State, Base: descr.BasePath()}
-		var err error
-		modules[i], err = descr.Constructor(v.modules[i], server)
+		mState, err := descr.Constructor(v.modules[i], server)
 		if err != nil {
 			panic("invalid data for module " +
 				web.StaticData.Modules[i].Name + ": " + err.Error())
 		}
+		modules = append(modules, namedState{descr.Name, mState})
 	}
 
 	return newViewContent(modules)
@@ -53,7 +65,13 @@ type Page struct {
 }
 
 func (p *Page) End() {
-	// TODO
+	var data shared.StateResponse
+	if err := comms.Fetch(api.Post, "/state", shared.StateRequest{
+		Action: "leavegroup"}, &data); err != nil {
+		panic(err)
+	}
+	site.UpdateSession(data.ActiveGroup, data.ActiveScene)
+	site.ShowHome()
 }
 
 func (p *Page) Title() string {
@@ -66,7 +84,7 @@ func (p *Page) GenViews() []site.ViewCollection {
 	ret[0].Title = "Scenes"
 	ret[0].Items = make([]site.View, 0, len(scenes))
 	for i := range scenes {
-		ret[0].Items = append(ret[0].Items, View{p, &scenes[i]})
+		ret[0].Items = append(ret[0].Items, View{p, &scenes[i], i})
 	}
 	return ret
 }

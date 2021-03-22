@@ -85,9 +85,11 @@
 </a:component>
 
 <a:component name="sidebarType" gen-new-init>
-	<nav id="pagemenu" class="pure-menu" a:bindings="class(pagemenu-expanded):expanded">
-		<ul class="pure-menu-list" a:bindings="class(menu-disabled):Disabled">
-			<a:embed name="items" type="sidebarColl" list></a:embed>
-		</ul>
-	</nav>
+	<div id="pagemenu-wrapper" a:bindings="class(hidden):Disabled">
+		<nav id="pagemenu" class="pure-menu" a:bindings="class(pagemenu-expanded):expanded">
+			<ul class="pure-menu-list">
+				<a:embed name="items" type="sidebarColl" list></a:embed>
+			</ul>
+		</nav>
+	</div>
 </a:component>

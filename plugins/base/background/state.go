@@ -84,5 +84,5 @@ func (e endpoint) Post(payload []byte) (interface{}, interface{},
 	if e.curIndex != -1 {
 		req.file = e.resources[e.curIndex]
 	}
-	return value, req, nil
+	return value.Value, req, nil
 }

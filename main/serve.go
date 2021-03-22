@@ -334,7 +334,8 @@ func (se stateEndpoint) Handle(method httpMethods, ids []string,
 					return nil, &server.BadRequest{Message: "No active group"}
 				}
 
-				if err := se.qs.data.SetScene(value.Value.Index); err != nil {
+				activeScene = value.Value.Index
+				if err := se.qs.data.SetScene(activeScene); err != nil {
 					return nil, err
 				}
 				se.qs.persistence.WriteState()

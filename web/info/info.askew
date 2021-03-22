@@ -48,7 +48,7 @@
 <!-- group list state: 0 == no groups, 1 == groups, 2 == unavailable because of
      server errors -->
 <a:component name="viewContent" params="version string, groupListState int">
-	<div style="text-align: center">
+	<div class="info-view">
 		<section class="group-chooser data-sheet">
 			<h4 class="data-sheet-header"><i class="fas fa-play"></i> Start a session</h4>
 			<p a:if="groupListState == 0">No groups available. Create one via the Datasets page!</p>
@@ -57,22 +57,22 @@
 			</table>
 			<p a:if="groupListState == 2">Cannot start a session. Please fix server errors.</p>
 		</section>
+		<h3 style="text-align: center">Software information</h3>
+		<section class="data-sheet">
+			<h4 class="data-sheet-header"><i class="fas fa-film"></i> Loaded Modules</h4>
+			<table class="module-list">
+				<thead>
+					<tr><th>Plugin</th><th>Module</th></tr>
+				</thead>
+				<tbody>
+					<a:embed list type="Module" name="Modules"></a:embed>
+				</tbody>
+			</table>
+		</section>
+		<a:embed optional type="MessageContainer" name="Messages"></a:embed>
+		<footer>
+			<p>QuestScreen <span class="app-version" a:assign="prop(textContent)=version"></span></p>
+			<p>This app is free software, distributed under the terms of the GNU GPL v3.</p>
+		</footer>
 	</div>
-	<h3>Software information</h3>
-	<section class="data-sheet">
-		<h4 class="data-sheet-header"><i class="fas fa-film"></i> Loaded Modules</h4>
-		<table class="module-list">
-			<thead>
-				<tr><th>Plugin</th><th>Module</th></tr>
-			</thead>
-			<tbody>
-				<a:embed list type="Module" name="Modules"></a:embed>
-			</tbody>
-		</table>
-	</section>
-	<a:embed optional type="MessageContainer" name="Messages"></a:embed>
-	<footer class="version-info">
-		<p>QuestScreen <span class="app-version" a:assign="prop(textContent)=version"></span></p>
-		<p>This app is free software, distributed under the terms of the GNU GPL v3.</p>
-	</footer>
 </a:component>

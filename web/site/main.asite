@@ -29,9 +29,7 @@
 		<a:embed name="top" type="topBar"></a:embed>
 
 		<div id="page">
-			<div id="pagemenu-wrapper">
-				<a:embed name="sidebar" type="sidebarType"></a:embed>
-			</div>
+			<a:embed name="sidebar" type="sidebarType"></a:embed>
 
 			<main>
 				<a:embed name="content" optional></a:embed>

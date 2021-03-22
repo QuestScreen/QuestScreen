@@ -42,15 +42,10 @@ type View interface {
 	// IsChild indicates whether this view should be shown as a child of the most
 	// recent view with IsChild() == false in the sidebar.
 	IsChild() bool
-	// GenerateUI generates and returns the UI elements that should be put into
-	// the site's main area.
-	//
-	// mustRegen is a callback that must be called to signal that the list of
-	// views must be regenerated, e.g. because the data defining the views has
-	// changed. The given id parameter must match the view's ID().
-	//
-	// popup is the reference to the singleton handling popups.
-	GenerateUI(ctx server.Context) askew.Component
+	// SwitchTo instructs the view that the user wants to switch to it.
+	// It will make all necessary preparations and return the UI widget that
+	// represents the view.
+	SwitchTo(ctx server.Context) askew.Component
 }
 
 // ViewCollection describes a set of views.
@@ -191,7 +186,7 @@ func RegisterPage(kind PageKind, page Page) {
 func Boot(headerDisabled bool) {
 	top.Disabled.Set(headerDisabled)
 	top.Controller = &site
-	top.homeLabel.Set("Info")
+	top.homeLabel.Set("Home")
 	site.ActiveGroup = -1
 }
 
@@ -250,7 +245,7 @@ func loadView(v View, parent, name string) {
 
 	sidebar.expanded.Set(false)
 	go func(controls PageControls) {
-		content.Set(v.GenerateUI(&comms.ServerState{&site.State, ""}))
+		content.Set(v.SwitchTo(&comms.ServerState{&site.State, ""}))
 		if parent == "" {
 			setTitle(name, "", controls)
 		} else {
@@ -262,7 +257,7 @@ func loadView(v View, parent, name string) {
 func UpdateSession(groupIndex, sceneIndex int) {
 	if (site.State.ActiveGroup == -1) != (groupIndex == -1) {
 		if groupIndex == -1 {
-			top.homeLabel.Set("Info")
+			top.homeLabel.Set("Home")
 		} else {
 			top.homeLabel.Set("Session")
 		}

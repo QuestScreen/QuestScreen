@@ -25,8 +25,8 @@ func (bv BaseView) IsChild() bool {
 	return false
 }
 
-// GenerateUI implements site.View
-func (bv BaseView) GenerateUI(ctx server.Context) askew.Component {
+// SwitchTo implements site.View
+func (bv BaseView) SwitchTo(ctx server.Context) askew.Component {
 	return newBase()
 }
 
@@ -50,8 +50,8 @@ func (sv *SystemView) IsChild() bool {
 	return false
 }
 
-// GenerateUI implements site.View
-func (sv *SystemView) GenerateUI(ctx server.Context) askew.Component {
+// SwitchTo implements site.View
+func (sv *SystemView) SwitchTo(ctx server.Context) askew.Component {
 	s := &web.Data.Systems[sv.systemIndex]
 	return newSystem(s)
 }
@@ -76,8 +76,8 @@ func (gv *GroupView) IsChild() bool {
 	return false
 }
 
-// GenerateUI implements site.View
-func (gv *GroupView) GenerateUI(ctx server.Context) askew.Component {
+// SwitchTo implements site.View
+func (gv *GroupView) SwitchTo(ctx server.Context) askew.Component {
 	g := &web.Data.Groups[gv.groupIndex]
 	return newGroup(g)
 }
@@ -102,8 +102,8 @@ func (sv *SceneView) IsChild() bool {
 	return true
 }
 
-// GenerateUI implements site.View.
-func (sv *SceneView) GenerateUI(ctx server.Context) askew.Component {
+// SwitchTo implements site.View.
+func (sv *SceneView) SwitchTo(ctx server.Context) askew.Component {
 	g := &web.Data.Groups[sv.groupIndex]
 	return newScene(g, sv.sceneIndex)
 }
