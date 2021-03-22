@@ -1,0 +1,41 @@
+<a:import>
+  "github.com/QuestScreen/api/web/config"
+	"github.com/QuestScreen/QuestScreen/web/controls"
+</a:import>
+
+<a:component name="item" params="ui config.Widget, name string, var wasEnabled bool, var p *Page">
+	<a:handlers>
+		Edited()
+		editedEnabled()
+	</a:handlers>
+	<a:data>
+		valuesEdited bool
+	</a:data>
+	<fieldset>
+		<label class="config-item-header">
+			<input type="checkbox" class="config-item-checkbox"
+					a:bindings="prop(checked):(enabled bool)"
+					a:capture="change:editedEnabled"/>
+			<span a:assign="prop(textContent)=name"></span>
+			<i class="fas fa-edit" a:bindings="style(visibility):editIndicator"></i>
+		</label>
+		<div class="config-item-container">
+			<a:embed type="config.Widget" name="content" value="ui"></a:embed>
+		</div>
+	</fieldset>
+</a:component>
+
+<a:component name="module" params="name string" gen-new-init>
+	<section class="pure-g config-module">
+		<div class="pure-u-1 pure-u-md-1-5 config-module-header"><h3 class="config-module-name" a:assign="prop(textContent)=name"></h3></div>
+		<div class="pure-u-1 pure-u-md-4-5 config-module-content">
+			<a:embed list name="items" type="item"></a:embed>
+		</div>
+	</section>
+</a:component>
+
+<a:component name="view" gen-new-init>
+	<article class="pure-form">
+		<a:embed list type="module" name="modules"></a:embed>
+	</article>
+</a:component>

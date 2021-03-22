@@ -3,10 +3,10 @@ package data
 import (
 	"log"
 	"reflect"
-	"sync"
 
 	"github.com/QuestScreen/QuestScreen/app"
-	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/QuestScreen/shared"
+	"github.com/QuestScreen/api/groups"
 )
 
 // System describes a Pen & Paper system.
@@ -59,7 +59,7 @@ type sceneModule struct {
 type Scene interface {
 	Name() string
 	ID() string
-	UsesModule(moduleIndex app.ModuleIndex) bool
+	UsesModule(moduleIndex shared.ModuleIndex) bool
 }
 
 type scene struct {
@@ -76,20 +76,19 @@ func (s *scene) ID() string {
 	return s.id
 }
 
-func (s *scene) UsesModule(moduleIndex app.ModuleIndex) bool {
+func (s *scene) UsesModule(moduleIndex shared.ModuleIndex) bool {
 	return s.modules[moduleIndex].enabled
 }
 
 type heroList struct {
-	mutex sync.Mutex
-	data  []hero
+	data []hero
 }
 
-func (hl *heroList) Hero(index int) api.Hero {
+func (hl *heroList) Hero(index int) groups.Hero {
 	return &hl.data[index]
 }
 
-func (hl *heroList) HeroByID(id string) (index int, h api.Hero) {
+func (hl *heroList) HeroByID(id string) (index int, h groups.Hero) {
 	for i := range hl.data {
 		if hl.data[i].id == id {
 			return i, &hl.data[i]
@@ -102,19 +101,15 @@ func (hl *heroList) NumHeroes() int {
 	return len(hl.data)
 }
 
-func (hl *heroList) Close() {
-	hl.mutex.Unlock()
-}
-
 // Group describes a Pen & Paper group / party
 type Group interface {
+	groups.Group
 	Name() string
 	ID() string
 	SystemIndex() int
 	NumScenes() int
 	Scene(index int) Scene
 	SceneByID(id string) (index int, s Scene)
-	ViewHeroes() app.HeroView
 }
 
 // group implements api.HeroList.
@@ -156,8 +151,7 @@ func (g *group) SceneByID(id string) (index int, s Scene) {
 	return -1, nil
 }
 
-func (g *group) ViewHeroes() app.HeroView {
-	g.heroes.mutex.Lock()
+func (g *group) Heroes() groups.HeroList {
 	return &g.heroes
 }
 
@@ -260,7 +254,7 @@ func confValue(conf interface{}) *reflect.Value {
 //
 // systemIndex may be -1 (for groups without a defined system), groupIndex and
 // sceneIndex may not.
-func (d *Data) MergeConfig(moduleIndex app.ModuleIndex,
+func (d *Data) MergeConfig(moduleIndex shared.ModuleIndex,
 	systemIndex int, groupIndex int, sceneIndex int) interface{} {
 	var configStack [5]*reflect.Value
 	module := d.owner.ModuleAt(moduleIndex)

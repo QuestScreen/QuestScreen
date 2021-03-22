@@ -1,0 +1,796 @@
+/* general */
+
+html, body {
+	height: 100%;
+	margin: 0;
+}
+
+body {
+	display: flex;
+	flex-direction: column;
+}
+
+fieldset {
+	border: 0;
+}
+
+/* remove triangle. we use the nicer font-awesome triangle. */
+.pure-menu-horizontal .pure-menu-has-children > .pure-menu-link::after {
+	content: "";
+}
+
+.pure-menu-has-children,
+.pure-menu-children {
+	transition: all 0.2s ease-out;
+}
+
+.pure-menu-children {
+  box-shadow: 3px 5px 5px rgba(0, 0, 0, .5);
+}
+
+.pure-menu-heading {
+	padding: 0 !important;
+}
+
+.pure-menu-dummy-link {
+	padding: .5em 1em;
+	display: block;
+	white-space: nowrap;
+	font-weight: bold;
+	text-transform: initial;
+}
+
+@media screen and (max-width: 35.5em) {
+	.pure-menu-has-children > .pure-menu-children {
+		position: static;
+		display: block;
+		overflow: hidden;
+		height: 0;
+		transition: all 0.2s ease-out;
+	}
+
+	.pure-menu-has-children > .pure-menu-children > .pure-menu-item {
+		box-sizing: border-box;
+		height: 2em;
+	}
+
+	.pure-menu-children {
+		box-shadow: none;
+	}
+}
+
+/* ensure link clicks are always issued by the link itself */
+.pure-menu-link span, .pure-menu-link i {
+	pointer-events: none;
+}
+
+hr {
+	border: 0;
+	height: 3px;
+	border-radius: 1px;
+	width: 95%;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+/* controls */
+
+/* switch taken from https://www.w3schools.com/howto/howto_css_switch.asp
+   and modified */
+
+ .switch {
+  position: relative;
+  display: inline-block !important;
+  width: 2.4em !important;
+	height: 1.4em; /* 34px */
+	/* revert stuff possibly imposed by .pure-control-group label */
+	margin: revert !important;
+	vertical-align: revert !important;
+	text-align: revert !important;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e6e6e6;
+  -webkit-transition: .4s;
+	transition: .4s;
+	border-radius: .7em; /* 34px */
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 1em;
+  width: 1em;
+  left: .2em;
+  bottom: .2em;
+  background-color: white;
+  -webkit-transition: .2s;
+	transition: .2s;
+	border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 .2em #2196F3;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(1em);
+  -ms-transform: translateX(1em);
+  transform: translateX(1em);
+}
+
+/* popup */
+
+#popup-wrapper {
+	background-color: rgba(0, 0, 0, .5);
+	position: fixed;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	margin: 0;
+	padding: 0;
+	display: none;
+  align-items: center;
+  justify-content: center;
+	z-index: 9;
+}
+
+#popup {
+	background-color: white;
+	border-radius: 5px;
+	padding: .5em;
+	width: 30em;
+	text-align: right;
+}
+
+#popup h3 {
+	text-align: center;
+	font-weight: bold;
+	margin-top: 0;
+	margin-bottom: .5em;
+}
+
+#popup > section {
+	text-align: left;
+	display: block;
+	min-height: 2em;
+	margin-bottom: .5em;
+}
+
+#popup .template-list {
+	margin-top: .5em;
+	margin-bottom: .5em;
+}
+
+#popup .template-item .pure-menu-link {
+	display: flex;
+	align-items: center;
+}
+
+#popup .template-item .pure-menu-link .template-container {
+	flex: 1 1 auto;
+}
+
+#popup .template-item .pure-menu-link > i {
+	flex: 0 0 auto;
+	margin-left: 1em;
+}
+
+#popup .pure-menu-active {
+	background-color: greenyellow;
+}
+
+#popup .template-list .pure-menu-item {
+	transition: height .2s ease-out;
+	box-sizing: border-box;
+	overflow: hidden;
+}
+
+#popup .template-list:not(.menu-expanded) .pure-menu-item:not(.pure-menu-active) {
+	height: 0 !important;
+}
+
+#popup .template-identifier {
+	color: black;
+	margin-top: .2em;
+}
+
+#popup .template-descr {
+	margin-bottom: .2em;
+}
+
+/* header */
+
+header {
+	flex: 0 0 auto;
+	margin: 0;
+	padding-bottom: .5em;
+	transition: height 0.2s ease-out;
+	box-sizing: border-box;
+}
+
+@media screen and (max-width: 35.5em) {
+	header {
+		padding-bottom: 0;
+	}
+}
+
+
+header h1 {
+	margin: 0;
+	line-height: 1.25em;
+	text-align: center;
+}
+
+#menu-groups {
+	width: 100%;
+}
+
+nav#mainmenu {
+	width: 30em;
+	border-radius: .125em;
+	margin-left: auto;
+	margin-right: auto;
+	margin-top: .25em;
+}
+
+nav#mainmenu .pure-menu-horizontal > .pure-menu-list,
+nav#mainmenu .pure-menu-horizontal > .pure-menu-list > .pure-menu-item {
+	display: block;
+}
+
+#open-group-menu,
+#show-config,
+#show-datasets {
+	position: relative;
+	text-align: center;
+}
+
+nav#mainmenu > div > a > i.fas {
+	position: absolute;
+	right: 0;
+	padding-top: .25em;
+	padding-right: .25em;
+}
+
+@media screen and (max-width: 35.5em) {
+	nav#mainmenu {
+		width: 100%;
+		border-radius: 0;
+		margin: 0;
+	}
+}
+
+#title-wrapper {
+	flex: 0 0 2em;
+	position: relative;
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+	align-items: stretch;
+}
+
+#title-wrapper > p {
+	padding: .5em 0;
+}
+
+#title-buttons {
+	position: absolute;
+	top: .25em;
+	left: .5em;
+	right: .5em;
+	bottom: .25em;
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+	z-index: 1;
+}
+
+#title-buttons > div {
+	display: none;
+	font-size: medium;
+}
+
+#title-buttons:not(.commitable-page):not(.endable-page) > #no-page-controls {
+	display: unset;
+}
+
+#title-buttons.commitable-page > #commitable-page-controls {
+	display: unset;
+	flex: 0 0 auto;
+}
+
+#commitable-page-controls > i:not(.edited) {
+	visibility: hidden;
+}
+
+#title-buttons.endable-page > #endable-page-controls {
+	display: unset;
+	flex: 0 0 auto;
+}
+
+#header-toggle {
+	flex: 0 0 auto;
+	cursor: pointer;
+}
+
+p#title-content {
+	margin: 0;
+	padding-left: 4em;
+	padding-right: 4em;
+	text-align: center;
+}
+
+#title {
+	margin: 0;
+}
+
+#subtitle:not(:empty):before {
+	content: " – ";
+}
+
+#pagemenu-wrapper.hidden {
+	display: none;
+}
+
+nav#pagemenu .submenu-link {
+	padding-left: 2em;
+}
+
+nav#pagemenu .submenu-parent-name {
+	display: none;
+}
+
+@media screen and (max-width: 35.5em) {
+	div#title-buttons.commitable-page,
+	div#title-buttons.endable-page {
+		position: static;
+		padding: .5em;
+	}
+
+	p#title-content {
+		padding-left: 2em;
+		padding-right: 2em;
+	}
+
+	#subtitle {
+		display: none;
+	}
+
+	nav#pagemenu .submenu-link {
+		padding-left: 1em;
+	}
+
+	nav#pagemenu .submenu-parent-name {
+		display: inline;
+	}
+}
+
+/* page */
+
+#page {
+	flex: 1 1 auto;
+	display: flex;
+	flex-direction: row;
+	align-items: stretch;
+}
+
+#pagemenu-wrapper {
+	flex: 0 0 7.5em;
+	margin: 0;
+	padding: 0;
+	height: 100%;
+}
+
+nav#pagemenu {
+	height: 100%;
+}
+
+nav#pagemenu i.fa-sort {
+	position: absolute;
+	right: 0;
+	top: 0;
+	padding: .5em;
+	visibility: hidden;
+}
+
+nav#pagemenu .pure-menu-heading {
+	font-size: small;
+}
+
+main {
+	flex: 1 0 0px;
+}
+
+@media screen and (max-width: 35.5em) {
+	#page {
+		flex-direction: column;
+	}
+
+	#pagemenu-wrapper {
+		flex: 0 0 auto;
+		padding: .5em;
+		height: auto;
+	}
+
+	nav#pagemenu {
+		border-radius: .125em;
+	}
+
+	nav#pagemenu .pure-menu-item,
+	nav#pagemenu .pure-menu-heading {
+		transition: height .2s ease-out;
+		height: 0;
+		box-sizing: border-box;
+		overflow: hidden;
+	}
+
+	nav#pagemenu.pagemenu-expanded .pure-menu-item,
+	nav#pagemenu.pagemenu-expanded .pure-menu-heading,
+	nav#pagemenu .pure-menu-active.pure-menu-item {
+		height: 2em;
+	}
+
+	nav#pagemenu:not(.pagemenu-expanded) .pure-menu-active i.fa-sort {
+		visibility: visible;
+	}
+}
+
+article {
+	padding: .5em;
+}
+
+/* config & state */
+
+.dropdown-container {
+	display: inline;
+}
+
+.dropdown-selector > .pure-menu-link,
+.dropdown-selector > .pure-menu-link:visited {
+	color: black;
+}
+
+.dropdown-selector > .pure-menu-link.pure-menu-disabled {
+	cursor: not-allowed;
+}
+
+.dropdown-selector .pure-menu-link.emph {
+	font-style: italic;
+}
+
+.pure-menu-selected .dropdown-invisible {
+	visibility: hidden;
+}
+
+.dropdown-visible {
+	visibility: hidden;
+}
+
+.pure-menu-selected .dropdown-visible {
+	visibility: visible;
+}
+
+.state-module-header h3, .config-module-header h3 {
+	margin: 0;
+}
+
+.state-module-header, .config-module-header,
+.state-module-content {
+	margin: 0;
+	padding: .5em;
+	box-sizing: border-box;
+}
+
+.config-module, .state-module {
+	margin-bottom: 1em;
+}
+
+.config-module-content {
+	padding: 0;
+}
+
+.config-module-content > fieldset {
+	margin: .75em;
+	padding: 0;
+}
+
+label.config-item-header {
+	display: flex;
+	margin: 0;
+	padding: 0;
+	align-items: center;
+}
+
+.config-item-header > input,
+.config-item-header > i {
+	flex: 0 0 auto;
+	margin: .5em;
+}
+
+.config-item-header > span {
+	flex: 1 1 auto;
+	margin: .5em;
+	font-weight: bold;
+}
+
+.config-item-fragment {
+	display: inline-flex;
+	flex-direction: column;
+	padding: .5em;
+	vertical-align: top;
+}
+
+.config-item-fragment > label {
+	padding: .5em 0;
+	margin: 0;
+}
+
+input[type="color"] {
+	height: 2em;
+}
+
+input[type="range"] {
+	width: 6em;
+}
+
+.config-item-table {
+	display: inline-table;
+	vertical-align: top;
+	margin: .5em;
+}
+
+.config-item-table > thead th {
+	text-align: left;
+	font-weight: normal;
+}
+
+.config-item-table > tbody th {
+	text-align: right;
+	font-weight: normal;
+}
+
+.config-item-table th,
+.config-item-table td {
+	padding: .5em;
+}
+
+.config-view-controls {
+	text-align: right;
+}
+
+.config-item-container {
+	display: block;
+}
+
+/* datasets */
+
+.data-list-container {
+	text-align: center;
+}
+
+.data-list {
+	display: flex;
+	flex-direction: column;
+}
+
+.data-list.modules {
+	display: inline-flex;
+}
+
+.data-list-item {
+	display: flex;
+}
+
+.data-list-text {
+	display: block;
+	padding: .5em 1em;
+}
+
+.data-list-item > :first-child {
+	flex: 1 1 auto;
+}
+
+.data-list.modules > .data-list-item > :first-child {
+	padding-left: 0;
+}
+
+.data-list-item > :not(:first-child) {
+	flex: 0 1 auto;
+}
+
+.data-list-link {
+	padding: .5em 1em;
+	text-align: center;
+}
+
+.data-list-link.delete,
+.data-list-item.create,
+.pure-menu-link {
+	cursor: pointer;
+}
+
+.pure-control-group .pure-form-message-inline.edited {
+	display: inline;
+}
+
+.pure-control-group:not(.edited) .pure-form-message-inline.edited,
+.data-list-item:not(.edited) span.edited {
+	visibility: hidden;
+}
+
+.module-toggle {
+	padding: .5em 0;
+}
+
+.data-sheet, .messages {
+	display: inline-block;
+	vertical-align: top;
+	margin: .5em;
+	min-width: 12.5em;
+}
+
+.data-sheet.group-chooser {
+	text-align: left;
+}
+
+.data-sheet-header, .message-list-header {
+	margin: 0;
+	padding: .5em 1em;
+}
+
+.data-sheet form > fieldset {
+	margin: 0;
+	padding: .75em 0;
+}
+
+.data-sheet.create:not(.active) h4 {
+	cursor: pointer;
+}
+
+.data-sheet.create:not(.active) form {
+	overflow: hidden;
+	height: 0;
+}
+
+.data-sheet form.pure-form .pure-control-group {
+	white-space: nowrap;
+	padding: 0 .75em;
+}
+
+.data-sheet form.pure-form .pure-control-group label {
+	width: 6.5em;
+}
+
+.data-sheet form.pure-form .pure-controls {
+	margin: 1em 0 0 0;
+	display: flex;
+	padding: 0 .5em;
+}
+
+.data-sheet form.pure-form .pure-controls button {
+	margin: 0 .25em;
+}
+
+.data-sheet form.pure-form .pure-controls .hfill {
+	flex: 1 1 auto;
+}
+
+.data-sheet form.pure-form .pure-controls :not(.hfill) {
+	flex: 0 0 auto;
+}
+
+.hero-container {
+	display: inline-block;
+	margin: .5em;
+	padding: 0;
+}
+
+.hero-container > nav.pure-menu-horizontal {
+	white-space: normal;
+	width: auto;
+}
+
+.hero-container > nav .pure-menu-link.create {
+	text-align: center;
+	min-width: 2em;
+}
+
+.hero-container > h3,
+.hero-container > nav {
+	margin: .5em;
+	padding: 0;
+}
+
+.hero-container > form {
+	margin: .5em;
+	padding: .5em;
+}
+
+.hero-container > form > p {
+	margin: 0;
+	padding: 1.5em .5em;
+}
+
+.hero-container > form.no-hero-selected > fieldset,
+.hero-container > form:not(.no-hero-selected) > p {
+	display: none;
+}
+
+table.module-list,
+table.group-chooser-list,
+table.message-list {
+	width: 100%;
+}
+
+table.module-list td,
+table.module-list th,
+table.group-chooser-list td a,
+.group-chooser p,
+table.message-list td {
+	padding: .5em 1em;
+}
+
+table.group-chooser-list td a {
+	display: block;
+	cursor: pointer;
+}
+
+table.module-list .text,
+table.message-list .text {
+	max-width: 40em;
+}
+
+.info-view {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.info-view h3,
+.info-view footer {
+	text-align: center;
+}
+
+.app-version {
+	font-family: Menlo, Monaco, "Courier New", Courier, monospace;
+}
+
+#error-menu-overlay {
+	text-align: center;
+	font-weight: bold;
+	border-radius: .125em;
+	box-sizing: border-box;
+	line-height: 2em;
+}
+
+nav:not(.disabled) > #error-menu-overlay {
+	display: none;
+}
+
+nav.disabled > :not(#error-menu-overlay) {
+	display: none;
+}
+
+.herolist-switch-all.pure-button-primary .show-all,
+.herolist-switch-all:not(.pure-button-primary) .hide-all {
+	display: none;
+}

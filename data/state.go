@@ -4,7 +4,9 @@ import (
 	"sync"
 
 	"github.com/QuestScreen/QuestScreen/app"
-	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/QuestScreen/shared"
+	"github.com/QuestScreen/api/modules"
+	"github.com/QuestScreen/api/server"
 )
 
 // State holds the complete state for the currently active group.
@@ -12,7 +14,7 @@ import (
 // state.yaml of the new group.
 type State struct {
 	activeScene int
-	scenes      [][]api.ModuleState
+	scenes      [][]modules.State
 	path        string
 	writeMutex  sync.Mutex
 	a           app.App
@@ -20,9 +22,9 @@ type State struct {
 }
 
 // SetScene sets the scene index.
-func (s *State) SetScene(index int) api.SendableError {
+func (s *State) SetScene(index int) server.Error {
 	if index < 0 || index >= len(s.scenes) {
-		return &api.BadRequest{Message: "index out of range"}
+		return &server.BadRequest{Message: "index out of range"}
 	}
 	s.activeScene = index
 	return nil
@@ -34,13 +36,13 @@ func (s *State) ActiveScene() int {
 }
 
 // StateOf returns the module state for the given module in the active scene
-func (s *State) StateOf(moduleIndex app.ModuleIndex) api.ModuleState {
+func (s *State) StateOf(moduleIndex shared.ModuleIndex) modules.State {
 	return s.scenes[s.activeScene][moduleIndex]
 }
 
 // StateOfScene returns the module state for the given module in the given
 // scene
 func (s *State) StateOfScene(
-	sceneIndex int, moduleIndex app.ModuleIndex) api.ModuleState {
+	sceneIndex int, moduleIndex shared.ModuleIndex) modules.State {
 	return s.scenes[sceneIndex][moduleIndex]
 }

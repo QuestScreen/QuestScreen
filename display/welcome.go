@@ -7,10 +7,9 @@ import (
 
 	"github.com/QuestScreen/QuestScreen/generated"
 	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/render"
 
-	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
-	"github.com/veandco/go-sdl2/ttf"
 )
 
 func getIPAddresses() ([]string, error) {
@@ -43,93 +42,59 @@ func getIPAddresses() ([]string, error) {
 
 var fontColor = sdl.Color{R: 0, G: 0, B: 0, A: 200}
 
-func renderIPHint(r *sdl.Renderer, font *ttf.Font, ip string,
-	portPart string, width int32, y int32) int32 {
-	var ipHint *sdl.Surface
-	var err error
-	if ipHint, err = font.RenderUTF8Blended(
-		"http://"+ip+portPart, fontColor); err != nil {
-		log.Println("while rendering ip: " + err.Error())
-		return 0
-	}
-	defer ipHint.Free()
-	ipHintTexture, err := r.CreateTextureFromSurface(ipHint)
-	if err != nil {
-		log.Println("while rendering ip: " + err.Error())
-		return 0
-	}
-	defer ipHintTexture.Destroy()
-	ipHintRect := sdl.Rect{X: 0, Y: y, W: width, H: ipHint.H}
-	shrinkTo(&ipHintRect, ipHint.W, ipHint.H)
-	r.Copy(ipHintTexture, nil, &ipHintRect)
-	return ipHint.H
+func (d *Display) renderIPHint(font api.Font, ip string,
+	portPart string, frame *render.Rectangle) {
+	ipHint := d.RenderText("http://"+ip+portPart, font)
+	var row render.Rectangle
+	row, *frame = frame.Carve(render.North, ipHint.Height+4*d.r.unit)
+	ipArea := row.Position(ipHint.Width, ipHint.Height,
+		render.Center, render.Middle)
+	ipHint.Draw(d, ipArea, 255)
+	d.FreeImage(&ipHint)
 }
 
-func (d *Display) genWelcome(width int32, height int32, port uint16) error {
-	var err error
-	d.welcomeTexture, err = d.Backend.CreateTexture(sdl.PIXELFORMAT_RGB888,
-		sdl.TEXTUREACCESS_TARGET, width, height)
-	if err != nil {
-		return err
-	}
-	d.Backend.SetRenderTarget(d.welcomeTexture)
-	defer d.Backend.SetRenderTarget(nil)
-	d.Backend.Clear()
-	d.Backend.SetDrawColor(255, 255, 255, 255)
-	d.Backend.FillRect(nil)
+func (d *Display) genWelcome(frame render.Rectangle, port uint16) error {
+	c, _ := d.CreateCanvas(frame.Width, frame.Height,
+		api.RGBA{R: 255, G: 255, B: 255, A: 255}.AsBackground(),
+		render.Nowhere)
+	defer c.Close()
 
-	logoSource := generated.MustAsset("web/favicon/android-chrome-512x512.png")
-	logoStream, err := sdl.RWFromMem(logoSource)
+	logoRow, frame := frame.Carve(render.North, frame.Height/3)
+	logoTex, err := d.LoadImageMem(
+		generated.MustAsset("web/favicon/android-chrome-512x512.png"), true)
 	if err != nil {
-		panic(err)
+		panic("while generating welcome screen: " + err.Error())
 	}
-	logo, err := img.LoadTextureRW(d.Backend, logoStream, true)
-	if err != nil {
-		panic(err)
+	logoArea := logoRow.Position(logoTex.Width, logoTex.Height,
+		render.Center, render.Middle)
+	heightWithMargin := logoArea.Height + 4*d.r.unit
+	if heightWithMargin > logoRow.Height {
+		logoArea = logoArea.Scale(float32(logoRow.Height) / float32(heightWithMargin))
 	}
-	_, _, logoW, _, _ := logo.Query()
-	var logoRect sdl.Rect
-	if logoW > width/3 {
-		logoW = width / 3
-	}
-	if logoW > height/3 {
-		logoW = height / 3
-	}
-	logoRect = sdl.Rect{X: (width - logoW) / 2, Y: 0, W: logoW, H: logoW}
-	d.Backend.Copy(logo, nil, &logoRect)
+	logoTex.Draw(d, logoArea, 255)
 
 	if d.owner.NumFontFamilies() > 0 {
-		fontFace := d.owner.Font(0, api.Standard, api.LargeFont)
-		var title *sdl.Surface
-		if title, err = fontFace.RenderUTF8Blended(
-			"Quest Screen", fontColor); err != nil {
-			return err
-		}
-		defer title.Free()
-		titleTexture, err := d.Backend.CreateTextureFromSurface(title)
-		if err != nil {
-			return err
-		}
-		defer titleTexture.Destroy()
-		titleRect := sdl.Rect{X: 0, Y: logoW, W: width, H: height/2 - logoW}
-		shrinkTo(&titleRect, title.W, title.H)
-		d.Backend.Copy(titleTexture, nil, &titleRect)
+		fontFace := api.Font{FamilyIndex: 0, Size: api.LargeFont,
+			Style: api.RegularFont, Color: api.RGBA{R: 0, G: 0, B: 0, A: 255}}
+		titleTex := d.RenderText("Quest Screen", fontFace)
+		defer d.FreeImage(&titleTex)
+		titleRow, frame := frame.Carve(render.North, titleTex.Height+4*d.r.unit)
+		texFrame := titleRow.Position(titleTex.Width, titleTex.Height,
+			render.Center, render.Middle)
+		titleTex.Draw(d, texFrame, 255)
 
-		ipFontFace := d.owner.Font(0, api.Standard, api.HeadingFont)
-		y := height/2 + 15
+		fontFace.Size = api.HeadingFont
 		ips, err := getIPAddresses()
 		portPart := ":" + strconv.Itoa(int(port)) + "/"
 		if err == nil {
 			for i := range ips {
-				h := renderIPHint(d.Backend, ipFontFace, ips[i], portPart, width, y)
-				if h > 0 {
-					y = y + h + 15
-				}
+				d.renderIPHint(fontFace, ips[i], portPart, &frame)
 			}
 		} else {
 			log.Println("while getting IPs: " + err.Error())
 		}
 	}
+	d.welcomeTexture = c.Finish()
 
 	return nil
 }

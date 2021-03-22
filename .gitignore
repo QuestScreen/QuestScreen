@@ -1,7 +1,10 @@
 .idea
 .vscode
+/assets
 generated
 questscreen
 __debug_bin
 *.m4v
 docs/demo.json
+plugins/plugins.go
+assets/assets.go

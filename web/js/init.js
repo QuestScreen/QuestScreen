@@ -1,1 +1,0 @@
-document.addEventListener("DOMContentLoaded", app.init.bind(app));

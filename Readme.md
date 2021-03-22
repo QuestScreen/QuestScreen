@@ -27,9 +27,14 @@ Dependencies that need to be installed manually (`go.mod` takes care of required
 
 Compile with `make`, install with `make install`.
 
+Detailed instructions are available for:
+
+ * [Raspberry Pi](build-doc/raspberry-pi.md)
+ * [macOS](build-doc/macos.md)
+
 ## Documentation
 
-For user documentation, please see the [project's website](questscreen.github.io/questscreen).
+For user documentation, please see the [project's website](https://questscreen.flyx.org/).
 
 ## License
 

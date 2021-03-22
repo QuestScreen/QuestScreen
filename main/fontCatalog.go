@@ -27,7 +27,7 @@ type LoadedFontFamily struct {
 
 // CreateFontCatalog loads all the fonts in the fonts directory
 func createFontCatalog(
-	fontDir string, fontSizeMap [api.NumFontSizes]int32) []api.FontFamily {
+	fontDir string, fontSizeMap [api.NumFontSizes]int32) []LoadedFontFamily {
 	files, err := ioutil.ReadDir(fontDir)
 
 	if err != nil {
@@ -35,7 +35,7 @@ func createFontCatalog(
 		return nil
 	}
 
-	catalog := make([]api.FontFamily, 0, len(files))
+	catalog := make([]LoadedFontFamily, 0, len(files))
 	for _, file := range files {
 		if !file.IsDir() {
 			path := filepath.Join(fontDir, file.Name())
@@ -52,29 +52,29 @@ func createFontCatalog(
 				var family *LoadedFontFamily
 				for i := range catalog {
 					if catalog[i].Name() == familyName {
-						family = catalog[i].(*LoadedFontFamily)
+						family = &catalog[i]
 						break
 					}
 				}
 				if family == nil {
-					family = &LoadedFontFamily{name: familyName}
-					catalog = append(catalog, family)
+					catalog = append(catalog, LoadedFontFamily{name: familyName})
+					family = &catalog[len(catalog)-1]
 				}
 				fontList := [api.NumFontSizes]*ttf.Font{}
 				fontList[api.ContentFont] = font
 				if isBold {
 					if isItalic {
-						family.loadedFaces[api.BoldItalic] = LoadedFontStyle{
+						family.loadedFaces[api.BoldItalicFont] = LoadedFontStyle{
 							faces: fontList, path: path, fontSizeMap: fontSizeMap}
 					} else {
-						family.loadedFaces[api.Bold] = LoadedFontStyle{
+						family.loadedFaces[api.BoldFont] = LoadedFontStyle{
 							faces: fontList, path: path, fontSizeMap: fontSizeMap}
 					}
 				} else if isItalic {
-					family.loadedFaces[api.Italic] = LoadedFontStyle{
+					family.loadedFaces[api.ItalicFont] = LoadedFontStyle{
 						faces: fontList, path: path, fontSizeMap: fontSizeMap}
 				} else {
-					family.loadedFaces[api.Standard] = LoadedFontStyle{
+					family.loadedFaces[api.RegularFont] = LoadedFontStyle{
 						faces: fontList, path: path, fontSizeMap: fontSizeMap}
 				}
 			}
@@ -103,7 +103,7 @@ func (style *LoadedFontStyle) Font(size api.FontSize) *ttf.Font {
 
 // Styled returns the requested style if available.
 // A fallback is returned if the requested style isn't available.
-func (family *LoadedFontFamily) Styled(style api.FontStyle) api.StyledFont {
+func (family *LoadedFontFamily) Styled(style api.FontStyle) *LoadedFontStyle {
 	var ret *LoadedFontStyle
 
 	for curStyle := style; curStyle >= 0; curStyle-- {

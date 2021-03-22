@@ -1,0 +1,4 @@
+*.askew.go
+*.asite.go
+main/plugins.go
+main/main.js.map

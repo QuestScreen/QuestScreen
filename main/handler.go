@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/server"
 )
 
 type httpMethods int
@@ -121,7 +121,7 @@ func (b *branch) walk(url *string, ids *[]string) bool {
 // end the position of an endpoint path item.
 type endpointHandler interface {
 	Handle(method httpMethods, ids []string, payload []byte) (interface{},
-		api.SendableError)
+		server.Error)
 }
 
 // endpoint is a dummy pathItem. When resolving a path, it will be skipped if

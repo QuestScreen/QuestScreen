@@ -1,130 +1,165 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
-	"plugin"
-	"strings"
+	"reflect"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/QuestScreen/QuestScreen/app"
-	base "github.com/QuestScreen/QuestScreen/base"
 	"github.com/QuestScreen/QuestScreen/data"
 	"github.com/QuestScreen/QuestScreen/display"
-	"github.com/QuestScreen/QuestScreen/generated"
+	"github.com/QuestScreen/QuestScreen/plugins"
+	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/api"
+	"github.com/QuestScreen/api/groups"
+	"github.com/QuestScreen/api/modules"
+	"github.com/QuestScreen/api/resources"
+	"github.com/QuestScreen/api/server"
 
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
 
-// implements api.Resource
-type resourceFile struct {
-	name string
-	path string
-}
-
-func (r *resourceFile) Name() string {
-	return r.name
-}
-
-func (r *resourceFile) Path() string {
-	return r.path
-}
-
 type ownedResourceFile struct {
-	resourceFile
+	resources.Resource
 	group  int
 	system int
 }
 
 type moduleData struct {
-	*api.Module
+	*modules.Module
 	pluginIndex int
+}
+
+type pluginData struct {
+	*app.Plugin
+	id string
 }
 
 // QuestScreen is the main application. it implements app.App.
 // this is logically a singleton, multiple instances are not supported.
 type QuestScreen struct {
+	appConfig
 	dataDir             string
-	fonts               []api.FontFamily
+	fonts               []LoadedFontFamily
 	modules             []moduleData
-	plugins             []*api.Plugin
+	plugins             []pluginData
 	resourceCollections [][][]ownedResourceFile
-	textures            []api.Resource
+	textures            []resources.Resource
 	data                data.Data
 	persistence         data.Persistence
 	communication       data.Communication
 	display             display.Display
 	activeGroupIndex    int
 	activeSystemIndex   int
-	messages            []app.Message
-	html, js, css       []byte
+	messages            []shared.Message
+	context             sdl.GLContext
 }
 
 // implements api.MessageSender
 type messageCollector struct {
 	owner       *QuestScreen
-	moduleIndex app.ModuleIndex
+	moduleIndex shared.ModuleIndex
 }
 
 func (mc *messageCollector) Warning(text string) {
-	mc.owner.messages = append(mc.owner.messages, app.Message{
+	mc.owner.messages = append(mc.owner.messages, shared.Message{
 		IsError: false, ModuleIndex: mc.moduleIndex, Text: text})
 }
 
 func (mc *messageCollector) Error(text string) {
-	mc.owner.messages = append(mc.owner.messages, app.Message{
+	mc.owner.messages = append(mc.owner.messages, shared.Message{
 		IsError: true, ModuleIndex: mc.moduleIndex, Text: text})
 }
 
 // MessageSenderFor creates a new message sender for the given index.
-func (qs *QuestScreen) MessageSenderFor(index app.ModuleIndex) api.MessageSender {
+func (qs *QuestScreen) MessageSenderFor(index shared.ModuleIndex) server.MessageSender {
 	return &messageCollector{moduleIndex: index, owner: qs}
 }
 
-func appendAssets(buffer []byte, paths ...string) []byte {
-	for i := range paths {
-		buffer = append(buffer, generated.MustAsset(paths[i])...)
-		buffer = append(buffer, '\n')
-	}
-	return buffer
+// PluginID returns the unique ID of the plugin with the given index.
+func (qs *QuestScreen) PluginID(index int) string {
+	return qs.plugins[index].id
 }
 
-func (qs *QuestScreen) loadPlugins(renderer *sdl.Renderer) {
-	pluginPath := filepath.Join(qs.dataDir, "plugins")
-	if _, err := os.Stat(pluginPath); os.IsNotExist(err) {
-		return
-	}
-	files, err := ioutil.ReadDir(pluginPath)
-	if err != nil {
-		log.Printf("Unable to load plugin directory: %s\n", err.Error())
-		return
-	}
-	for _, file := range files {
-		if file.IsDir() || file.Name()[0] == '.' ||
-			!strings.HasSuffix(file.Name(), ".so") {
-			continue
+// AddPlugin registers the given plugin's modules and config items with the app.
+func (qs *QuestScreen) AddPlugin(id string, plugin *app.Plugin) error {
+	for _, descr := range plugin.Modules {
+		for i := range forbiddenNames {
+			if descr.ID == forbiddenNames[i] {
+
+				return fmt.Errorf("module id may not be one of %v", forbiddenNames)
+			}
 		}
-		path := filepath.Join(pluginPath, file.Name())
-		p, err := plugin.Open(path)
+
+		configType := reflect.TypeOf(descr.DefaultConfig)
+		if configType.Kind() != reflect.Ptr {
+			return errors.New("DefaultConfig's type is not a pointer to a struct")
+		}
+		configType = configType.Elem()
+		if configType.Kind() != reflect.Struct {
+			return errors.New("DefaultConfig's type is not a pointer to a struct")
+		}
+		for i := 0; i < configType.NumField(); i++ {
+			fType := configType.Field(i).Type
+			if fType.Kind() != reflect.Ptr {
+				return errors.New("DefaultConfig." + configType.Field(i).Name + " is not a pointer")
+			}
+		}
+
+		qs.modules = append(qs.modules, moduleData{descr, len(qs.plugins)})
+	}
+	qs.plugins = append(qs.plugins, pluginData{plugin, id})
+	return nil
+}
+
+func (qs *QuestScreen) loadConfig(path string, width int32, height int32,
+	port uint16, fullscreen bool) error {
+	input, err := ioutil.ReadFile(path)
+	if err == nil {
+		decoder := yaml.NewDecoder(bytes.NewReader(input))
+		decoder.KnownFields(true)
+		err = decoder.Decode(&qs.appConfig)
 		if err != nil {
-			log.Printf("%s: Unable to load plugin. Error:\n%s\n",
-				pluginPath, err.Error())
-			continue
+			return err
 		}
-		o, err := p.Lookup("QSPlugin")
-		if err != nil {
-			log.Printf("%s: QSPlugin object missing\n", pluginPath)
-			continue
-		}
-		if err = qs.registerPlugin(o.(*api.Plugin), renderer); err != nil {
-			panic(err)
+	} else {
+		if os.IsNotExist(err) {
+			qs.appConfig = defaultConfig()
+			output, err := yaml.Marshal(&qs.appConfig)
+			if err != nil {
+				panic(err)
+			}
+			err = ioutil.WriteFile(path, output, 0644)
+			if err != nil {
+				log.Println("unable to write config file: " + err.Error())
+			} else {
+				log.Println("Wrote default config file " + path)
+			}
+		} else {
+			return err
 		}
 	}
+	if width != 0 && height != 0 {
+		qs.appConfig.width = width
+		qs.appConfig.height = height
+		qs.appConfig.fullscreen = false
+	} else if fullscreen {
+		qs.appConfig.fullscreen = true
+	}
+	if port != 0 {
+		qs.appConfig.port = port
+	}
+	return nil
 }
 
 // Init initializes the static data
@@ -132,29 +167,43 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	events display.Events, port uint16) {
 	mc := messageCollector{owner: qs, moduleIndex: -1}
 
-	// create window and renderer
-	var flags uint32 = sdl.WINDOW_OPENGL | sdl.WINDOW_ALLOW_HIGHDPI
-	if fullscreen {
-		flags |= sdl.WINDOW_FULLSCREEN_DESKTOP
-	}
-	window, err := sdl.CreateWindow("QuestScreen", sdl.WINDOWPOS_UNDEFINED,
-		sdl.WINDOWPOS_UNDEFINED, width, height, flags)
-	if err != nil {
-		panic(err)
-	}
-
-	renderer, err := sdl.CreateRenderer(window, -1,
-		sdl.RENDERER_ACCELERATED|sdl.RENDERER_TARGETTEXTURE)
-	if err != nil {
-		window.Destroy()
-		panic(err)
-	}
-
-	_, oHeight, _ := renderer.GetOutputSize()
-
 	usr, _ := user.Current()
 
 	qs.dataDir = filepath.Join(usr.HomeDir, ".local", "share", "questscreen")
+	os.MkdirAll(qs.DataDir("base"), 0755)
+	os.MkdirAll(qs.DataDir("fonts"), 0755)
+	os.MkdirAll(qs.DataDir("plugins"), 0755)
+	os.MkdirAll(qs.DataDir("groups"), 0755)
+	os.MkdirAll(qs.DataDir("systems"), 0755)
+	os.MkdirAll(qs.DataDir("textures"), 0755)
+	if err := qs.loadConfig(filepath.Join(qs.dataDir, "config.yaml"),
+		width, height, port, fullscreen); err != nil {
+		log.Printf("unable to read config. error was:\n  %s\n", err.Error())
+		return
+	}
+
+	setGLAttributes()
+	sdl.GLSetAttribute(sdl.GL_DOUBLEBUFFER, 1)
+
+	// create window and renderer
+	var flags uint32 = sdl.WINDOW_OPENGL | sdl.WINDOW_ALLOW_HIGHDPI
+	if qs.fullscreen {
+		flags |= sdl.WINDOW_FULLSCREEN_DESKTOP
+	}
+	window, err := sdl.CreateWindow("QuestScreen", sdl.WINDOWPOS_UNDEFINED,
+		sdl.WINDOWPOS_UNDEFINED, qs.width, qs.height, flags)
+	if err != nil {
+		panic(err)
+	}
+
+	qs.context, err = window.GLCreateContext()
+	if err != nil {
+		panic(err)
+	}
+	sdl.GLSetSwapInterval(0)
+
+	_, oHeight := window.GLGetDrawableSize()
+
 	fontSizeMap := [6]int32{oHeight / 37, oHeight / 27, oHeight / 19,
 		oHeight / 13, oHeight / 8, oHeight / 4}
 	fontPath := filepath.Join(qs.dataDir, "fonts")
@@ -168,18 +217,7 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	qs.activeGroupIndex = -1
 	qs.activeSystemIndex = -1
 
-	qs.html = appendAssets(qs.html, "web/html/index-top.html")
-	qs.js = appendAssets(qs.js,
-		"web/js/template.js", "web/js/controls.js", "web/js/popup.js",
-		"web/js/datasets.js", "web/js/config.js", "web/js/info.js",
-		"web/js/app.js", "web/js/state.js", "web/js/configitems.js")
-	qs.css = appendAssets(qs.css, "web/css/style.css", "web/css/color.css")
-	if err = qs.registerPlugin(&base.Base, renderer); err != nil {
-		panic(err)
-	}
-	qs.loadPlugins(renderer)
-	qs.html = appendAssets(qs.html, "web/html/index-bottom.html")
-	qs.js = appendAssets(qs.js, "web/js/init.js")
+	plugins.LoadPlugins(qs)
 
 	texturePath := qs.DataDir("textures")
 	textureFiles, err := ioutil.ReadDir(texturePath)
@@ -191,8 +229,8 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 					log.Printf("could not read file %s: %s\n", path, err.Error())
 					continue
 				}
-				qs.textures = append(qs.textures, &resourceFile{
-					name: file.Name(), path: path})
+				qs.textures = append(qs.textures, resources.Resource{
+					Name: file.Name(), Location: &url.URL{Scheme: "file", Path: path}})
 			}
 		}
 	}
@@ -200,7 +238,8 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	qs.loadModuleResources()
 
 	if err := qs.display.Init(
-		qs, events, fullscreen, port, window, renderer); err != nil {
+		qs, events, qs.fullscreen, qs.port, qs.keyActions,
+		window); err != nil {
 		panic(err)
 	}
 }
@@ -212,11 +251,11 @@ func (qs *QuestScreen) DataDir(subdirs ...string) string {
 }
 
 // ModuleAt returns the module at the given index
-func (qs *QuestScreen) ModuleAt(index app.ModuleIndex) *api.Module {
+func (qs *QuestScreen) ModuleAt(index shared.ModuleIndex) *modules.Module {
 	return qs.modules[index].Module
 }
 
-func (qs *QuestScreen) moduleByID(id string) (index int, module *api.Module) {
+func (qs *QuestScreen) moduleByID(id string) (index int, module *modules.Module) {
 	for i := range qs.modules {
 		if qs.modules[i].Module.ID == id {
 			return i, qs.modules[i].Module
@@ -226,28 +265,27 @@ func (qs *QuestScreen) moduleByID(id string) (index int, module *api.Module) {
 }
 
 // ModulePluginIndex returns the plugin the provides the module at the given index
-func (qs *QuestScreen) ModulePluginIndex(index app.ModuleIndex) int {
+func (qs *QuestScreen) ModulePluginIndex(index shared.ModuleIndex) int {
 	return qs.modules[index].pluginIndex
 }
 
 // NumModules returns the number of registered modules
-func (qs *QuestScreen) NumModules() app.ModuleIndex {
-	return app.ModuleIndex(len(qs.modules))
+func (qs *QuestScreen) NumModules() shared.ModuleIndex {
+	return shared.ModuleIndex(len(qs.modules))
 }
 
 // Messages returns the messages generated on app startup
-func (qs *QuestScreen) Messages() []app.Message {
+func (qs *QuestScreen) Messages() []shared.Message {
 	return qs.messages
 }
 
 type moduleContext struct {
 	*QuestScreen
-	moduleIndex app.ModuleIndex
-	heroes      api.HeroList
+	moduleIndex shared.ModuleIndex
 }
 
 // GetResources filters resources by current group and system.
-func (mc *moduleContext) GetResources(index api.ResourceCollectionIndex) []api.Resource {
+func (mc *moduleContext) GetResources(index resources.CollectionIndex) []resources.Resource {
 	return mc.QuestScreen.GetResources(mc.moduleIndex, index)
 }
 
@@ -255,17 +293,9 @@ func (mc *moduleContext) FontFamilyName(index int) string {
 	return mc.fonts[index].Name()
 }
 
-func (mc *moduleContext) NumHeroes() int {
-	return mc.heroes.NumHeroes()
-}
-
-func (mc *moduleContext) HeroID(index int) string {
-	return mc.heroes.Hero(index).ID()
-}
-
 type emptyHeroList struct{}
 
-func (emptyHeroList) Hero(index int) api.Hero {
+func (emptyHeroList) Hero(index int) groups.Hero {
 	panic("out of range!")
 }
 
@@ -275,21 +305,13 @@ func (emptyHeroList) NumHeroes() int {
 
 func (emptyHeroList) Close() {}
 
-func (emptyHeroList) HeroByID(id string) (index int, h api.Hero) {
+func (emptyHeroList) HeroByID(id string) (index int, h groups.Hero) {
 	return -1, nil
 }
 
 // ServerContext returns a server context for the module at the given index
-func (qs *QuestScreen) ServerContext(moduleIndex app.ModuleIndex,
-	heroes api.HeroList) api.ServerContext {
-	var h api.HeroList
-	if heroes == nil {
-		h = emptyHeroList{}
-	} else {
-		h = heroes
-	}
-
-	return &moduleContext{QuestScreen: qs, moduleIndex: moduleIndex, heroes: h}
+func (qs *QuestScreen) ServerContext(moduleIndex shared.ModuleIndex) server.Context {
+	return &moduleContext{QuestScreen: qs, moduleIndex: moduleIndex}
 }
 
 // NumPlugins returns the number of registered plugins
@@ -298,15 +320,15 @@ func (qs *QuestScreen) NumPlugins() int {
 }
 
 // Plugin returns the plugin with the given index
-func (qs *QuestScreen) Plugin(index int) *api.Plugin {
-	return qs.plugins[index]
+func (qs *QuestScreen) Plugin(index int) *app.Plugin {
+	return qs.plugins[index].Plugin
 }
 
-func appendBySelector(resources []ownedResourceFile, basePath string,
-	selector api.ResourceSelector, group int, system int) []ownedResourceFile {
+func appendBySelector(rFiles []ownedResourceFile, basePath string,
+	selector resources.Selector, group int, system int) []ownedResourceFile {
 	if selector.Name == "" {
 		if _, err := os.Stat(basePath); os.IsNotExist(err) {
-			return resources
+			return rFiles
 		}
 		files, err := ioutil.ReadDir(basePath)
 		if err == nil {
@@ -331,9 +353,10 @@ func appendBySelector(resources []ownedResourceFile, basePath string,
 						}
 					}
 
-					resources = append(resources, ownedResourceFile{
-						resourceFile: resourceFile{name: file.Name(), path: path},
-						group:        group, system: system})
+					rFiles = append(rFiles, ownedResourceFile{
+						Resource: resources.Resource{Name: file.Name(),
+							Location: &url.URL{Scheme: "file", Path: path}},
+						group: group, system: system})
 				}
 			}
 		} else {
@@ -343,21 +366,22 @@ func appendBySelector(resources []ownedResourceFile, basePath string,
 		path := filepath.Join(basePath, selector.Name)
 		_, err := os.Stat(path)
 		if err == nil {
-			resources = append(resources, ownedResourceFile{
-				resourceFile: resourceFile{name: selector.Name, path: path},
-				group:        group, system: system,
+			rFiles = append(rFiles, ownedResourceFile{
+				Resource: resources.Resource{Name: selector.Name,
+					Location: &url.URL{Scheme: "file", Path: path}},
+				group: group, system: system,
 			})
 		} else if !os.IsNotExist(err) {
 			log.Printf("could not read file %s: %s\n", path, err.Error())
 		}
 	}
-	return resources
+	return rFiles
 }
 
 // listFiles queries the list of all files matching the given selector.
 // Never returns directories.
 func (qs *QuestScreen) listFiles(
-	id string, selector api.ResourceSelector) []ownedResourceFile {
+	id string, selector resources.Selector) []ownedResourceFile {
 	resources := make([]ownedResourceFile, 0, 64)
 	for i := 0; i < qs.data.NumGroups(); i++ {
 		group := qs.data.Group(i)
@@ -377,41 +401,6 @@ func (qs *QuestScreen) listFiles(
 var forbiddenNames = [7]string{"scenes", "heroes", "fonts", "textures",
 	"plugins", "config.yaml", "state.yaml"}
 
-func (qs *QuestScreen) registerModule(descr *api.Module) error {
-	for i := range forbiddenNames {
-		if descr.ID == forbiddenNames[i] {
-			return fmt.Errorf("module id may not be one of %v", forbiddenNames)
-		}
-	}
-	qs.modules = append(qs.modules, moduleData{descr, len(qs.plugins)})
-	return nil
-}
-
-func (qs *QuestScreen) registerPlugin(plugin *api.Plugin, renderer *sdl.Renderer) error {
-	log.Println("Loading plugin", plugin.Name)
-	if js := plugin.AdditionalJS; js != nil {
-		qs.js = append(qs.js, '\n')
-		qs.js = append(qs.js, js...)
-	}
-	if html := plugin.AdditionalHTML; html != nil {
-		qs.html = append(qs.html, '\n')
-		qs.html = append(qs.html, html...)
-	}
-	if css := plugin.AdditionalCSS; css != nil {
-		qs.css = append(qs.css, '\n')
-		qs.css = append(qs.css, css...)
-	}
-	modules := plugin.Modules
-	for i := range modules {
-		if err := qs.registerModule(modules[i]); err != nil {
-			log.Println("While registering module " + plugin.Name + " > " + modules[i].Name + ":")
-			log.Println("  " + err.Error())
-		}
-	}
-	qs.plugins = append(qs.plugins, plugin)
-	return nil
-}
-
 func (qs *QuestScreen) loadModuleResources() {
 	for i := range qs.modules {
 		descr := qs.modules[i]
@@ -429,6 +418,11 @@ func (qs *QuestScreen) activeGroup() data.Group {
 		return nil
 	}
 	return qs.data.Group(qs.activeGroupIndex)
+}
+
+// ActiveGroup returns the currently active group, or nil if no group is active.
+func (qs *QuestScreen) ActiveGroup() groups.Group {
+	return qs.activeGroup()
 }
 
 // Font returns the font face of the selected font.
@@ -453,13 +447,13 @@ func (qs *QuestScreen) NumFontFamilies() int {
 
 // GetResources filters resources by current group and system.
 func (qs *QuestScreen) GetResources(
-	moduleIndex app.ModuleIndex, index api.ResourceCollectionIndex) []api.Resource {
+	moduleIndex shared.ModuleIndex, index resources.CollectionIndex) []resources.Resource {
 	complete := qs.resourceCollections[moduleIndex][index]
-	ret := make([]api.Resource, 0, len(complete))
+	ret := make([]resources.Resource, 0, len(complete))
 	for i := range complete {
 		if (complete[i].group == -1 || complete[i].group == qs.activeGroupIndex) &&
 			(complete[i].system == -1 || complete[i].system == qs.activeSystemIndex) {
-			ret = append(ret, &complete[i])
+			ret = append(ret, complete[i].Resource)
 			if qs.modules[moduleIndex].ResourceCollections[index].Name != "" {
 				// single file
 				return ret
@@ -470,16 +464,8 @@ func (qs *QuestScreen) GetResources(
 }
 
 // GetTextures filters textures by current group and system.
-func (qs *QuestScreen) GetTextures() []api.Resource {
+func (qs *QuestScreen) GetTextures() []resources.Resource {
 	return qs.textures
-}
-
-// ViewHeroes returns a view of the heroes of the active group
-func (qs *QuestScreen) ViewHeroes() app.HeroView {
-	if qs.activeGroupIndex == -1 {
-		return emptyHeroList{}
-	}
-	return qs.activeGroup().ViewHeroes()
 }
 
 func (qs *QuestScreen) pathToState() string {
@@ -491,7 +477,7 @@ func (qs *QuestScreen) pathToState() string {
 // it loads the state of that group into all modules.
 //
 // Returns the index of the currently active scene inside the group
-func (qs *QuestScreen) setActiveGroup(index int) (int, api.SendableError) {
+func (qs *QuestScreen) setActiveGroup(index int) (int, server.Error) {
 	qs.activeGroupIndex = index
 	if index == -1 {
 		qs.activeSystemIndex = -1
@@ -501,12 +487,13 @@ func (qs *QuestScreen) setActiveGroup(index int) (int, api.SendableError) {
 	qs.activeSystemIndex = group.SystemIndex()
 	groupState, err := qs.persistence.LoadState(group, qs.pathToState())
 	if err != nil {
-		return -1, &api.InternalError{
+		return -1, &server.InternalError{
 			Description: "Failed to set active group", Inner: err}
 	}
 	return groupState.ActiveScene(), nil
 }
 
 func (qs *QuestScreen) destroy() {
+	sdl.GLDeleteContext(qs.context)
 	qs.display.Destroy()
 }

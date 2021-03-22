@@ -1,0 +1,240 @@
+<a:import>
+  "github.com/QuestScreen/api/web/controls"
+	"github.com/QuestScreen/QuestScreen/shared"
+</a:import>
+
+<a:component name="listItem" params="name string, removable bool, index int" gen-new-init>
+	<a:controller>delete(index int)</a:controller>
+	<div class="data-list-item">
+		<span class="data-list-text" a:assign="prop(textContent) = name"></span>
+		<a class="data-list-link"
+				a:assign="class(delete) = removable, dataset(index) = index"
+				a:capture="click:delete">
+			<i class="fas fa-minus-square" a:if="removable"></i>
+			<i class="fas fa-cubes" a:if="!removable"></i>
+		</a>
+	</div>
+</a:component>
+
+<a:component name="base">
+	<a:data>
+		sc systemItemsController
+		gc groupItemsController
+	</a:data>
+	<a:handlers>
+		addSystem()
+		addGroup()
+	</a:handlers>
+	<article>
+		<section class="data-sheet">
+			<h4 class="data-sheet-header"><i class="fas fa-book"></i> Systems</h4>
+			<div class="data-list systems">
+				<a:embed name="SystemList" type="listItem" list></a:embed>
+				<a class="data-list-link create" a:capture="click:addSystem() {preventDefault}">
+					<i class="fas fa-plus-square"></i>
+				</a>
+			</div>
+		</section>
+		<section class="data-sheet">
+			<h4 class="data-sheet-header"><i class="fas fa-users"></i> Groups</h4>
+			<div class="data-list groups">
+				<a:embed name="GroupList" type="listItem" list></a:embed>
+				<a class="data-list-link create" a:capture="click:addGroup() {preventDefault}">
+					<i class="fas fa-plus-square"></i>
+				</a>
+			</div>
+		</section>
+	</article>
+</a:component>
+
+<a:component name="editableText" params="title string, inputName string" gen-new-init>
+	<a:handlers>setEdited()</a:handlers>
+	<div class="pure-control-group" a:bindings="class(edited):edited">
+		<label a:assign="prop(textContent) = title"></label>
+		<input type="text" required a:assign="prop(name)=inputName"
+				a:bindings="prop(value):Value" a:capture="input:setEdited" />
+		<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
+	</div>
+</a:component>
+
+<a:macro name="dataSheet">
+	<section class="data-sheet">
+		<h4 class="data-sheet-header"><i class="fas fa-file-alt"></i> General</h4>
+		<form class="pure-form pure-form-aligned"
+				a:capture="reset:reset() {preventDefault}, submit:commit() {preventDefault}">
+			<fieldset>
+				<a:embed name="name" type="editableText" args="`Name:`, `Name`"></a:embed>
+				<a:slot name="value"></a:slot>
+				<div class="pure-controls">
+					<span class="hfill"></span>
+					<button type="reset" class="pure-button">Reset</button>
+					<button type="submit" class="pure-button pure-button-primary">Save</button>
+				</div>
+			</fieldset>
+		</form>
+	</section>
+</a:macro>
+
+<a:component name="system" params="var data *shared.System">
+	<a:handlers>
+		commit()
+		reset()
+	</a:handlers>
+	<article>
+		<a:include name="dataSheet"></a:include>
+	</article>
+</a:component>
+
+<a:component name="heroButton" params="name string, var index int" gen-new-init>
+	<a:controller>heroClicked(index int)</a:controller>
+	<li class="pure-menu-item" a:bindings="class(pure-menu-selected):selected">
+		<a class="pure-menu-link"
+				a:assign="dataset(index)=index, prop(textContent)=name"
+				a:capture="click:heroClicked {preventDefault}"></a>
+	</li>
+</a:component>
+
+<a:component name="heroForm" params="var g *shared.Group" gen-new-init>
+	<a:data>
+		data *shared.Hero
+	</a:data>
+	<a:handlers>
+		reset()
+		commit()
+		delete()
+	</a:handlers>
+	<a:controller>
+		refreshHeroData()
+	</a:controller>
+	<form class="pure-form pure-form-aligned"
+			a:bindings="class(no-hero-selected):disabled"
+			a:capture="reset:reset {preventDefault}, submit:commit {preventDefault}">
+		<fieldset>
+			<a:embed name="Name" type="editableText" args="`Name:`, `Name`"></a:embed>
+			<a:embed name="Description" type="editableText" args="`Description:`, `Description`"></a:embed>
+			<div class="pure-controls">
+				<button class="pure-button delete"
+						a:capture="click:delete {preventDefault}"><i class="fas fa-trash-alt"></i> Delete</button>
+				<span class="hfill"></span>
+				<button type="reset" class="pure-button">Reset</button>
+				<button type="submit" class="pure-button pure-button-primary">Save</button>
+			</div>
+		</fieldset>
+		<p>Group contains no heroes</p>
+	</form>
+</a:component>
+
+<a:component name="group" params="var data *shared.Group">
+	<a:handlers>
+		commit()
+		reset()
+		createScene()
+		createHero()
+	</a:handlers>
+	<article>
+		<a:include name="dataSheet">
+			<div class="pure-control-group with-edited" a:slot="value" a:bindings="class(edited):systemEdited">
+				<label>System</label>
+				<a:embed name="system" type="controls.Dropdown" args="controls.SelectAtMostOne, controls.SelectionIndicator, ``" control></a:embed>
+				<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
+			</div>
+		</a:include>
+		<section class="data-sheet">
+			<h4 class="data-sheet-header"><i class="fas fa-image"></i> Scenes</h4>
+			<div class="data-list scenes">
+				<a:embed name="Scenes" type="listItem" list control></a:embed>
+				<a class="data-list-link create"
+						a:capture="click:createScene {preventDefault}">
+					<i class="fas fa-plus-square"></i>
+				</a>
+			</div>
+		</section>
+		<div>
+			<section class="hero-container">
+				<h3><i class="fas fa-mask"></i> Heroes</h3>
+				<nav class="pure-menu pure-menu-horizontal">
+					<ul class="pure-menu-list">
+						<a:embed name="heroChooser" type="heroButton" list control></a:embed>
+						<li class="pure-menu-item">
+							<a class="pure-menu-link create" a:capture="click:createHero">
+								<i class="fas fa-plus-square"></i>
+							</a>
+						</li>
+					</ul>
+				</nav>
+				<a:embed name="hero" type="heroForm" args="data" control></a:embed>
+			</section>
+		</div>
+	</article>
+</a:component>
+
+<a:component name="sceneModule"
+		params="pluginName string, moduleName string, var origValue bool" gen-new-init>
+	<div class="data-list-item" a:bindings="class(edited):edited">
+		<span class="data-list-text">
+			<span a:assign="prop(textContent) = pluginName"></span>
+			<i class="fas fa-angle-right"></i>
+			<span a:assign="prop(textContent) = moduleName"></span>
+		</span>
+		<span class="module-toggle">
+			<a:embed name="Toggle" type="controls.Switch" control></a:embed>
+		</span>
+		<span class="data-list-text edited"><i class="fas fa-edit"></i></span>
+	</div>
+</a:component>
+
+<a:component name="scene" params="var g *shared.Group, var sceneIndex int">
+	<a:handlers>
+		commit()
+		reset()
+	</a:handlers>
+	<article>
+		<a:include name="dataSheet">
+			<div class="pure-control-group" a:slot="value">
+				<label>Modules</label>
+				<div class="data-list modules">
+					<a:embed name="modules" type="sceneModule" list></a:embed>
+				</div>
+			</div>
+		</a:include>
+	</article>
+</a:component>
+
+<a:component name="popupSelectableTemplate"
+		params="pluginName string, templateName string, descr string" gen-new-init>
+  <a:data>
+    pluginIndex, templateIndex int
+  </a:data>
+	<a:handlers>
+		click()
+	</a:handlers>
+	<a:controller>
+		choose(pluginIndex int, templateIndex int, active bool)
+	</a:controller>
+	<li class="pure-menu-item template-item" a:bindings="class(pure-menu-active):Active, style(height):Height">
+		<a class="pure-menu-link" href="#" a:capture="click:click() {preventDefault}">
+			<div class="template-container" a:bindings="prop(offsetHeight):OffsetHeight">
+				<p class="template-identifier">
+					<span a:assign="prop(textContent) = pluginName"></span>
+					<i class="fas fa-angle-right"></i>
+					<span a:assign="prop(textContent) = templateName"></span>
+				</p>
+				<p class="template-descr" a:assign="prop(textContent) = descr"></p>
+			</div>
+			<i class="fas fa-sort"></i>
+		</a>
+	</li>
+</a:component>
+
+<a:component name="popupFromTemplate" params="var cb func(pluginIndex int, templateIndex int, name string)" gen-new-init>
+	<a:data>
+		selectedPlugin int
+		selectedTemplate int
+	</a:data>
+	<label>Name: </label><input type="text" required a:bindings="prop(value):Name"/>
+	<div class="pure-menu template-list" a:bindings="class(menu-expanded):Expanded">
+		<ul class="pure-menu-list">
+			<a:embed name="Templates" type="popupSelectableTemplate" list control></a:embed>
+		</ul>
+	</div>
+</a:component>

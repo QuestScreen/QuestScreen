@@ -1,0 +1,18 @@
+<a:component name="State" params="caption string">
+	<a:data>
+		srv web.Server
+		caption string
+	</a:data>
+	<a:handlers>
+	  submit(caption string)
+		clear()
+	</a:handlers>
+  <form class="pure-form"
+			a:capture="submit:submit(caption=form(caption)){preventDefault}, reset:clear(){preventDefault}">
+	  <input type="text" name="caption" class="title-state-text"
+		    a:bindings="prop(value):Caption"
+		    a:assign="prop(value)=caption" />
+	  <button type="submit" class="title-state-text-btn pure-button pure-button-primary">Update</button>
+	  <button type="reset" class="title-state-text-btn pure-button">Clear</button>
+  </form>
+</a:component>
