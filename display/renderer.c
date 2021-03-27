@@ -16,6 +16,10 @@
 #define fragColor "gl_FragColor"
 #endif
 
+#ifdef _WIN32
+#include "windows_gl.h"
+#endif
+
 static const char *image_vshader_src = glslversion
     "uniform vec2 u_transform[3];\n"
 #ifdef __APPLE__
@@ -199,6 +203,41 @@ static GLuint link_program(const char *vsrc, const char *fsrc) {
 } while(false)
 
 bool engine_init(engine_t *e) {
+#ifdef _WIN32
+#define load(_name) _##_name = SDL_GL_GetProcAddress(#_name)
+  load(glCreateShader);
+  load(glShaderSource);
+  load(glCompileShader);
+  load(glGetShaderiv);
+  load(glGetShaderInfoLog);
+  load(glDeleteShader);
+  load(glCreateProgram);
+  load(glAttachShader);
+  load(glLinkProgram);
+  load(glGetProgramiv);
+  load(glGetProgramInfoLog);
+  load(glDeleteProgram);
+  load(glGenBuffers);
+  load(glBindBuffer);
+  load(glBufferData);
+  load(glDeleteBuffers);
+  load(glGetUniformLocation);
+  load(glGetAttribLocation);
+  load(glUseProgram);
+  load(glVertexAttribPointer);
+  load(glEnableVertexAttribArray);
+  load(glActiveTexture);
+  load(glUniform1i);
+  load(glUniform1f);
+  load(glUniform2fv);
+  load(glUniform4f);
+  load(glGenFramebuffers);
+  load(glBindFramebuffer);
+  load(glFramebufferTexture2D);
+  load(glCheckFramebufferStatus);
+  load(glDeleteFramebuffers);
+#endif
+
   GLfloat vertices[] = {0.0f, 0.0f, 1.0f, 0.0f,
                         1.0f, 1.0f, 0.0f, 1.0f};
   glGenBuffers(1, &e->vbo);

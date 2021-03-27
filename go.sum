@@ -167,6 +167,8 @@ github.com/QuestScreen/qs-build v0.0.0-20210327174608-fc5fce5e2c2c h1:oTX42qEB0v
 github.com/QuestScreen/qs-build v0.0.0-20210327174608-fc5fce5e2c2c/go.mod h1:8fJaHfuHWA4EASv+BSNsdfDQDo+mswBm+Z3Clv/+m3Q=
 github.com/QuestScreen/qs-build v0.0.0-20210327175146-1cc61bd71bef h1:dmgerWqZ2xTM9hrQRHpxOm6OYvcIMcZKXpDvNWSR5yU=
 github.com/QuestScreen/qs-build v0.0.0-20210327175146-1cc61bd71bef/go.mod h1:8fJaHfuHWA4EASv+BSNsdfDQDo+mswBm+Z3Clv/+m3Q=
+github.com/QuestScreen/qs-build v0.0.0-20210327223200-1417130d36ad h1:CYn7RKud85FsLK0TWb1nHjp5rMpK+l4tX2JZsu0eB74=
+github.com/QuestScreen/qs-build v0.0.0-20210327223200-1417130d36ad/go.mod h1:8fJaHfuHWA4EASv+BSNsdfDQDo+mswBm+Z3Clv/+m3Q=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=

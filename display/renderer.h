@@ -3,6 +3,10 @@
 #include <OpenGL/gl3.h>
 // for some reason, cgo can only see this value if it's prefixed with GL_
 #define GL_SINGLE_VALUE_COLOR GL_RED
+#elif _WIN32
+#include <GL/gl.h>
+#include <gl/glext.h>
+#define GL_SINGLE_VALUE_COLOR GL_RED
 #else
 #include <SDL2/SDL_opengles2.h>
 #define GL_SINGLE_VALUE_COLOR GL_LUMINANCE

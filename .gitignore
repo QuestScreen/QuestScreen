@@ -9,3 +9,4 @@ docs/demo.json
 plugins/plugins.go
 web/configitems*.go
 assets/assets.go
+*.exe

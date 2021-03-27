@@ -200,7 +200,7 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	if err != nil {
 		panic(err)
 	}
-	sdl.GLSetSwapInterval(0)
+	sdl.GLSetSwapInterval(1)
 
 	_, oHeight := window.GLGetDrawableSize()
 

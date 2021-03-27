@@ -776,12 +776,14 @@ func startServer(owner *QuestScreen, events display.Events,
 
 	reg("StaticDataHandler", "/static", mutex,
 		endpoint{httpGet, &staticDataEndpoint{env}})
+	reg("DataHandler", "/data", mutex, endpoint{httpGet, &dataEndpoint{env}})
+	reg("StateHandler", "/state", mutex,
+		endpoint{httpGet | httpPost, &stateEndpoint{env}})
 
 	// if no fonts are found, QuestScreen is not operable. We only provide static
 	// data (telling the client no fonts are available) and the static resources.
 	if len(owner.fonts) > 0 {
-		reg("StateHandler", "/state", mutex,
-			endpoint{httpGet | httpPost, &stateEndpoint{env}})
+
 		reg("BaseConfigHandler", "/config/base", mutex,
 			endpoint{httpGet | httpPut, &baseConfigEndpoint{env}})
 		reg("SystemConfigHandler", "/config/systems/", mutex,
@@ -790,7 +792,6 @@ func startServer(owner *QuestScreen, events display.Events,
 			idCapture{}, endpoint{httpGet | httpPut, &groupConfigEndpoint{env}},
 			pathFragment("scenes"), idCapture{},
 			endpoint{httpGet | httpPut, &sceneConfigEndpoint{env}})
-		reg("DataHandler", "/data", mutex, endpoint{httpGet, &dataEndpoint{env}})
 		reg("DataSystemsHandler", "/data/systems", mutex,
 			endpoint{httpPost, &dataSystemsEndpoint{env}})
 		reg("DataSystemHandler", "/data/systems/", mutex, idCapture{},
