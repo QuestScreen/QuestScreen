@@ -26,8 +26,8 @@ type renderer struct {
 	textureCache  []render.Image
 }
 
-func (r *renderer) init(width int32, height int32, numTextures int) {
-	if !C.engine_init(&r.engine) {
+func (r *renderer) init(width int32, height int32, numTextures int, debug bool) {
+	if !C.engine_init(&r.engine, C._Bool(debug)) {
 		panic("couldn't initialize rendering engine")
 	}
 	r.width = width

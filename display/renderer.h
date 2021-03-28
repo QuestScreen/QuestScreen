@@ -27,7 +27,7 @@ typedef struct {
     GLuint id;
     GLint transform, position, color;
   } rect;
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32)
   GLuint vao;
 #endif
   GLuint vbo;
@@ -35,7 +35,7 @@ typedef struct {
   GLint maxTexSize;
 } engine_t;
 
-bool engine_init(engine_t *e);
+bool engine_init(engine_t *e, bool debug);
 
 void engine_close(engine_t *e);
 

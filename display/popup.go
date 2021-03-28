@@ -69,6 +69,9 @@ func (d *Display) renderKeyOptions(frame render.Rectangle, actions []KeyAction) 
 	bottomFrame, _ := frame.Carve(render.North, maxHeight)
 	bottomArea := bottomFrame.Position(bottomText.Width, bottomText.Height,
 		render.Center, render.Middle)
+	if !bottomText.HasAlpha {
+		panic("bottom text has no alpha!")
+	}
 	bottomText.Draw(d, bottomArea, 255)
 
 	return nil
@@ -80,6 +83,7 @@ func (d *Display) genPopup(frame render.Rectangle, actions []KeyAction) {
 	}
 	canvas, _ := d.CreateCanvas(frame.Width, frame.Height,
 		api.RGBA{R: 0, G: 0, B: 0, A: 127}.AsBackground(), render.Nowhere)
+
 	defer canvas.Close()
 
 	frame = frame.Shrink(frame.Width/2, frame.Height/2)
@@ -89,4 +93,5 @@ func (d *Display) genPopup(frame render.Rectangle, actions []KeyAction) {
 	if err := d.renderKeyOptions(frame, actions); err != nil {
 		panic(err)
 	}
+	d.popupTexture = canvas.Finish()
 }

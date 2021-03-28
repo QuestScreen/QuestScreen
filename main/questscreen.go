@@ -164,7 +164,7 @@ func (qs *QuestScreen) loadConfig(path string, width int32, height int32,
 
 // Init initializes the static data
 func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
-	events display.Events, port uint16) {
+	events display.Events, port uint16, debug bool) {
 	mc := messageCollector{owner: qs, moduleIndex: -1}
 
 	usr, _ := user.Current()
@@ -182,7 +182,7 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 		return
 	}
 
-	setGLAttributes()
+	setGLAttributes(debug)
 	sdl.GLSetAttribute(sdl.GL_DOUBLEBUFFER, 1)
 
 	// create window and renderer
@@ -239,7 +239,7 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 
 	if err := qs.display.Init(
 		qs, events, qs.fullscreen, qs.port, qs.keyActions,
-		window); err != nil {
+		window, debug); err != nil {
 		panic(err)
 	}
 }
