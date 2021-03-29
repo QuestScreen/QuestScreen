@@ -49,7 +49,7 @@
 
 <a:component name="editableText" params="title string, inputName string" gen-new-init>
 	<a:handlers>setEdited()</a:handlers>
-	<div class="pure-control-group" a:bindings="class(edited):edited">
+	<div class="editable-text-group" a:bindings="class(edited):edited">
 		<label a:assign="prop(textContent) = title"></label>
 		<input type="text" required a:assign="prop(name)=inputName"
 				a:bindings="prop(value):Value" a:capture="input:setEdited" />
@@ -60,7 +60,7 @@
 <a:macro name="dataSheet">
 	<section class="data-sheet">
 		<h4 class="data-sheet-header"><i class="fas fa-file-alt"></i> General</h4>
-		<form class="pure-form pure-form-aligned"
+		<form class="pure-form pure-form-aligned data-form"
 				a:capture="reset:reset() {preventDefault}, submit:commit() {preventDefault}">
 			<fieldset>
 				<a:embed name="name" type="editableText" args="`Name:`, `Name`"></a:embed>
@@ -106,7 +106,7 @@
 	<a:controller>
 		refreshHeroData()
 	</a:controller>
-	<form class="pure-form pure-form-aligned"
+	<form class="pure-form pure-form-aligned data-form"
 			a:bindings="class(no-hero-selected):disabled"
 			a:capture="reset:reset {preventDefault}, submit:commit {preventDefault}">
 		<fieldset>
@@ -134,7 +134,7 @@
 	<article>
 		<a:include name="dataSheet">
 			<div class="pure-control-group with-edited" a:slot="value" a:bindings="class(edited):systemEdited">
-				<label>System</label>
+				<label>System:</label>
 				<a:embed name="system" type="controls.Dropdown" args="controls.SelectAtMostOne, controls.SelectionIndicator, ``" control></a:embed>
 				<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
 			</div>
@@ -179,7 +179,7 @@
 		<span class="module-toggle">
 			<a:embed name="Toggle" type="controls.Switch" control></a:embed>
 		</span>
-		<span class="data-list-text edited"><i class="fas fa-edit"></i></span>
+		<span class="data-list-edited"><i class="fas fa-edit"></i></span>
 	</div>
 </a:component>
 
@@ -191,7 +191,7 @@
 	<article>
 		<a:include name="dataSheet">
 			<div class="pure-control-group" a:slot="value">
-				<label>Modules</label>
+				<label>Modules:</label>
 				<div class="data-list modules">
 					<a:embed name="modules" type="sceneModule" list></a:embed>
 				</div>
