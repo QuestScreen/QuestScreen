@@ -9,6 +9,7 @@ import (
 	"github.com/QuestScreen/QuestScreen/web/session"
 	"github.com/QuestScreen/QuestScreen/web/site"
 	api "github.com/QuestScreen/api/web"
+	askew "github.com/flyx/askew/runtime"
 )
 
 func main() {
@@ -52,4 +53,6 @@ func main() {
 	site.Boot(headerDisabled)
 	// check if a session is already active and if so, load the session view.
 	session.CheckSession()
+
+	askew.KeepAlive()
 }

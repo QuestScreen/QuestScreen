@@ -255,15 +255,6 @@ func (qs *QuestScreen) ModuleAt(index shared.ModuleIndex) *modules.Module {
 	return qs.modules[index].Module
 }
 
-func (qs *QuestScreen) moduleByID(id string) (index int, module *modules.Module) {
-	for i := range qs.modules {
-		if qs.modules[i].Module.ID == id {
-			return i, qs.modules[i].Module
-		}
-	}
-	return -1, nil
-}
-
 // ModulePluginIndex returns the plugin the provides the module at the given index
 func (qs *QuestScreen) ModulePluginIndex(index shared.ModuleIndex) int {
 	return qs.modules[index].pluginIndex
@@ -291,22 +282,6 @@ func (mc *moduleContext) GetResources(index resources.CollectionIndex) []resourc
 
 func (mc *moduleContext) FontFamilyName(index int) string {
 	return mc.fonts[index].Name()
-}
-
-type emptyHeroList struct{}
-
-func (emptyHeroList) Hero(index int) groups.Hero {
-	panic("out of range!")
-}
-
-func (emptyHeroList) NumHeroes() int {
-	return 0
-}
-
-func (emptyHeroList) Close() {}
-
-func (emptyHeroList) HeroByID(id string) (index int, h groups.Hero) {
-	return -1, nil
 }
 
 // ServerContext returns a server context for the module at the given index

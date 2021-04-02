@@ -104,7 +104,7 @@ func (srh *staticResourceHandler) ServeHTTP(
 }
 
 type contentTypesS struct {
-	HTML, JS, CSS, OctetStream, PNG, SVG, XML, ICO, EOT, TTF, WOFF, WOFF2,
+	HTML, JS, WASM, CSS, OctetStream, PNG, SVG, XML, ICO, EOT, TTF, WOFF, WOFF2,
 	Webmanifest string
 }
 
@@ -114,6 +114,8 @@ func (ct *contentTypesS) get(extension string) string {
 		return ct.HTML
 	case ".js":
 		return ct.JS
+	case ".wasm":
+		return ct.WASM
 	case ".css":
 		return ct.CSS
 	case ".png":
@@ -140,7 +142,8 @@ func (ct *contentTypesS) get(extension string) string {
 }
 
 var contentTypes = contentTypesS{
-	HTML: "text/html", JS: "application/javascript", CSS: "text/css",
+	HTML: "text/html", JS: "application/javascript",
+	WASM: "application/wasm", CSS: "text/css",
 	PNG: "image/png", XML: "application/xml", ICO: "image/vnd.microsoft.icon",
 	SVG: "image/svg+xml", EOT: "application/vnd.ms-fontobject", TTF: "font/ttf",
 	WOFF: "font/woff", WOFF2: "font/woff2",
