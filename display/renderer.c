@@ -202,9 +202,22 @@ static GLuint link_program(const char *vsrc, const char *fsrc) {
   }\
 } while(false)
 
-bool engine_init(engine_t *e) {
+#ifndef __APPLE__
+void APIENTRY debug_callback(GLenum source, GLenum type, GLuint id,
+    GLenum severity, GLsizei length, const GLchar *message,
+    const void *userParam) {
+  if (type == GL_DEBUG_TYPE_ERROR) {
+    printf("[OpenGL Error] %.*s\n", length, message);
+  } else {
+    printf("[OpenGL Debug Message] %.*s\n", length, message);
+  }
+}
+#endif
+
+bool engine_init(engine_t *e, bool debug) {
 #ifdef _WIN32
 #define load(_name) _##_name = SDL_GL_GetProcAddress(#_name)
+  load(glBlendFuncSeparate);
   load(glCreateShader);
   load(glShaderSource);
   load(glCompileShader);
@@ -224,6 +237,9 @@ bool engine_init(engine_t *e) {
   load(glGetUniformLocation);
   load(glGetAttribLocation);
   load(glUseProgram);
+  load(glGenVertexArrays);
+  load(glBindVertexArray);
+  load(glDeleteVertexArrays);
   load(glVertexAttribPointer);
   load(glEnableVertexAttribArray);
   load(glActiveTexture);
@@ -236,6 +252,15 @@ bool engine_init(engine_t *e) {
   load(glFramebufferTexture2D);
   load(glCheckFramebufferStatus);
   load(glDeleteFramebuffers);
+  if (debug) {
+    load(glDebugMessageCallback);
+  }
+#endif
+#ifndef __APPLE__
+  if (debug) {
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(&debug_callback, NULL);
+  }
 #endif
 
   GLfloat vertices[] = {0.0f, 0.0f, 1.0f, 0.0f,
@@ -244,7 +269,7 @@ bool engine_init(engine_t *e) {
   glBindBuffer(GL_ARRAY_BUFFER, e->vbo);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32)
   glGenVertexArrays(1, &e->vao);
   glBindVertexArray(e->vao);
 #endif
@@ -280,15 +305,13 @@ bool engine_init(engine_t *e) {
   glDisable(GL_DEPTH_TEST);
   glDepthMask(false);
 
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &e->maxTexSize);
   return true;
 }
 
 void engine_close(engine_t *e) {
   glDeleteBuffers(1, &e->vbo);
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32)
   glDeleteVertexArrays(1, &e->vao);
 #endif
 }
@@ -331,10 +354,11 @@ void draw_image(
     bool texHasAlpha) {
   if ( alpha != 255 || texHasAlpha) {
     glEnable(GL_BLEND);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
   }
 
   glBindBuffer(GL_ARRAY_BUFFER, e->vbo);
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32)
   glBindVertexArray(e->vao);
 #endif
   glUseProgram(e->image.id);
@@ -364,7 +388,7 @@ void setUniformColor(GLint id, uint8_t color[4]) {
 void draw_masked(engine_t *e, GLuint texture, float posTrans[6],
     float texTrans[6], uint8_t primary[4], uint8_t secondary[4]) {
   glBindBuffer(GL_ARRAY_BUFFER, e->vbo);
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32)
   glBindVertexArray(e->vao);
 #endif
   glUseProgram(e->mask.id);
@@ -391,17 +415,27 @@ void draw_rect(
 
   if (!copyAlpha && color[3] != 255) {
     glEnable(GL_BLEND);
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
   }
 
   glBindBuffer(GL_ARRAY_BUFFER, e->vbo);
   glUseProgram(e->rect.id);
+  if (glGetError() != GL_NO_ERROR) {
+    puts("draw_rect: failed to bind buffer or use program");
+  }
 
   glVertexAttribPointer(e->rect.position, 2, GL_FLOAT,
       GL_FALSE, 2 * sizeof(GLfloat), 0);
   glEnableVertexAttribArray(e->rect.position);
+  if (glGetError() != GL_NO_ERROR) {
+    puts("draw_rect: failed to setup vertex attrib array");
+  }
 
   setUniformColor(e->rect.color, color);
   glUniform2fv(e->rect.transform, 3, transform);
+  if (glGetError() != GL_NO_ERROR) {
+    puts("draw_rect: failed to set uniform");
+  }
 
   glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
@@ -416,6 +450,9 @@ void draw_rect(
 void create_canvas(engine_t *e, GLsizei w, GLsizei h,
     GLuint *oldFb, GLuint *targetFb, GLuint *targetTex, bool withAlpha) {
   *targetTex = gen_texture(e, withAlpha ? GL_RGBA : GL_RGB, w, h, NULL);
+  if (glGetError() != GL_NO_ERROR) {
+    return;
+  }
 
   GLint tmpOldFb;
 #ifdef __APPLE__
@@ -429,6 +466,10 @@ void create_canvas(engine_t *e, GLsizei w, GLsizei h,
   glBindFramebuffer(GL_FRAMEBUFFER, *targetFb);
   glFramebufferTexture2D(
       GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, *targetTex, 0);
+  if (glGetError() != GL_NO_ERROR) {
+    *targetFb = 0;
+    return;
+  }
 
 #ifdef __APPLE__
   GLenum db[1] = { GL_COLOR_ATTACHMENT0 };

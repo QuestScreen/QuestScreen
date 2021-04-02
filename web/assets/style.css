@@ -598,11 +598,16 @@ input[type="range"] {
 
 .data-list-item {
 	display: flex;
+	align-items: center;
+	min-height: 2em;
 }
 
 .data-list-text {
-	display: block;
-	padding: .5em 1em;
+	padding: 0 .5em;
+}
+
+.data-list-edited {
+	padding-left: .5em;
 }
 
 .data-list-item > :first-child {
@@ -628,17 +633,53 @@ input[type="range"] {
 	cursor: pointer;
 }
 
-.pure-control-group .pure-form-message-inline.edited {
-	display: inline;
+.editable-text-group {
+	display: flex;
+	flex-direction: row;
+	margin-bottom: .5em;
+	align-items: baseline;
+	min-width: 24em;
+	padding: 0 .75em;
+}
+
+@media only screen and (max-width: 480px) {
+	.editable-text-group {
+		flex-wrap: wrap;
+		min-width: unset;
+	}
+}
+
+.editable-text-group label {
+	flex: 0 0 6.5em;
+	text-align: right;
+	margin-right: 1em;
+}
+
+@media only screen and (max-width: 480px) {
+	.editable-text-group label {
+		flex: 0 0 100%;
+		text-align: left;
+		margin-right: 0;
+	}
+}
+
+.editable-text-group input {
+	flex: 1 0 auto;
+}
+
+.pure-form-message-inline.edited {
+	color: black;
+}
+
+.editable-text-group .pure-form-message-inline.edited {
+	flex: 0 0 auto;
+	margin: 0 .5em;
 }
 
 .pure-control-group:not(.edited) .pure-form-message-inline.edited,
-.data-list-item:not(.edited) span.edited {
+.editable-text-group:not(.edited) .pure-form-message-inline.edited,
+.data-list-item:not(.edited) .data-list-edited {
 	visibility: hidden;
-}
-
-.module-toggle {
-	padding: .5em 0;
 }
 
 .data-sheet, .messages {
@@ -657,7 +698,7 @@ input[type="range"] {
 	padding: .5em 1em;
 }
 
-.data-sheet form > fieldset {
+form.data-form > fieldset {
 	margin: 0;
 	padding: .75em 0;
 }
@@ -671,30 +712,30 @@ input[type="range"] {
 	height: 0;
 }
 
-.data-sheet form.pure-form .pure-control-group {
+form.data-form .pure-control-group {
 	white-space: nowrap;
 	padding: 0 .75em;
 }
 
-.data-sheet form.pure-form .pure-control-group label {
+form.data-form .pure-control-group label {
 	width: 6.5em;
 }
 
-.data-sheet form.pure-form .pure-controls {
+form.data-form .pure-controls {
 	margin: 1em 0 0 0;
 	display: flex;
 	padding: 0 .5em;
 }
 
-.data-sheet form.pure-form .pure-controls button {
+form.data-form .pure-controls button {
 	margin: 0 .25em;
 }
 
-.data-sheet form.pure-form .pure-controls .hfill {
+form.data-form .pure-controls .hfill {
 	flex: 1 1 auto;
 }
 
-.data-sheet form.pure-form .pure-controls :not(.hfill) {
+form.data-form .pure-controls :not(.hfill) {
 	flex: 0 0 auto;
 }
 
@@ -722,7 +763,6 @@ input[type="range"] {
 
 .hero-container > form {
 	margin: .5em;
-	padding: .5em;
 }
 
 .hero-container > form > p {
@@ -793,4 +833,8 @@ nav.disabled > :not(#error-menu-overlay) {
 .herolist-switch-all.pure-button-primary .show-all,
 .herolist-switch-all:not(.pure-button-primary) .hide-all {
 	display: none;
+}
+
+.pure-form button[type=submit] {
+	margin-top: 0 !important;
 }

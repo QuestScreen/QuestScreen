@@ -1,6 +1,9 @@
 
 #include <SDL2/SDL.h>
 
+PFNGLBLENDFUNCSEPARATEPROC _glBlendFuncSeparate;
+#define glBlendFuncSeparate(_a, _b, _c, _d) (*_glBlendFuncSeparate)(_a, _b, _c, _d)
+
 PFNGLCREATESHADERPROC _glCreateShader;
 #define glCreateShader(_a) (*_glCreateShader)(_a)
 
@@ -58,6 +61,15 @@ PFNGLGETATTRIBLOCATIONPROC _glGetAttribLocation;
 PFNGLUSEPROGRAMPROC _glUseProgram;
 #define glUseProgram(_a) (*_glUseProgram)(_a)
 
+PFNGLGENVERTEXARRAYSPROC _glGenVertexArrays;
+#define glGenVertexArrays(_a, _b) (*_glGenVertexArrays)(_a, _b)
+
+PFNGLBINDVERTEXARRAYPROC _glBindVertexArray;
+#define glBindVertexArray(_a) (*_glBindVertexArray)(_a)
+
+PFNGLDELETEVERTEXARRAYSPROC _glDeleteVertexArrays;
+#define glDeleteVertexArrays(_a, _b) (*_glDeleteVertexArrays)(_a, _b)
+
 PFNGLVERTEXATTRIBPOINTERPROC _glVertexAttribPointer;
 #define glVertexAttribPointer(_a, _b, _c, _d, _e, _f) (*_glVertexAttribPointer)(_a, _b, _c, _d, _e, _f)
 
@@ -93,3 +105,6 @@ PFNGLCHECKFRAMEBUFFERSTATUSPROC _glCheckFramebufferStatus;
 
 PFNGLDELETEFRAMEBUFFERSPROC _glDeleteFramebuffers;
 #define glDeleteFramebuffers(_a, _b) (*_glDeleteFramebuffers)(_a, _b)
+
+PFNGLDEBUGMESSAGECALLBACKPROC _glDebugMessageCallback;
+#define glDebugMessageCallback(_a, _b) (*_glDebugMessageCallback)(_a, _b)

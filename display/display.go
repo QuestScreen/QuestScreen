@@ -56,7 +56,7 @@ type KeyAction struct {
 // before since the app needs to load fonts based on the window size.
 func (d *Display) Init(
 	owner app.App, events Events, fullscreen bool, port uint16,
-	actions []KeyAction, window *sdl.Window) error {
+	actions []KeyAction, window *sdl.Window, debug bool) error {
 	d.owner = owner
 	d.Events = events
 	d.actions = actions
@@ -66,7 +66,7 @@ func (d *Display) Init(
 	sdl.ShowCursor(sdl.DISABLE)
 
 	width, height := window.GLGetDrawableSize()
-	d.r.init(width, height, len(owner.GetTextures()))
+	d.r.init(width, height, len(owner.GetTextures()), debug)
 	d.numTransitions = 0
 
 	dRect := d.OutputSize()
