@@ -460,35 +460,6 @@ article {
 
 /* config & state */
 
-.dropdown-container {
-	display: inline;
-}
-
-.dropdown-selector > .pure-menu-link,
-.dropdown-selector > .pure-menu-link:visited {
-	color: black;
-}
-
-.dropdown-selector > .pure-menu-link.pure-menu-disabled {
-	cursor: not-allowed;
-}
-
-.dropdown-selector .pure-menu-link.emph {
-	font-style: italic;
-}
-
-.pure-menu-selected .dropdown-invisible {
-	visibility: hidden;
-}
-
-.dropdown-visible {
-	visibility: hidden;
-}
-
-.pure-menu-selected .dropdown-visible {
-	visibility: visible;
-}
-
 .state-module-header h3, .config-module-header h3 {
 	margin: 0;
 }
@@ -828,6 +799,10 @@ nav:not(.disabled) > #error-menu-overlay {
 
 nav.disabled > :not(#error-menu-overlay) {
 	display: none;
+}
+
+.herolist-switch-all {
+	margin-bottom: .3em;
 }
 
 .herolist-switch-all.pure-button-primary .show-all,

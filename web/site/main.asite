@@ -9,6 +9,8 @@
 		<link href="/grids-responsive-min.css" rel="stylesheet"/>
 		<link href="/fontawesome.min.css" rel="stylesheet">
 		<link href="/solid.min.css" rel="stylesheet">
+		<link href="/api.css" rel="stylesheet"/>
+		<link href="/api-color.css" rel="stylesheet"/>
 		<link href="/style.css" rel="stylesheet"/>
 		<link href="/color.css" rel="stylesheet"/>
 

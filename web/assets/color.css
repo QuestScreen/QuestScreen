@@ -68,22 +68,6 @@ nav .pure-menu-heading {
   background-color: var(--success);
 }
 
-.dropdown-selector > a:hover,
-.dropdown-selector > a:active,
-.dropdown-selector.pure-menu-active > a,
-.dropdown-selector > .pure-menu-children a:hover,
-.dropdown-selector > .pure-menu-children a:active {
-  background-color: var(--medium-highlight);
-}
-
-.dropdown-selector .pure-menu-link {
-  color: var(--text);
-}
-
-.dropdown-selector .pure-menu-children {
-  background-color: var(--medium);
-}
-
 .data-sheet, .messages, .hero-container > nav .pure-menu-selected,
 .hero-container > form {
   background-color: var(--light);
