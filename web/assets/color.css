@@ -1,15 +1,3 @@
-:root {
-  --strong: #305f88;
-  --medium: #4ba3ed;
-  --medium-highlight: #2887cb;
-  --light: #8fccff;
-  --light-highlight: #afeeff;
-  --text: black;
-  --danger: rgb(212, 75, 90);
-  --caution: rgb(187, 187, 66);
-  --success: rgb(75, 212, 90);
-}
-
 header {
   background-color: var(--medium);
 }
@@ -38,71 +26,84 @@ nav .pure-menu-heading {
   background-color: var(--medium);
 }
 
-#title-wrapper, #pagemenu-wrapper {
+#qs-title-wrapper, #qs-pagemenu-wrapper {
   background-color: var(--strong);
 }
 
-.state-module-header, .config-module-header, .config-item-header {
-  background-color: var(--strong);
-}
-
-.config-module-content {
+#qs-popup .qs-template-list {
   background-color: var(--medium);
 }
 
-.config-item-container, .state-module-content {
-  background-color: var(--light);
-}
-
-.config-item-table {
-  background-color: var(--medium);
-}
-
-.data-list-link.delete:hover,
-.data-list-link.delete:active {
-	background-color: var(--danger);
-}
-
-.data-list-link.create:hover,
-.pure-menu-link.create:hover {
-  background-color: var(--success);
-}
-
-.data-sheet, .messages, .hero-container > nav .pure-menu-selected,
-.hero-container > form {
-  background-color: var(--light);
-}
-
-.data-sheet .data-sheet-header,
-.messages .message-list-header,
-.hero-container, .hero-container > nav {
-  background-color: var(--strong);
-}
-
-.data-sheet .pure-button.delete,
-.hero-container .pure-button.delete,
-#endable-page-controls .pure-button.delete {
-  background-color: var(--danger);
-}
-
-.data-sheet .pure-form-message-inline {
-  color: var(--text);
-}
-
-.data-list-item:hover,
-table.module-list > tbody > tr:hover,
-table.group-chooser-list tr:hover {
+#qs-popup .qs-template-item > .pure-menu-link:hover,
+#qs-popup .qs-template-item > .pure-menu-link:focus {
   background-color: var(--light-highlight);
 }
 
-table.message-list tr.warning {
-  background-color: var(--caution);
+#qs-popup .qs-template-item.pure-menu-active > .pure-menu-link {
+  background-color: var(--medium-highlight);
 }
 
-table.message-list tr.error {
+#qs-popup .qs-template-item > .pure-menu-link {
+  color: var(--text);
+}
+
+.qs-module-header, .qs-module-header, .qs-config-item-header {
+  background-color: var(--strong);
+}
+
+.qs-config-module-content {
+  background-color: var(--medium);
+}
+
+.qs-config-item-container, .qs-module-content {
+  background-color: var(--light);
+}
+
+.qs-data-list-link.qs-delete:hover,
+.qs-data-list-link.qs-delete:active {
+	background-color: var(--danger);
+}
+
+.qs-data-list-link.qs-create:hover,
+.pure-menu-link.qs-create:hover {
+  background-color: var(--success);
+}
+
+.qs-data-sheet, .qs-messages, .qs-hero-container > nav .pure-menu-selected,
+.qs-hero-container > form {
+  background-color: var(--light);
+}
+
+.qs-data-sheet .qs-data-sheet-header,
+.qs-messages .qs-message-list-header,
+.qs-hero-container, .qs-hero-container > nav {
+  background-color: var(--strong);
+}
+
+.qs-data-sheet .pure-button.qs-delete,
+.qs-hero-container .pure-button.qs-delete,
+#qs-endable-page-controls .pure-button.qs-delete {
   background-color: var(--danger);
 }
 
-#error-menu-overlay {
+.qs-data-sheet .pure-form-message-inline {
+  color: var(--text);
+}
+
+.qs-data-list-item:hover,
+table.qs-module-list > tbody > tr:hover,
+table.qs-group-chooser-list tr:hover {
+  background-color: var(--light-highlight);
+}
+
+table.qs-message-list tr.qs-warning {
+  background-color: var(--caution);
+}
+
+table.qs-message-list tr.qs-error {
+  background-color: var(--danger);
+}
+
+#qs-error-menu-overlay {
   background-color: var(--danger);
 }

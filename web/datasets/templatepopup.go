@@ -1,6 +1,8 @@
 package datasets
 
 import (
+	"fmt"
+
 	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/QuestScreen/web"
 	"github.com/QuestScreen/api/web/controls"
@@ -26,7 +28,7 @@ func (o *popupFromTemplate) DoShow() {
 		// this is required to make our expand/collapse animation work.
 		//
 		// the 1em is the summed .5em vertical padding around the container.
-		item.Height.Set("calc(" + item.OffsetHeight.Get() + "px + 1em)")
+		item.Height.Set(fmt.Sprintf("calc(%vpx + 1em)", item.OffsetHeight.Get()))
 	}
 	// select first item
 	o.Templates.Item(0).click()

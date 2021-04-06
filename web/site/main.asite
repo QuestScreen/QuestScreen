@@ -30,7 +30,7 @@
 	<body>
 		<a:embed name="top" type="topBar"></a:embed>
 
-		<div id="page">
+		<div id="qs-page">
 			<a:embed name="sidebar" type="sidebarType"></a:embed>
 
 			<main>

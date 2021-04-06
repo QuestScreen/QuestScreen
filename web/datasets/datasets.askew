@@ -5,10 +5,10 @@
 
 <a:component name="listItem" params="name string, removable bool, index int" gen-new-init>
 	<a:controller>delete(index int)</a:controller>
-	<div class="data-list-item">
-		<span class="data-list-text" a:assign="prop(textContent) = name"></span>
-		<a class="data-list-link"
-				a:assign="class(delete) = removable, dataset(index) = index"
+	<div class="qs-data-list-item">
+		<span class="qs-data-list-text" a:assign="prop(textContent) = name"></span>
+		<a class="qs-data-list-link"
+				a:assign="class(qs-delete) = removable, dataset(index) = index"
 				a:capture="click:delete">
 			<i class="fas fa-minus-square" a:if="removable"></i>
 			<i class="fas fa-cubes" a:if="!removable"></i>
@@ -26,20 +26,20 @@
 		addGroup()
 	</a:handlers>
 	<article>
-		<section class="data-sheet">
-			<h4 class="data-sheet-header"><i class="fas fa-book"></i> Systems</h4>
-			<div class="data-list systems">
+		<section class="qs-data-sheet">
+			<h4 class="qs-data-sheet-header"><i class="fas fa-book"></i> Systems</h4>
+			<div class="qs-data-list qs-systems">
 				<a:embed name="SystemList" type="listItem" list></a:embed>
-				<a class="data-list-link create" a:capture="click:addSystem() {preventDefault}">
+				<a class="qs-data-list-link qs-create" a:capture="click:addSystem() {preventDefault}">
 					<i class="fas fa-plus-square"></i>
 				</a>
 			</div>
 		</section>
-		<section class="data-sheet">
-			<h4 class="data-sheet-header"><i class="fas fa-users"></i> Groups</h4>
-			<div class="data-list groups">
+		<section class="qs-data-sheet">
+			<h4 class="qs-data-sheet-header"><i class="fas fa-users"></i> Groups</h4>
+			<div class="qs-data-list qs-groups">
 				<a:embed name="GroupList" type="listItem" list></a:embed>
-				<a class="data-list-link create" a:capture="click:addGroup() {preventDefault}">
+				<a class="qs-data-list-link qs-create" a:capture="click:addGroup() {preventDefault}">
 					<i class="fas fa-plus-square"></i>
 				</a>
 			</div>
@@ -49,24 +49,24 @@
 
 <a:component name="editableText" params="title string, inputName string" gen-new-init>
 	<a:handlers>setEdited()</a:handlers>
-	<div class="editable-text-group" a:bindings="class(edited):edited">
+	<div class="qs-editable-text-group" a:bindings="class(qs-edited):edited">
 		<label a:assign="prop(textContent) = title"></label>
 		<input type="text" required a:assign="prop(name)=inputName"
 				a:bindings="prop(value):Value" a:capture="input:setEdited" />
-		<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
+		<span class="pure-form-message-inline qs-edited"><i class="fas fa-edit"></i></span>
 	</div>
 </a:component>
 
 <a:macro name="dataSheet">
-	<section class="data-sheet">
-		<h4 class="data-sheet-header"><i class="fas fa-file-alt"></i> General</h4>
-		<form class="pure-form pure-form-aligned data-form"
+	<section class="qs-data-sheet">
+		<h4 class="qs-data-sheet-header"><i class="fas fa-file-alt"></i> General</h4>
+		<form class="pure-form pure-form-aligned qs-data-form"
 				a:capture="reset:reset() {preventDefault}, submit:commit() {preventDefault}">
 			<fieldset>
 				<a:embed name="name" type="editableText" args="`Name:`, `Name`"></a:embed>
 				<a:slot name="value"></a:slot>
 				<div class="pure-controls">
-					<span class="hfill"></span>
+					<span class="qs-hfill"></span>
 					<button type="reset" class="pure-button">Reset</button>
 					<button type="submit" class="pure-button pure-button-primary">Save</button>
 				</div>
@@ -106,16 +106,16 @@
 	<a:controller>
 		refreshHeroData()
 	</a:controller>
-	<form class="pure-form pure-form-aligned data-form"
-			a:bindings="class(no-hero-selected):disabled"
+	<form class="pure-form pure-form-aligned qs-data-form"
+			a:bindings="class(qs-no-hero-selected):disabled"
 			a:capture="reset:reset {preventDefault}, submit:commit {preventDefault}">
 		<fieldset>
 			<a:embed name="Name" type="editableText" args="`Name:`, `Name`"></a:embed>
 			<a:embed name="Description" type="editableText" args="`Description:`, `Description`"></a:embed>
 			<div class="pure-controls">
-				<button class="pure-button delete"
+				<button class="pure-button qs-delete"
 						a:capture="click:delete {preventDefault}"><i class="fas fa-trash-alt"></i> Delete</button>
-				<span class="hfill"></span>
+				<span class="qs-hfill"></span>
 				<button type="reset" class="pure-button">Reset</button>
 				<button type="submit" class="pure-button pure-button-primary">Save</button>
 			</div>
@@ -133,30 +133,30 @@
 	</a:handlers>
 	<article>
 		<a:include name="dataSheet">
-			<div class="pure-control-group with-edited" a:slot="value" a:bindings="class(edited):systemEdited">
+			<div class="pure-control-group" a:slot="value" a:bindings="class(qs-edited):systemEdited">
 				<label>System:</label>
 				<a:embed name="system" type="controls.Dropdown" args="controls.SelectAtMostOne, controls.SelectionIndicator, ``" control></a:embed>
-				<span class="pure-form-message-inline edited"><i class="fas fa-edit"></i></span>
+				<span class="pure-form-message-inline qs-edited"><i class="fas fa-edit"></i></span>
 			</div>
 		</a:include>
-		<section class="data-sheet">
-			<h4 class="data-sheet-header"><i class="fas fa-image"></i> Scenes</h4>
-			<div class="data-list scenes">
+		<section class="qs-data-sheet">
+			<h4 class="qs-data-sheet-header"><i class="fas fa-image"></i> Scenes</h4>
+			<div class="qs-data-list qs-scenes">
 				<a:embed name="Scenes" type="listItem" list control></a:embed>
-				<a class="data-list-link create"
+				<a class="qs-data-list-link qs-create"
 						a:capture="click:createScene {preventDefault}">
 					<i class="fas fa-plus-square"></i>
 				</a>
 			</div>
 		</section>
 		<div>
-			<section class="hero-container">
+			<section class="qs-hero-container">
 				<h3><i class="fas fa-mask"></i> Heroes</h3>
 				<nav class="pure-menu pure-menu-horizontal">
 					<ul class="pure-menu-list">
 						<a:embed name="heroChooser" type="heroButton" list control></a:embed>
 						<li class="pure-menu-item">
-							<a class="pure-menu-link create" a:capture="click:createHero">
+							<a class="pure-menu-link qs-create" a:capture="click:createHero">
 								<i class="fas fa-plus-square"></i>
 							</a>
 						</li>
@@ -170,16 +170,16 @@
 
 <a:component name="sceneModule"
 		params="pluginName string, moduleName string, var origValue bool" gen-new-init>
-	<div class="data-list-item" a:bindings="class(edited):edited">
-		<span class="data-list-text">
+	<div class="qs-data-list-item" a:bindings="class(qs-edited):edited">
+		<span class="qs-data-list-text">
 			<span a:assign="prop(textContent) = pluginName"></span>
 			<i class="fas fa-angle-right"></i>
 			<span a:assign="prop(textContent) = moduleName"></span>
 		</span>
-		<span class="module-toggle">
+		<span class="qs-module-toggle">
 			<a:embed name="Toggle" type="controls.Switch" control></a:embed>
 		</span>
-		<span class="data-list-edited"><i class="fas fa-edit"></i></span>
+		<span class="qs-data-list-edited"><i class="fas fa-edit"></i></span>
 	</div>
 </a:component>
 
@@ -192,7 +192,7 @@
 		<a:include name="dataSheet">
 			<div class="pure-control-group" a:slot="value">
 				<label>Modules:</label>
-				<div class="data-list modules">
+				<div class="qs-data-list qs-modules">
 					<a:embed name="modules" type="sceneModule" list></a:embed>
 				</div>
 			</div>
@@ -211,15 +211,15 @@
 	<a:controller>
 		choose(pluginIndex int, templateIndex int, active bool)
 	</a:controller>
-	<li class="pure-menu-item template-item" a:bindings="class(pure-menu-active):Active, style(height):Height">
+	<li class="pure-menu-item qs-template-item" a:bindings="class(pure-menu-active):Active, style(height):Height">
 		<a class="pure-menu-link" href="#" a:capture="click:click() {preventDefault}">
-			<div class="template-container" a:bindings="prop(offsetHeight):OffsetHeight">
-				<p class="template-identifier">
+			<div class="qs-template-container" a:bindings="prop(offsetHeight):(OffsetHeight int)">
+				<p class="qs-template-identifier">
 					<span a:assign="prop(textContent) = pluginName"></span>
 					<i class="fas fa-angle-right"></i>
 					<span a:assign="prop(textContent) = templateName"></span>
 				</p>
-				<p class="template-descr" a:assign="prop(textContent) = descr"></p>
+				<p class="qs-template-descr" a:assign="prop(textContent) = descr"></p>
 			</div>
 			<i class="fas fa-sort"></i>
 		</a>
@@ -232,7 +232,7 @@
 		selectedTemplate int
 	</a:data>
 	<label>Name: </label><input type="text" required a:bindings="prop(value):Name"/>
-	<div class="pure-menu template-list" a:bindings="class(menu-expanded):Expanded">
+	<div class="pure-menu qs-template-list" a:bindings="class(qs-menu-expanded):Expanded">
 		<ul class="pure-menu-list">
 			<a:embed name="Templates" type="popupSelectableTemplate" list control></a:embed>
 		</ul>

@@ -13,20 +13,20 @@
 
 <!-- give empty plugin name for core messages, which will ignore moduleName and moduleID. -->
 <a:component name="Message" params="plugin string, moduleName string, moduleID string, message string, isError bool" gen-new-init>
-	<tr a:assign="class(error)=isError,class(warning)=!isError">
+	<tr a:assign="class(qs-error)=isError,class(qs-warning)=!isError">
 		<td><i class="fas" a:assign="class(fa-times-circle)=isError,class(fa-exclamation-triangle)=!isError"></i></td>
 		<td a:if="plugin == ``">Core</td>
 		<td a:if="plugin != ``">
 			<a:include name="modulePath"></a:include>
 		</td>
-		<td class="text"><a:text expr="message"></a:text></td>
+		<td class="qs-text" a:assign="prop(textContent)=message"></td>
 	</tr>
 </a:component>
 
 <a:component name="MessageContainer" gen-new-init>
-	<section class="messages">
-		<h4 class="message-list-header">Messages</h4>
-		<table class="message-list">
+	<section class="qs-messages">
+		<h4 class="qs-message-list-header">Messages</h4>
+		<table class="qs-message-list">
 			<tbody>
 				<a:embed list type="Message" name="Items"></a:embed>
 			</tbody>
@@ -48,19 +48,19 @@
 <!-- group list state: 0 == no groups, 1 == groups, 2 == unavailable because of
      server errors -->
 <a:component name="viewContent" params="version string, groupListState int">
-	<div class="info-view">
-		<section class="group-chooser data-sheet">
-			<h4 class="data-sheet-header"><i class="fas fa-play"></i> Start a session</h4>
+	<div class="qs-info-view">
+		<section class="qs-group-chooser qs-data-sheet">
+			<h4 class="qs-data-sheet-header"><i class="fas fa-play"></i> Start a session</h4>
 			<p a:if="groupListState == 0">No groups available. Create one via the Datasets page!</p>
-			<table class="group-chooser-list" a:if="groupListState == 1">
+			<table class="qs-group-chooser-list" a:if="groupListState == 1">
 				<a:embed list type="ChooseableGroup" name="groups"></a:embed>
 			</table>
 			<p a:if="groupListState == 2">Cannot start a session. Please fix server errors.</p>
 		</section>
 		<h3 style="text-align: center">Software information</h3>
-		<section class="data-sheet">
-			<h4 class="data-sheet-header"><i class="fas fa-film"></i> Loaded Modules</h4>
-			<table class="module-list">
+		<section class="qs-data-sheet">
+			<h4 class="qs-data-sheet-header"><i class="fas fa-film"></i> Loaded Modules</h4>
+			<table class="qs-module-list">
 				<thead>
 					<tr><th>Plugin</th><th>Module</th></tr>
 				</thead>
@@ -71,7 +71,7 @@
 		</section>
 		<a:embed optional type="MessageContainer" name="Messages"></a:embed>
 		<footer>
-			<p>QuestScreen <span class="app-version" a:assign="prop(textContent)=version"></span></p>
+			<p>QuestScreen <span class="qs-app-version" a:assign="prop(textContent)=version"></span></p>
 			<p>This app is free software, distributed under the terms of the GNU GPL v3.</p>
 		</footer>
 	</div>

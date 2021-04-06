@@ -12,23 +12,23 @@
 		valuesEdited bool
 	</a:data>
 	<fieldset>
-		<label class="config-item-header">
-			<input type="checkbox" class="config-item-checkbox"
+		<label class="qs-config-item-header">
+			<input type="checkbox" class="qs-config-item-checkbox"
 					a:bindings="prop(checked):(enabled bool)"
 					a:capture="change:editedEnabled"/>
 			<span a:assign="prop(textContent)=name"></span>
 			<i class="fas fa-edit" a:bindings="style(visibility):editIndicator"></i>
 		</label>
-		<div class="config-item-container">
+		<div class="qs-config-item-container">
 			<a:embed type="config.Widget" name="content" value="ui"></a:embed>
 		</div>
 	</fieldset>
 </a:component>
 
 <a:component name="module" params="name string" gen-new-init>
-	<section class="pure-g config-module">
-		<div class="pure-u-1 pure-u-md-1-5 config-module-header"><h3 class="config-module-name" a:assign="prop(textContent)=name"></h3></div>
-		<div class="pure-u-1 pure-u-md-4-5 config-module-content">
+	<section class="pure-g qs-module">
+		<div class="pure-u-1 pure-u-md-1-5 qs-module-header"><h3 class="qs-module-name" a:assign="prop(textContent)=name"></h3></div>
+		<div class="pure-u-1 pure-u-md-4-5 qs-config-module-content">
 			<a:embed list name="items" type="item"></a:embed>
 		</div>
 	</section>

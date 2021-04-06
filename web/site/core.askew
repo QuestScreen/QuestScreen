@@ -12,12 +12,12 @@
 	</a:handlers>
 	<header a:bindings="style(height):height, style(paddingBottom):paddingBottom, style(overflow):overflow, prop(offsetWidth):offsetWidth, prop(offsetHeight):(offsetHeight int), self():Self">
 		<h1 class="pure-u-1">QuestScreen</h1>
-		<nav id="mainmenu" class="pure-g" a:bindings="class(disabled):Disabled">
-			<div id="error-menu-overlay" class="pure-u-1">Menu disabled due to errors in core, see messages</div>
+		<nav id="qs-mainmenu" class="pure-g" a:bindings="class(disabled):Disabled">
+			<div id="qs-error-menu-overlay" class="pure-u-1">Menu disabled due to errors in core, see messages</div>
 			<div class="pure-u-1 pure-u-sm-1-3 pure-menu">
 				<ul class="pure-menu-list">
 					<li class="pure-menu-item">
-						<a id="open-group-menu" class="pure-menu-link" href="#"
+						<a class="pure-menu-link" href="#"
 								a:capture="click:showHome() {preventDefault}"
 								><i class="fas fa-home"></i> <span a:bindings="prop(textContent):homeLabel"></span></a>
 					</li>
@@ -27,7 +27,7 @@
 			<div class="pure-u-1 pure-u-sm-1-3 pure-menu">
 				<ul class="pure-menu-list">
 					<li class="pure-menu-item">
-						<a id="show-config" class="pure-menu-link" href="#"
+						<a class="pure-menu-link" href="#"
 								a:capture="click:showConfig() {preventDefault}"><i class="fas fa-cog"></i> Configuration</a>
 					</li>
 				</ul>
@@ -35,32 +35,32 @@
 			<div class="pure-u-1 pure-u-sm-1-3 pure-menu">
 				<ul class="pure-menu-list">
 					<li class="pure-menu-item">
-						<a id="show-datasets" class="pure-menu-link" href="#"
+						<a class="pure-menu-link" href="#"
 								a:capture="click:showDatasets() {preventDefault}"><i class="fas fa-database"></i> Datasets</a>
 					</li>
 				</ul>
 			</div>
 		</nav>
 	</header>
-	<h2 id="title-wrapper">
-		<p id="title-content">
-			<span id="title" a:bindings="prop(textContent):Title"></span><span id="subtitle" a:bindings="prop(textContent):Subtitle"></span>
+	<h2 id="qs-title-wrapper">
+		<p id="qs-title-content">
+			<span id="qs-title" a:bindings="prop(textContent):Title"></span><span id="qs-subtitle" a:bindings="prop(textContent):Subtitle"></span>
 		</p>
-		<div id="title-buttons"
-				a:bindings="class(commitable-page, endable-page):pageKind">
-			<div id="commitable-page-controls">
+		<div id="qs-title-buttons"
+				a:bindings="class(qs-commitable-page, qs-endable-page):pageKind">
+			<div id="qs-commitable-page-controls">
 				<button class="pure-button"
 						a:capture="click:commitablePageReset() {preventDefault}">Reset</button>
 				<button class="pure-button pure-button-primary"
 						a:capture="click:commitablePageCommit() {preventDefault}">Save</button>
-				<i class="fas fa-edit" a:bindings="class(edited):commitablePageEdited"></i>
+				<i class="fas fa-edit" a:bindings="class(qs-edited):commitablePageEdited"></i>
 			</div>
-			<div id="endable-page-controls">
-				<button class="pure-button delete"
+			<div id="qs-endable-page-controls">
+				<button class="pure-button qs-delete"
 						a:capture="click:endablePageEnd() {preventDefault}">End</button>
 			</div>
-			<div id="no-page-controls"></div>
-			<a id="header-toggle"
+			<div id="qs-no-page-controls"></div>
+			<a id="qs-header-toggle"
 			    a:capture="click:headerToggleClicked(target=event(currentTarget))"><i
 					    class="fas fa-angle-up"
 							a:bindings="class(fa-angle-up, fa-angle-down):ToggleOrientation"></i></a>
@@ -71,7 +71,7 @@
 <a:component name="pageMenuEntry" params="var name string, var parent string, var view View, icon int" gen-new-init>
 	<a:handlers>clicked()</a:handlers>
 	<li class="pure-menu-item" a:bindings="class(pure-menu-active):active">
-		<a class="pure-menu-link" a:assign="class(submenu-link)= parent != ``" a:capture="click:clicked"><i class="fas" a:assign="class(fa-globe, fa-book, fa-users, fa-image)=icon"></i> <span class="submenu-parent-name" a:if="parent != ``"> <a:text expr="parent"></a:text> –</span> <a:text expr="name"></a:text><i class="fas fa-sort"></i></a>
+		<a class="pure-menu-link" a:assign="class(qs-submenu-link)= parent != ``" a:capture="click:clicked"><i class="fas" a:assign="class(fa-globe, fa-book, fa-users, fa-image)=icon"></i> <span class="qs-submenu-parent-name" a:if="parent != ``"> <a:text expr="parent"></a:text> –</span> <a:text expr="name"></a:text><i class="fas fa-sort"></i></a>
 	</li>
 </a:component>
 
@@ -85,8 +85,8 @@
 </a:component>
 
 <a:component name="sidebarType" gen-new-init>
-	<div id="pagemenu-wrapper" a:bindings="class(hidden):Disabled">
-		<nav id="pagemenu" class="pure-menu" a:bindings="class(pagemenu-expanded):expanded">
+	<div id="qs-pagemenu-wrapper" a:bindings="class(qs-hidden):Disabled">
+		<nav id="qs-pagemenu" class="pure-menu" a:bindings="class(qs-pagemenu-expanded):expanded">
 			<ul class="pure-menu-list">
 				<a:embed name="items" type="sidebarColl" list></a:embed>
 			</ul>
