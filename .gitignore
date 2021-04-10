@@ -1,3 +1,4 @@
+.DS_Store
 .idea
 .vscode
 /assets
@@ -11,3 +12,4 @@ plugins/plugins.yaml
 web/configitems*.go
 assets/assets.go
 *.exe
+*.tar.xz
