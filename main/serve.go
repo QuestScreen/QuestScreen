@@ -29,6 +29,9 @@ import (
 // /static
 //   GET: Returns static data, i.e. data that will not change during the runtime
 //        of the server.
+// /static/<subpath>
+//   GET: Returns the static resource identified by <subpath>.
+//        Used for CSS, images etc.
 // /data
 //   GET: Returns the structure of all existing systems, groups, scenes and
 //        heroes.
@@ -94,7 +97,30 @@ func (srh *staticResourceHandler) ServeHTTP(
 			method), http.StatusMethodNotAllowed)
 		return
 	}
-	res, ok := srh.resources[r.URL.Path]
+	res, ok := srh.resources[r.URL.Path[7:]]
+	if ok {
+		w.Header().Set("Content-Type", res.contentType)
+		w.Write(res.content)
+	} else {
+		http.NotFound(w, r)
+	}
+}
+
+type primaryFileHandler struct {
+	resources map[string]staticResource
+}
+
+func (pfh *primaryFileHandler) ServeHTTP(
+	w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Clacks-Overhead", "GNU Terry Pratchett")
+	method := parseMethod(r.Method)
+	if method != httpGet {
+		http.Error(w, fmt.Sprintf(
+			"[FileHandler] 405: Method not allowed (supports GET, got %s)",
+			method), http.StatusMethodNotAllowed)
+		return
+	}
+	res, ok := pfh.resources[r.URL.Path]
 	if ok {
 		w.Header().Set("Content-Type", res.contentType)
 		w.Write(res.content)
@@ -775,7 +801,10 @@ func startServer(owner *QuestScreen, events display.Events,
 	mutex := &sync.Mutex{}
 
 	sep := newStaticResourceHandler(owner)
-	http.Handle("/", sep)
+	http.Handle("/static/", sep)
+	http.Handle("", &primaryFileHandler{sep.resources})
+	http.Handle("/index.html", &primaryFileHandler{sep.resources})
+	http.Handle("/favicon.ico", &primaryFileHandler{sep.resources})
 
 	reg("StaticDataHandler", "/static", mutex,
 		endpoint{httpGet, &staticDataEndpoint{env}})

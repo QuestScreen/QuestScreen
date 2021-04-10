@@ -676,15 +676,6 @@ nav.qs-disabled > :not(#qs-error-menu-overlay) {
 	display: none;
 }
 
-.herolist-switch-all {
-	margin-bottom: .3em;
-}
-
-.herolist-switch-all.pure-button-primary .show-all,
-.herolist-switch-all:not(.pure-button-primary) .hide-all {
-	display: none;
-}
-
 .pure-form button[type=submit] {
 	margin-top: 0 !important;
 }

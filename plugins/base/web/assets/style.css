@@ -1,0 +1,8 @@
+.qsbase-herolist-switch-all {
+	margin-bottom: .3em;
+}
+
+.qsbase-herolist-switch-all.pure-button-primary .qsbase-show-all,
+.qsbase-herolist-switch-all:not(.pure-button-primary) .qsbase-hide-all {
+	display: none;
+}

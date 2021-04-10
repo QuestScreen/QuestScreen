@@ -5,25 +5,28 @@
 	</a:import>
 	<head>
 		<title>QuestScreen Control Center</title>
-		<link href="/pure-min.css" rel="stylesheet"/>
-		<link href="/grids-responsive-min.css" rel="stylesheet"/>
-		<link href="/fontawesome.min.css" rel="stylesheet">
-		<link href="/solid.min.css" rel="stylesheet">
-		<link href="/api.css" rel="stylesheet"/>
-		<link href="/api-color.css" rel="stylesheet"/>
-		<link href="/style.css" rel="stylesheet"/>
-		<link href="/color.css" rel="stylesheet"/>
+		<link href="/static/pure-min.css" rel="stylesheet"/>
+		<link href="/static/grids-responsive-min.css" rel="stylesheet"/>
+		<link href="/static/fontawesome.min.css" rel="stylesheet">
+		<link href="/static/solid.min.css" rel="stylesheet">
+		<link href="/static/api.css" rel="stylesheet"/>
+		<link href="/static/api-color.css" rel="stylesheet"/>
+		<link href="/static/style.css" rel="stylesheet"/>
+		<link href="/static/color.css" rel="stylesheet"/>
 
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
 		<meta charset="UTF-8"/>
 
 		<!-- favicon stuff -->
 
-		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-		<link rel="manifest" href="/site.webmanifest">
-		<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+		<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+		<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+		<link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+		<link rel="icon" type="image/png" sizes="192x192" href="/static/android-chrome-192x192.png">
+		<link rel="icon" type="image/png" sizes="512x512" href="/static/android-chrome-512x512.png">
+		<link rel="manifest" href="/static/site.webmanifest">
+		<link rel="mask-icon" href="/static/safari-pinned-tab.svg" color="#5bbad5">
+		<meta name="msapplication-config" content="/static/browserconfig.xml" />
 		<meta name="msapplication-TileColor" content="#00aba9">
 		<meta name="theme-color" content="#ffffff">
 	</head>

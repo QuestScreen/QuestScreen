@@ -14,10 +14,10 @@
 		allClicked()
 	</a:handlers>
 	<div class="herolist-container">
-		<button class="herolist-switch-all pure-button"
+		<button class="qsbase-herolist-switch-all pure-button"
 		    a:assign="class(pure-button-primary)=allState"
 				a:bindings="class(pure-button-primary):allState"
-				a:capture="click:allClicked{preventDefault}"><span class="hide-all">Hide All</span><span class="show-all">Show All</span></button>
+				a:capture="click:allClicked{preventDefault}"><span class="qsbase-hide-all">Hide All</span><span class="qsbase-show-all">Show All</span></button>
 		<a:embed name="Heroes" type="controls.Dropdown" args="controls.SelectMultiple, controls.InvisibilityIndicator, `Heroes`" control></a:embed>
 	</div>
 </a:component>
