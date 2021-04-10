@@ -1,5 +1,5 @@
 <!doctype html>
-<a:site lang="en">
+<a:site lang="en" a:wasmexecpath="/static/wasm_exec.js" a:wasmpath="/static/main.wasm">
 	<a:import>
 		"github.com/QuestScreen/api/web/controls"
 	</a:import>
@@ -13,6 +13,12 @@
 		<link href="/static/api-color.css" rel="stylesheet"/>
 		<link href="/static/style.css" rel="stylesheet"/>
 		<link href="/static/color.css" rel="stylesheet"/>
+		{{- range .}}
+		{{- $id := index . "id" }}
+    {{- range index (index . "assets") "css" }}
+		<link href="/static/{{$id}}/{{.}}" rel="stylesheet"/>
+		{{- end }}
+		{{- end }}
 
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
 		<meta charset="UTF-8"/>

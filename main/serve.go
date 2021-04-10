@@ -120,7 +120,11 @@ func (pfh *primaryFileHandler) ServeHTTP(
 			method), http.StatusMethodNotAllowed)
 		return
 	}
-	res, ok := pfh.resources[r.URL.Path]
+	var ok bool
+	var res staticResource
+	if r.URL.Path == "/" || r.URL.Path == "/index.html" || r.URL.Path == "/favicon.ico" {
+		res, ok = pfh.resources[r.URL.Path]
+	}
 	if ok {
 		w.Header().Set("Content-Type", res.contentType)
 		w.Write(res.content)
@@ -802,9 +806,7 @@ func startServer(owner *QuestScreen, events display.Events,
 
 	sep := newStaticResourceHandler(owner)
 	http.Handle("/static/", sep)
-	http.Handle("", &primaryFileHandler{sep.resources})
-	http.Handle("/index.html", &primaryFileHandler{sep.resources})
-	http.Handle("/favicon.ico", &primaryFileHandler{sep.resources})
+	http.Handle("/", &primaryFileHandler{sep.resources})
 
 	reg("StaticDataHandler", "/static", mutex,
 		endpoint{httpGet, &staticDataEndpoint{env}})
