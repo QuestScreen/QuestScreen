@@ -211,8 +211,13 @@ github.com/QuestScreen/qs-build v0.0.0-20210327223200-1417130d36ad h1:CYn7RKud85
 github.com/QuestScreen/qs-build v0.0.0-20210327223200-1417130d36ad/go.mod h1:8fJaHfuHWA4EASv+BSNsdfDQDo+mswBm+Z3Clv/+m3Q=
 github.com/QuestScreen/qs-build v0.0.0-20210402143117-d81c4b0fec28 h1:kTs4h2jiH6Otj6wmch1lVwxCE/bgSCP0Oqw8qmvy97c=
 github.com/QuestScreen/qs-build v0.0.0-20210402143117-d81c4b0fec28/go.mod h1:8fJaHfuHWA4EASv+BSNsdfDQDo+mswBm+Z3Clv/+m3Q=
+<<<<<<< Updated upstream
 github.com/QuestScreen/qs-build v0.0.0-20210405194937-d0b8377c5825 h1:EwCwjGb5BrMneDqLatw5pnFPwCuImOpQzSEj042Tilc=
 github.com/QuestScreen/qs-build v0.0.0-20210405194937-d0b8377c5825/go.mod h1:8fJaHfuHWA4EASv+BSNsdfDQDo+mswBm+Z3Clv/+m3Q=
+=======
+github.com/QuestScreen/qs-build v0.0.0-20210410151249-28cd49f0f824 h1:2IlFZu0T7R1OtdIgNoCCrMMRa4XUNJYolrTN3ip04Zs=
+github.com/QuestScreen/qs-build v0.0.0-20210410151249-28cd49f0f824/go.mod h1:OaDHo2m0L6RyZzqvUN8uUT1HtSFUHF/albbfEKsRx64=
+>>>>>>> Stashed changes
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
@@ -533,6 +538,8 @@ golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20210320140829-1e4c9ba3b0c4/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210331175145-43e1dd70ce54 h1:rF3Ohx8DRyl8h2zw9qojyLHLhrJpEMgyPOImREEryf0=
 golang.org/x/sys v0.0.0-20210331175145-43e1dd70ce54/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57 h1:F5Gozwx4I1xtr/sr/8CFbb57iKi3297KFs0QDbGN60A=
+golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=

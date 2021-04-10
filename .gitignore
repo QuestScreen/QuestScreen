@@ -1,7 +1,7 @@
 .idea
 .vscode
 /assets
-generated
+/versioninfo
 questscreen
 __debug_bin
 *.m4v

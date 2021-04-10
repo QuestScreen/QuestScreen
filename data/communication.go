@@ -7,8 +7,8 @@ import (
 	"reflect"
 
 	"github.com/QuestScreen/QuestScreen/app"
-	"github.com/QuestScreen/QuestScreen/generated"
 	"github.com/QuestScreen/QuestScreen/shared"
+	"github.com/QuestScreen/QuestScreen/versioninfo"
 	"github.com/QuestScreen/api/comms"
 	"github.com/QuestScreen/api/config"
 	"github.com/QuestScreen/api/groups"
@@ -120,7 +120,7 @@ func (c Communication) StaticData(a app.App, plugins interface{}) interface{} {
 		Modules: c.modules(a), Plugins: c.plugins(a),
 		NumPluginSystems: c.d.numPluginSystems,
 		FontDir:          a.DataDir("fonts"), Messages: a.Messages(),
-		AppVersion: generated.CurrentVersion}
+		AppVersion: versioninfo.CurrentVersion}
 }
 
 // ViewAll returns a serializable view of all data items that are not part of
