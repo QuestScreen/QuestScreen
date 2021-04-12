@@ -22,11 +22,11 @@ templates:
       description: "A scene with background, title, herolist and overlay enabled"
       config:
         modules:
-          background:
+          base.background:
             enabled: true
-          herolist:
+          base.herolist:
             enabled: true
-          overlays:
+          base.overlays:
             enabled: true
-          title:
+          base.title:
             enabled: true

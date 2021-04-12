@@ -21,6 +21,7 @@ type App interface {
 	NumModules() shared.ModuleIndex
 	ModuleAt(index shared.ModuleIndex) *modules.Module
 	ModulePluginIndex(index shared.ModuleIndex) int
+	ModuleFor(pluginID, moduleID string) shared.ModuleIndex
 	// ServerContext builds a server.Context with the given moduleIndex.
 	ServerContext(moduleIndex shared.ModuleIndex) server.Context
 	GetResources(moduleIndex shared.ModuleIndex,

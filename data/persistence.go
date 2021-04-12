@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -101,7 +102,7 @@ func yamlName(f reflect.StructField) string {
 
 func (p Persistence) loadModuleConfigInto(heroes groups.HeroList,
 	moduleIndex shared.ModuleIndex, target interface{},
-	values map[string]yaml.Node, moduleName string) bool {
+	values map[string]yaml.Node, path, moduleName string) bool {
 	targetModule := reflect.ValueOf(target).Elem()
 	targetModuleType := targetModule.Type()
 	for i := 0; i < targetModuleType.NumField(); i++ {
@@ -133,19 +134,29 @@ func (p Persistence) loadModuleConfigInto(heroes groups.HeroList,
 		delete(values, name)
 	}
 	for key := range values {
-		log.Printf("[module %s] unable to map config value \"%s\"\n", moduleName, key)
+		log.Printf("%s [module %s] unable to map config value \"%s\"\n", path, moduleName, key)
 	}
 	return true
 }
 
 func findModule(owner app.App, id string) (*modules.Module, shared.ModuleIndex) {
-	for i := shared.FirstModule; i < owner.NumModules(); i++ {
-		module := owner.ModuleAt(i)
-		if module.ID == id {
-			return module, i
-		}
+	parts := strings.Split(id, ".")
+	if len(parts) != 2 {
+		return nil, -1
 	}
-	return nil, -1
+	ref := owner.ModuleFor(parts[0], parts[1])
+	if ref == -1 {
+		return nil, ref
+	}
+	return owner.ModuleAt(ref), ref
+}
+
+func moduleID(owner app.App, index shared.ModuleIndex) string {
+	var b strings.Builder
+	b.WriteString(owner.PluginID(owner.ModulePluginIndex(index)))
+	b.WriteByte('.')
+	b.WriteString(owner.ModuleAt(index).ID)
+	return b.String()
 }
 
 func configType(mod *modules.Module) reflect.Type {
@@ -159,7 +170,7 @@ func configType(mod *modules.Module) reflect.Type {
 }
 
 func (p Persistence) loadModuleConfigs(heroes groups.HeroList,
-	raw map[string]map[string]yaml.Node) ([]interface{}, error) {
+	raw map[string]map[string]yaml.Node, path string) ([]interface{}, error) {
 	ret := make([]interface{}, p.d.owner.NumModules())
 	unknowns := ""
 	for name, rawItems := range raw {
@@ -173,7 +184,7 @@ func (p Persistence) loadModuleConfigs(heroes groups.HeroList,
 		}
 
 		target := reflect.New(configType(mod)).Interface()
-		if p.loadModuleConfigInto(heroes, index, target, rawItems, mod.ID) {
+		if p.loadModuleConfigInto(heroes, index, target, rawItems, path, mod.ID) {
 			ret[index] = target
 		}
 	}
@@ -222,7 +233,7 @@ func (p Persistence) persistingModuleConfigs(heroes groups.HeroList,
 			}
 		}
 		if fields != nil {
-			ret[p.d.owner.ModuleAt(i).ID] = fields
+			ret[moduleID(p.d.owner, i)] = fields
 		}
 	}
 	return ret
@@ -248,7 +259,7 @@ func (p Persistence) loadBase(path string) ([]interface{}, error) {
 		data.Modules = make(map[string]map[string]yaml.Node)
 	}
 
-	return p.loadModuleConfigs(nil, data.Modules)
+	return p.loadModuleConfigs(nil, data.Modules, path)
 }
 
 // WriteBase writes the current base configuration to the file system.
@@ -267,12 +278,12 @@ func (p Persistence) WriteBase() error {
 }
 
 func (p Persistence) loadSystem(
-	id string, input inputProvider) (*system, error) {
+	id string, input inputProvider, path string) (*system, error) {
 	var data persistedSystem
 	if err := strictUnmarshalYAML(input, &data); err != nil {
 		return nil, err
 	}
-	moduleConfigs, err := p.loadModuleConfigs(nil, data.Modules)
+	moduleConfigs, err := p.loadModuleConfigs(nil, data.Modules, path)
 	return &system{
 		name:    data.Name,
 		id:      id,
@@ -299,7 +310,7 @@ func (p Persistence) WriteSystem(s System) error {
 }
 
 func (p Persistence) createSystem(tmpl *app.SystemTemplate) (*system, error) {
-	s, err := p.loadSystem(tmpl.ID, byteInput(tmpl.Config))
+	s, err := p.loadSystem(tmpl.ID, byteInput(tmpl.Config), "<template>")
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +373,7 @@ func (p Persistence) DeleteSystem(index int) server.Error {
 }
 
 func (p Persistence) loadGroup(heroes []hero, id string,
-	input inputProvider) (*group, error) {
+	input inputProvider, path string) (*group, error) {
 	var data persistedGroup
 	if err := strictUnmarshalYAML(input, &data); err != nil {
 		return nil, err
@@ -387,7 +398,7 @@ func (p Persistence) loadGroup(heroes []hero, id string,
 		heroes:      heroList{data: heroes},
 	}
 
-	moduleConfigs, err := p.loadModuleConfigs(&ret.heroes, data.Modules)
+	moduleConfigs, err := p.loadModuleConfigs(&ret.heroes, data.Modules, path)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +441,7 @@ func (p Persistence) CreateGroup(
 		return errors.New("missing group template")
 	}
 	id := genID(name, "group", groupIDs{p.d.groups})
-	g, err := p.loadGroup(nil, id, byteInput(tmpl.Config))
+	g, err := p.loadGroup(nil, id, byteInput(tmpl.Config), "<template>")
 	if err != nil {
 		return errors.New("could not load group config template:\n  " + err.Error())
 	}
@@ -468,7 +479,7 @@ func (p Persistence) DeleteGroup(index int) {
 }
 
 func (p Persistence) loadScene(heroes groups.HeroList, id string,
-	input inputProvider) (scene, error) {
+	input inputProvider, path string) (scene, error) {
 	var data persistedScene
 	if err := strictUnmarshalYAML(input, &data); err != nil {
 		return scene{}, err
@@ -481,7 +492,7 @@ func (p Persistence) loadScene(heroes groups.HeroList, id string,
 			return scene{}, fmt.Errorf("Unknown module \"%s\"", name)
 		}
 		target := reflect.New(configType(mod)).Interface()
-		if p.loadModuleConfigInto(heroes, index, target, value.Config, mod.ID) {
+		if p.loadModuleConfigInto(heroes, index, target, value.Config, path, mod.ID) {
 			ret.modules[index] = sceneModule{enabled: value.Enabled, config: target}
 		}
 	}
@@ -492,9 +503,8 @@ func (p Persistence) writeScene(g *group, value *scene) error {
 	data := persistingScene{
 		Name: value.name, Modules: make(map[string]persistingSceneModule)}
 	for i := shared.FirstModule; i < p.d.owner.NumModules(); i++ {
-		moduleDesc := p.d.owner.ModuleAt(i)
 		moduleData := &value.modules[i]
-		data.Modules[moduleDesc.ID] = persistingSceneModule{
+		data.Modules[moduleID(p.d.owner, i)] = persistingSceneModule{
 			Enabled: moduleData.enabled, Config: moduleData.config}
 	}
 	dirPath := p.d.owner.DataDir("groups", g.id, "scenes", value.id)
@@ -519,7 +529,7 @@ func (p Persistence) CreateScene(g Group, name string, tmpl *app.SceneTemplate) 
 	gr := g.(*group)
 	id := genID(name, "scene", sceneIDs{gr.scenes})
 	heroes := g.Heroes()
-	s, err := p.loadScene(heroes, id, byteInput(tmpl.Config))
+	s, err := p.loadScene(heroes, id, byteInput(tmpl.Config), "<template>")
 	if err != nil {
 		return err
 	}
@@ -617,7 +627,7 @@ func (p Persistence) loadSystems() {
 		for _, file := range files {
 			if file.IsDir() {
 				path := filepath.Join(systemsDir, file.Name(), "config.yaml")
-				config, err := p.loadSystem(file.Name(), fileInput(path))
+				config, err := p.loadSystem(file.Name(), fileInput(path), path)
 				if err == nil {
 					unsorted = append(unsorted, config)
 				} else {
@@ -682,7 +692,7 @@ func (p Persistence) loadGroups() {
 			path := filepath.Join(groupsDir, file.Name())
 			configPath := filepath.Join(path, "config.yaml")
 			heroes := p.loadHeroes(path)
-			g, err := p.loadGroup(heroes, file.Name(), fileInput(configPath))
+			g, err := p.loadGroup(heroes, file.Name(), fileInput(configPath), configPath)
 			if err != nil {
 				log.Println(configPath+":", err)
 			} else {
@@ -708,7 +718,7 @@ func (p Persistence) loadScenes(heroes *heroList, groupPath string) []scene {
 			if file.IsDir() {
 				path := filepath.Join(scenesDir, file.Name(), "config.yaml")
 				var s scene
-				s, err = p.loadScene(heroes, file.Name(), fileInput(path))
+				s, err = p.loadScene(heroes, file.Name(), fileInput(path), path)
 				if err == nil {
 					ret = append(ret, s)
 				} else {

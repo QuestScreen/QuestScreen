@@ -39,7 +39,10 @@ func main() {
 	var qs QuestScreen
 	qs.Init(*fullscreenFlag, *width, *height, events, *port, *debug)
 
-	server := startServer(&qs, events, qs.appConfig.port)
+	server, err := startServer(&qs, events, qs.appConfig.port)
+	if err != nil {
+		panic(err)
+	}
 
 	ret := qs.display.RenderLoop()
 	_ = server.Close()

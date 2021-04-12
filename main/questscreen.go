@@ -35,9 +35,8 @@ type ownedResourceFile struct {
 	system int
 }
 
-type moduleData struct {
-	*modules.Module
-	pluginIndex int
+type moduleRef struct {
+	pluginIndex, moduleIndex int
 }
 
 type pluginData struct {
@@ -51,7 +50,7 @@ type QuestScreen struct {
 	appConfig
 	dataDir             string
 	fonts               []LoadedFontFamily
-	modules             []moduleData
+	modules             []moduleRef
 	plugins             []pluginData
 	resourceCollections [][][]ownedResourceFile
 	textures            []resources.Resource
@@ -93,7 +92,7 @@ func (qs *QuestScreen) PluginID(index int) string {
 
 // AddPlugin registers the given plugin's modules and config items with the app.
 func (qs *QuestScreen) AddPlugin(id string, plugin *app.Plugin) error {
-	for _, descr := range plugin.Modules {
+	for index, descr := range plugin.Modules {
 		for i := range forbiddenNames {
 			if descr.ID == forbiddenNames[i] {
 
@@ -116,7 +115,7 @@ func (qs *QuestScreen) AddPlugin(id string, plugin *app.Plugin) error {
 			}
 		}
 
-		qs.modules = append(qs.modules, moduleData{descr, len(qs.plugins)})
+		qs.modules = append(qs.modules, moduleRef{len(qs.plugins), index})
 	}
 	qs.plugins = append(qs.plugins, pluginData{plugin, id})
 	return nil
@@ -212,7 +211,7 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 		mc.Error("Did not find any fonts. " +
 			"Please place at least one TTF/OTF font file in " + fontPath)
 	}
-	qs.modules = make([]moduleData, 0, 32)
+	qs.modules = make([]moduleRef, 0, 32)
 	qs.resourceCollections = make([][][]ownedResourceFile, 0, 32)
 	qs.activeGroupIndex = -1
 	qs.activeSystemIndex = -1
@@ -252,7 +251,8 @@ func (qs *QuestScreen) DataDir(subdirs ...string) string {
 
 // ModuleAt returns the module at the given index
 func (qs *QuestScreen) ModuleAt(index shared.ModuleIndex) *modules.Module {
-	return qs.modules[index].Module
+	ref := qs.modules[index]
+	return qs.plugins[ref.pluginIndex].Modules[ref.moduleIndex]
 }
 
 // ModulePluginIndex returns the plugin the provides the module at the given index
@@ -263,6 +263,23 @@ func (qs *QuestScreen) ModulePluginIndex(index shared.ModuleIndex) int {
 // NumModules returns the number of registered modules
 func (qs *QuestScreen) NumModules() shared.ModuleIndex {
 	return shared.ModuleIndex(len(qs.modules))
+}
+
+func (qs *QuestScreen) ModuleFor(pluginID, moduleID string) shared.ModuleIndex {
+	ret := shared.FirstModule
+	for _, p := range qs.plugins {
+		if p.id == pluginID {
+			for _, m := range p.Modules {
+				if m.ID == moduleID {
+					return ret
+				}
+				ret++
+			}
+			break
+		}
+		ret += shared.ModuleIndex(len(p.Modules))
+	}
+	return -1
 }
 
 // Messages returns the messages generated on app startup
@@ -378,7 +395,7 @@ var forbiddenNames = [7]string{"scenes", "heroes", "fonts", "textures",
 
 func (qs *QuestScreen) loadModuleResources() {
 	for i := range qs.modules {
-		descr := qs.modules[i]
+		descr := qs.ModuleAt(shared.ModuleIndex(i))
 		collections := make([][]ownedResourceFile, 0, 32)
 		selectors := descr.ResourceCollections
 		for i := range selectors {
@@ -429,7 +446,7 @@ func (qs *QuestScreen) GetResources(
 		if (complete[i].group == -1 || complete[i].group == qs.activeGroupIndex) &&
 			(complete[i].system == -1 || complete[i].system == qs.activeSystemIndex) {
 			ret = append(ret, complete[i].Resource)
-			if qs.modules[moduleIndex].ResourceCollections[index].Name != "" {
+			if qs.ModuleAt(moduleIndex).ResourceCollections[index].Name != "" {
 				// single file
 				return ret
 			}

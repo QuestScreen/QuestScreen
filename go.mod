@@ -12,7 +12,7 @@ require (
 	github.com/neelance/astrewrite v0.0.0-20160511093645-99348263ae86 // indirect
 	github.com/neelance/sourcemap v0.0.0-20200213170602-2833bce08e4c // indirect
 	github.com/pborman/getopt v0.0.0-20190409184431-ee0cd42419d3
-	github.com/pborman/getopt/v2 v2.1.0 // indirect
+	github.com/pborman/getopt/v2 v2.1.0
 	github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749 // indirect
 	github.com/spf13/cobra v1.1.3 // indirect
 	github.com/veandco/go-sdl2 v0.4.5

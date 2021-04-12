@@ -15,7 +15,7 @@ type MappedModule struct {
 }
 
 func (mm MappedModule) BasePath() string {
-	return /*StaticData.Plugins[mm.PluginIndex].ID + "/" + */ mm.ID
+	return StaticData.Plugins[mm.PluginIndex].ID + "/" + mm.ID
 }
 
 // StaticData is loaded when booting and is constant everafter.

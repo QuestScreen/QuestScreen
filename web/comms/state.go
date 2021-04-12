@@ -14,7 +14,7 @@ import (
 // ServerState implements web.Server.
 type ServerState struct {
 	*shared.State
-	// currently <module-id>, may change to <plugin-id>/<module-id> in the future
+	// <plugin-id>/<module-id>
 	Base string
 }
 

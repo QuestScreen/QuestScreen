@@ -1,6 +1,7 @@
 package shared
 
 // ModuleIndex identifies a module internally.
+// This is not the index of a module inside a plugin.
 type ModuleIndex int
 
 // FirstModule is the index of the first module

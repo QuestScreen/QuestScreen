@@ -59,9 +59,9 @@ import (
 //   GET: Returns the current group, scene, and for each active module its
 //        state.
 //   POST: Changes active group or scene, returns same data as GET.
-// /state/<module-id>[/<endpoint-path>][/<entity-id>]
+// /state/<plugin-id>/<module-id>[/<endpoint-path>][/<entity-id>]
 //   PUT: Trigger an animation by changing the state of the given module.
-// /resources/<module-id>/<index>
+// /resources/<plugin-id>/<module-id>/<index>
 //   GET: Returns the list of resources for the given module at the given
 //        resource index.
 // /config/base
@@ -501,8 +501,9 @@ func (me *moduleEndpoint) Handle(method httpMethods, ids []string,
 	state := me.qs.data.State.StateOf(me.moduleIndex)
 	if state == nil {
 		return nil, &server.BadRequest{
-			Message: fmt.Sprintf("module \"%s\" not enabled for current scene",
-				me.qs.modules[me.moduleIndex].ID)}
+			Message: fmt.Sprintf("module \"%s/%s\" not enabled for current scene",
+				me.qs.PluginID(me.qs.ModulePluginIndex(me.moduleIndex)),
+				me.qs.ModuleAt(me.moduleIndex).ID)}
 	}
 
 	req, err := me.qs.display.StartRequest(
@@ -799,8 +800,8 @@ func (dhe dataHeroEndpoint) Handle(method httpMethods, ids []string,
 }
 
 func startServer(owner *QuestScreen, events display.Events,
-	port uint16) *http.Server {
-	server := &http.Server{Addr: ":" + strconv.Itoa(int(port))}
+	port uint16) (server *http.Server, err error) {
+	server = &http.Server{Addr: ":" + strconv.Itoa(int(port))}
 	env := &endpointEnv{qs: owner, events: events}
 	mutex := &sync.Mutex{}
 
@@ -839,63 +840,75 @@ func startServer(owner *QuestScreen, events display.Events,
 			&branch{"heroes"}, endpoint{httpPost, &dataHeroesEndpoint{env}},
 			idCapture{}, endpoint{httpPut | httpDelete, &dataHeroEndpoint{env}})
 
-		for i := shared.FirstModule; i < owner.NumModules(); i++ {
-			seenSlash := false
-			seenOthers := false
+		var builder strings.Builder
+		moduleIndex := shared.FirstModule
+		for _, plugin := range owner.plugins {
+			for _, module := range plugin.Modules {
+				seenSlash := false
+				seenOthers := false
 
-			desc := owner.modules[i]
-			seen := make(map[string]struct{})
+				seen := make(map[string]struct{})
 
-			for j := range desc.ResourceCollections {
-				var builder strings.Builder
-				builder.WriteString("/resources/")
-				builder.WriteString(desc.ID)
-				builder.WriteByte('/')
-				builder.WriteString(strconv.Itoa(j))
-				reg(fmt.Sprintf("ResourceEndpoint(%v/%v)", desc.ID, j), builder.String(),
-					mutex, endpoint{httpGet, resourceEndpoint{
-						endpointEnv: env, moduleIndex: i, resourceIndex: resources.CollectionIndex(j)}})
-			}
-
-			for j := range desc.EndpointPaths {
-				path := desc.EndpointPaths[j]
-				_, ok := seen[path]
-				if ok {
-					panic("module " + desc.Name + " has duplicate endpoint path " + path)
-				}
-				seen[path] = struct{}{}
-				if path == "" {
-				} else if path == "/" {
-					if seenOthers {
-						panic("module " + desc.Name +
-							" has \"/\" endpoint path besides non-empty paths")
-					}
-					seenSlash = true
-				} else {
-					if seenSlash {
-						panic("module " + desc.Name +
-							" has \"/\" endpoint path besides non-empty paths")
-					}
-					seenOthers = true
-				}
-				var builder strings.Builder
-				builder.WriteString("/state/")
-				builder.WriteString(desc.ID)
-				if len(path) != 0 && path[0] != '/' {
+				for j := range module.ResourceCollections {
+					builder.Reset()
+					builder.WriteString("/resources/")
+					builder.WriteString(plugin.id)
 					builder.WriteByte('/')
+					builder.WriteString(module.ID)
+					builder.WriteByte('/')
+					builder.WriteString(strconv.Itoa(j))
+					reg(fmt.Sprintf("ResourceEndpoint(%v/%v/%v)", plugin.id, module.ID, j), builder.String(),
+						mutex, endpoint{httpGet, resourceEndpoint{
+							endpointEnv: env, moduleIndex: moduleIndex, resourceIndex: resources.CollectionIndex(j)}})
 				}
-				builder.WriteString(path)
-				if len(path) != 0 && path[len(path)-1] == '/' {
-					reg("ModuleEndpoint("+path+")", builder.String(), mutex,
-						idCapture{}, endpoint{httpPost,
-							&moduleEndpoint{endpointEnv: env, moduleIndex: i, endpointIndex: j,
+
+				for endpointIndex, path := range module.EndpointPaths {
+					_, ok := seen[path]
+					if ok {
+						return nil, fmt.Errorf(
+							"module %v/%v has duplicate endpoint path %v",
+							plugin.id, module.ID, path)
+					}
+					seen[path] = struct{}{}
+					if path == "" {
+					} else if path == "/" {
+						if seenOthers {
+							return nil, fmt.Errorf(
+								"module %v/%v has '/' endpoint path besides non-empty paths",
+								plugin.id, module.ID)
+						}
+						seenSlash = true
+					} else {
+						if seenSlash {
+							return nil, fmt.Errorf(
+								"module %v/%v has '/' endpoint path besides non-empty paths",
+								plugin.id, module.ID)
+						}
+						seenOthers = true
+					}
+					builder.Reset()
+					builder.WriteString("/state/")
+					builder.WriteString(plugin.id)
+					builder.WriteByte('/')
+					builder.WriteString(module.ID)
+					if len(path) != 0 && path[0] != '/' {
+						builder.WriteByte('/')
+					}
+					builder.WriteString(path)
+					location := builder.String()
+					if len(path) != 0 && path[len(path)-1] == '/' {
+						reg("ModuleEndpoint("+location[7:]+")", location, mutex,
+							idCapture{}, endpoint{httpPost, &moduleEndpoint{endpointEnv: env,
+								moduleIndex: moduleIndex, endpointIndex: endpointIndex,
 								pure: false}})
-				} else {
-					reg("ModuleEndpoint("+path+")", builder.String(), mutex,
-						endpoint{httpPost,
-							&moduleEndpoint{endpointEnv: env, moduleIndex: i, endpointIndex: j,
+					} else {
+						reg("ModuleEndpoint("+location[7:]+")", location, mutex,
+							endpoint{httpPost, &moduleEndpoint{endpointEnv: env,
+								moduleIndex: moduleIndex, endpointIndex: endpointIndex,
 								pure: true}})
+					}
 				}
+				moduleIndex++
 			}
 		}
 	}
@@ -909,5 +922,5 @@ func startServer(owner *QuestScreen, events display.Events,
 		}
 	}()
 
-	return server
+	return
 }
