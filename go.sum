@@ -200,6 +200,12 @@ github.com/QuestScreen/api v0.3.1-0.20210406204625-18b97ac8d367 h1:emBhId8Q4Qjfy
 github.com/QuestScreen/api v0.3.1-0.20210406204625-18b97ac8d367/go.mod h1:dh+asRL58X1fnbu0pR1nKYSszAYWh9EaMIGlYjl5l18=
 github.com/QuestScreen/api v0.3.1-0.20210406210759-aeb209824c0f h1:09lMH8NPZf0ju/st8nNIrzu8pBp/SABgeoL9nYaU6so=
 github.com/QuestScreen/api v0.3.1-0.20210406210759-aeb209824c0f/go.mod h1:dh+asRL58X1fnbu0pR1nKYSszAYWh9EaMIGlYjl5l18=
+github.com/QuestScreen/api v0.3.1-0.20210421204904-e6e26e2a9649 h1:cquetrJ/q5OPKODrMHoOUYNHTeBiIR1At9hr2m17B+Q=
+github.com/QuestScreen/api v0.3.1-0.20210421204904-e6e26e2a9649/go.mod h1:maxyRUCNJC02EWOzvSiIGWtKAfggOzZ0RJAlCLfJSQ0=
+github.com/QuestScreen/plugin-tutorial v0.0.0-20210421193146-bbebc9a35aa4 h1:RA0DByWW1f4XxtXKWxWVP34q0erWBWreMIhCzq0UUcA=
+github.com/QuestScreen/plugin-tutorial v0.0.0-20210421193146-bbebc9a35aa4/go.mod h1:S3H2a1enGeDmA9NWVpdsI1J2r9aFU1Ab67KgijQqiXc=
+github.com/QuestScreen/plugin-tutorial v0.0.0-20210421213135-c5b3a410f70c h1:GyOEgODx0bXPODUPU0J3b0rFlV8Fyo/6zXaUPikwBwA=
+github.com/QuestScreen/plugin-tutorial v0.0.0-20210421213135-c5b3a410f70c/go.mod h1:m1Au0kk4DiIkMy3SRLGnmILamwLb3Z/lsT5PaJ4tPf0=
 github.com/QuestScreen/qs-build v0.0.0-20200812191811-a59773b2e7ee h1:2CPSPHI+NeTpMOLnyqg9xldenf5dbuPcALb4JsaPh5M=
 github.com/QuestScreen/qs-build v0.0.0-20200812191811-a59773b2e7ee/go.mod h1:T9bpfUJUfBAAvCZhuQbkVZcCCYdwoMUaf8F2slEnqwI=
 github.com/QuestScreen/qs-build v0.0.0-20210327151412-c106ab7e1f4d h1:IfE+Xmrp9EQEdzRTvVcDjkOE2DfO59SO+2I7OX48BjQ=
@@ -218,6 +224,12 @@ github.com/QuestScreen/qs-build v0.0.0-20210410151249-28cd49f0f824 h1:2IlFZu0T7R
 github.com/QuestScreen/qs-build v0.0.0-20210410151249-28cd49f0f824/go.mod h1:OaDHo2m0L6RyZzqvUN8uUT1HtSFUHF/albbfEKsRx64=
 github.com/QuestScreen/qs-build v0.0.0-20210410184318-f36ec174b5e4 h1:OeOpOM3Nw+E1EFVb9hZe+zzqfGTazLdBpkSifUOg0bA=
 github.com/QuestScreen/qs-build v0.0.0-20210410184318-f36ec174b5e4/go.mod h1:OaDHo2m0L6RyZzqvUN8uUT1HtSFUHF/albbfEKsRx64=
+github.com/QuestScreen/qs-build v0.0.0-20210410203026-c1a2b2315640 h1:c7zpVCaeJhmyRjGBrMCoTM39ybMl2blgHsic6I+vC6I=
+github.com/QuestScreen/qs-build v0.0.0-20210410203026-c1a2b2315640/go.mod h1:NyHQtf/IbfZLV1Va0iBIeq8DBuM+CeZJ7CXGFmVTLvQ=
+github.com/QuestScreen/qs-build v0.0.0-20210423183709-ac2e9e77edea h1:v9zqDRxSrHwHnB1eUPzrshS1jSGlIsHYNTX6xBxtfFE=
+github.com/QuestScreen/qs-build v0.0.0-20210423183709-ac2e9e77edea/go.mod h1:NyHQtf/IbfZLV1Va0iBIeq8DBuM+CeZJ7CXGFmVTLvQ=
+github.com/QuestScreen/qs-build v0.0.0-20210425161130-268277528cb4 h1:r4PzARExkQNUpwjA4K8yMubQv3sMOC3aeWXMdSeVdM4=
+github.com/QuestScreen/qs-build v0.0.0-20210425161130-268277528cb4/go.mod h1:NyHQtf/IbfZLV1Va0iBIeq8DBuM+CeZJ7CXGFmVTLvQ=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
@@ -248,6 +260,10 @@ github.com/flyx/askew v0.0.0-20210329180534-759258f981fe h1:sRXRSPm9tdE0YVSgcmh1
 github.com/flyx/askew v0.0.0-20210329180534-759258f981fe/go.mod h1:SvpWQsvLkXwZbf/puwfUkRe7S1T70W+UtxHs5mvKqco=
 github.com/flyx/askew v0.0.0-20210410175138-40c26abe9499 h1:dtKSs57uUQvAlpDx0bh178kXoZkcQ9P7snVlGQIgbWU=
 github.com/flyx/askew v0.0.0-20210410175138-40c26abe9499/go.mod h1:L1lkRalQsLL8C4rYWFjetSFO1h2Sg5K5+k1mNnr7WHw=
+github.com/flyx/askew v0.0.0-20210417174532-4f90ab8b59ff h1:uIbKbpUwk9m+yWQn7Z43FMc57qqxhR5XuubfSXoWdCk=
+github.com/flyx/askew v0.0.0-20210417174532-4f90ab8b59ff/go.mod h1:L1lkRalQsLL8C4rYWFjetSFO1h2Sg5K5+k1mNnr7WHw=
+github.com/flyx/askew v0.0.0-20210421212804-e20c8d2ddd19 h1:8zkvyfjJVnuCx+pBoNqiblNSa+Dw8cXpJ6xrgxaJDVk=
+github.com/flyx/askew v0.0.0-20210421212804-e20c8d2ddd19/go.mod h1:L1lkRalQsLL8C4rYWFjetSFO1h2Sg5K5+k1mNnr7WHw=
 github.com/flyx/net v0.1.1 h1:QXt2Kg2IENl8wGVdRyCEEcxwwH0IUUfrag2K7+piq1I=
 github.com/flyx/net v0.1.1/go.mod h1:RhAMXQE/C5L7AfjtMC4fnl+nfPv62e1hU/65vhxFGSY=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
@@ -483,6 +499,10 @@ golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20210320140829-1e4c9ba3b0c4/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57 h1:F5Gozwx4I1xtr/sr/8CFbb57iKi3297KFs0QDbGN60A=
 golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20210423082822-04245dca01da h1:b3NXsE2LusjYGGjL5bxEVZZORm/YEFFrWFjR8eFrw/c=
+golang.org/x/sys v0.0.0-20210423082822-04245dca01da/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20210423185535-09eb48e85fd7 h1:iGu644GcxtEcrInvDsQRCwJjtCIOlT2V7IRt6ah2Whw=
+golang.org/x/sys v0.0.0-20210423185535-09eb48e85fd7/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=

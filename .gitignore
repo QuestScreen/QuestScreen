@@ -9,6 +9,7 @@ __debug_bin
 docs/demo.json
 plugins/plugins.go
 plugins/plugins.yaml
+plugins/plugins.txt
 web/configitems*.go
 assets/assets.go
 *.exe

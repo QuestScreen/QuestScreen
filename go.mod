@@ -3,9 +3,9 @@ module github.com/QuestScreen/QuestScreen
 go 1.12
 
 require (
-	github.com/QuestScreen/api v0.3.1-0.20210406210759-aeb209824c0f
-	github.com/QuestScreen/qs-build v0.0.0-20210410184318-f36ec174b5e4
-	github.com/flyx/askew v0.0.0-20210410175138-40c26abe9499
+	github.com/QuestScreen/api v0.3.1-0.20210421204904-e6e26e2a9649
+	github.com/QuestScreen/qs-build v0.0.0-20210425161130-268277528cb4
+	github.com/flyx/askew v0.0.0-20210421212804-e20c8d2ddd19
 	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20210202160940-bed99a852dfe // indirect
 	github.com/jessevdk/go-flags v1.5.0 // indirect
@@ -18,7 +18,7 @@ require (
 	github.com/veandco/go-sdl2 v0.4.5
 	github.com/yhirose/go-peg v0.0.0-20190710015414-7eb2cf046928 // indirect
 	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57 // indirect
+	golang.org/x/sys v0.0.0-20210423185535-09eb48e85fd7 // indirect
 	golang.org/x/text v0.3.6
 	golang.org/x/tools v0.1.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
