@@ -161,6 +161,26 @@ func (qs *QuestScreen) loadConfig(path string, width int32, height int32,
 	return nil
 }
 
+func (qs *QuestScreen) loadTextures(path string) {
+	textureFiles, err := ioutil.ReadDir(path)
+	if err == nil {
+		for _, file := range textureFiles {
+			if !file.IsDir() && file.Name()[0] != '.' {
+				path := filepath.Join(path, file.Name())
+				if _, err := os.Stat(path); err != nil {
+					log.Printf("could not read file %s: %s\n", path, err.Error())
+					continue
+				}
+				qs.textures = append(qs.textures, resources.Resource{
+					Name: file.Name(), Location: &url.URL{Scheme: "file", Path: path}})
+			}
+		}
+	}
+}
+
+var specialDirs = [6]string{"base", "fonts", "textures", "plugins", "groups",
+	"systems"}
+
 // Init initializes the static data
 func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	events display.Events, port uint16, debug bool) {
@@ -169,12 +189,9 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 	usr, _ := user.Current()
 
 	qs.dataDir = filepath.Join(usr.HomeDir, ".local", "share", "questscreen")
-	os.MkdirAll(qs.DataDir("base"), 0755)
-	os.MkdirAll(qs.DataDir("fonts"), 0755)
-	os.MkdirAll(qs.DataDir("plugins"), 0755)
-	os.MkdirAll(qs.DataDir("groups"), 0755)
-	os.MkdirAll(qs.DataDir("systems"), 0755)
-	os.MkdirAll(qs.DataDir("textures"), 0755)
+	for _, item := range specialDirs {
+		os.MkdirAll(qs.DataDir(item), 0755)
+	}
 	if err := qs.loadConfig(filepath.Join(qs.dataDir, "config.yaml"),
 		width, height, port, fullscreen); err != nil {
 		log.Printf("unable to read config. error was:\n  %s\n", err.Error())
@@ -203,14 +220,25 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 
 	_, oHeight := window.GLGetDrawableSize()
 
+	dd := qs.defaultDir()
 	fontSizeMap := [6]int32{oHeight / 37, oHeight / 27, oHeight / 19,
 		oHeight / 13, oHeight / 8, oHeight / 4}
+	if dd != "" {
+		qs.loadFonts(filepath.Join(dd, "fonts"), fontSizeMap)
+	}
 	fontPath := filepath.Join(qs.dataDir, "fonts")
-	qs.fonts = createFontCatalog(fontPath, fontSizeMap)
+	qs.loadFonts(fontPath, fontSizeMap)
+
 	if len(qs.fonts) == 0 {
 		mc.Error("Did not find any fonts. " +
 			"Please place at least one TTF/OTF font file in " + fontPath)
 	}
+
+	if dd != "" {
+		qs.loadTextures(filepath.Join(dd, "textures"))
+	}
+	qs.loadTextures(qs.DataDir("textures"))
+
 	qs.modules = make([]moduleRef, 0, 32)
 	qs.resourceCollections = make([][][]ownedResourceFile, 0, 32)
 	qs.activeGroupIndex = -1
@@ -218,21 +246,6 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 
 	plugins.LoadPlugins(qs)
 
-	texturePath := qs.DataDir("textures")
-	textureFiles, err := ioutil.ReadDir(texturePath)
-	if err == nil {
-		for _, file := range textureFiles {
-			if !file.IsDir() && file.Name()[0] != '.' {
-				path := filepath.Join(texturePath, file.Name())
-				if _, err := os.Stat(path); err != nil {
-					log.Printf("could not read file %s: %s\n", path, err.Error())
-					continue
-				}
-				qs.textures = append(qs.textures, resources.Resource{
-					Name: file.Name(), Location: &url.URL{Scheme: "file", Path: path}})
-			}
-		}
-	}
 	qs.persistence, qs.communication = qs.data.LoadPersisted(qs)
 	qs.loadModuleResources()
 
@@ -247,6 +260,16 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 // subdirs inside QuestScreen's data directory
 func (qs *QuestScreen) DataDir(subdirs ...string) string {
 	return filepath.Join(append([]string{qs.dataDir}, subdirs...)...)
+}
+
+func (qs *QuestScreen) defaultDir() string {
+	exe, err := os.Executable()
+	if err != nil {
+		fmt.Printf("unable to query exectable's path, not loading default files: %v\n", err.Error())
+		return ""
+	} else {
+		return filepath.Join(filepath.Dir(exe), "resources", "default")
+	}
 }
 
 // ModuleAt returns the module at the given index

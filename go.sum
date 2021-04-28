@@ -202,10 +202,8 @@ github.com/QuestScreen/api v0.3.1-0.20210406210759-aeb209824c0f h1:09lMH8NPZf0ju
 github.com/QuestScreen/api v0.3.1-0.20210406210759-aeb209824c0f/go.mod h1:dh+asRL58X1fnbu0pR1nKYSszAYWh9EaMIGlYjl5l18=
 github.com/QuestScreen/api v0.3.1-0.20210421204904-e6e26e2a9649 h1:cquetrJ/q5OPKODrMHoOUYNHTeBiIR1At9hr2m17B+Q=
 github.com/QuestScreen/api v0.3.1-0.20210421204904-e6e26e2a9649/go.mod h1:maxyRUCNJC02EWOzvSiIGWtKAfggOzZ0RJAlCLfJSQ0=
-github.com/QuestScreen/plugin-tutorial v0.0.0-20210421193146-bbebc9a35aa4 h1:RA0DByWW1f4XxtXKWxWVP34q0erWBWreMIhCzq0UUcA=
-github.com/QuestScreen/plugin-tutorial v0.0.0-20210421193146-bbebc9a35aa4/go.mod h1:S3H2a1enGeDmA9NWVpdsI1J2r9aFU1Ab67KgijQqiXc=
-github.com/QuestScreen/plugin-tutorial v0.0.0-20210421213135-c5b3a410f70c h1:GyOEgODx0bXPODUPU0J3b0rFlV8Fyo/6zXaUPikwBwA=
-github.com/QuestScreen/plugin-tutorial v0.0.0-20210421213135-c5b3a410f70c/go.mod h1:m1Au0kk4DiIkMy3SRLGnmILamwLb3Z/lsT5PaJ4tPf0=
+github.com/QuestScreen/api v0.3.1-0.20210427200737-d50748fc77b8 h1:VIDVJKSGU/Ta4lHMZzbIOTWZkrGmdTGk/RzDrd2L4do=
+github.com/QuestScreen/api v0.3.1-0.20210427200737-d50748fc77b8/go.mod h1:SP9edu4wgLXyAu3Mhy0yQOSUvnpgViWp910ysyuUSmI=
 github.com/QuestScreen/qs-build v0.0.0-20200812191811-a59773b2e7ee h1:2CPSPHI+NeTpMOLnyqg9xldenf5dbuPcALb4JsaPh5M=
 github.com/QuestScreen/qs-build v0.0.0-20200812191811-a59773b2e7ee/go.mod h1:T9bpfUJUfBAAvCZhuQbkVZcCCYdwoMUaf8F2slEnqwI=
 github.com/QuestScreen/qs-build v0.0.0-20210327151412-c106ab7e1f4d h1:IfE+Xmrp9EQEdzRTvVcDjkOE2DfO59SO+2I7OX48BjQ=

@@ -1,8 +1,6 @@
 package datasets
 
 import (
-	"syscall/js"
-
 	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/QuestScreen/web"
 	"github.com/QuestScreen/QuestScreen/web/comms"
@@ -82,7 +80,6 @@ func (o *base) init() {
 }
 
 func (o *base) addSystem() {
-	js.Global().Get("console").Call("log", "adding system")
 	site.Popup.TextInput("Create system", "Name:", func(name string) {
 		if err := comms.Fetch(api.Post, "data/systems", name,
 			&web.Data.Systems); err != nil {

@@ -25,20 +25,17 @@ type LoadedFontFamily struct {
 	name        string
 }
 
-// CreateFontCatalog loads all the fonts in the fonts directory
-func createFontCatalog(
-	fontDir string, fontSizeMap [api.NumFontSizes]int32) []LoadedFontFamily {
-	files, err := ioutil.ReadDir(fontDir)
+func (qs *QuestScreen) loadFonts(dir string, fontSizeMap [api.NumFontSizes]int32) {
+	files, err := ioutil.ReadDir(dir)
 
 	if err != nil {
 		log.Println(err)
-		return nil
+		return
 	}
 
-	catalog := make([]LoadedFontFamily, 0, len(files))
 	for _, file := range files {
 		if !file.IsDir() {
-			path := filepath.Join(fontDir, file.Name())
+			path := filepath.Join(dir, file.Name())
 			if font, err := ttf.OpenFont(path, int(fontSizeMap[api.ContentFont])); err != nil {
 				log.Println(err)
 			} else {
@@ -50,15 +47,15 @@ func createFontCatalog(
 				isItalic := (font.GetStyle() & ttf.STYLE_ITALIC) != 0
 
 				var family *LoadedFontFamily
-				for i := range catalog {
-					if catalog[i].Name() == familyName {
-						family = &catalog[i]
+				for i := range qs.fonts {
+					if qs.fonts[i].Name() == familyName {
+						family = &qs.fonts[i]
 						break
 					}
 				}
 				if family == nil {
-					catalog = append(catalog, LoadedFontFamily{name: familyName})
-					family = &catalog[len(catalog)-1]
+					qs.fonts = append(qs.fonts, LoadedFontFamily{name: familyName})
+					family = &qs.fonts[len(qs.fonts)-1]
 				}
 				fontList := [api.NumFontSizes]*ttf.Font{}
 				fontList[api.ContentFont] = font
@@ -80,10 +77,6 @@ func createFontCatalog(
 			}
 		}
 	}
-	if len(catalog) == 0 {
-		return nil
-	}
-	return catalog
 }
 
 // Font returns the font at the given size;

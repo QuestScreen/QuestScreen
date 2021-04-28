@@ -37,13 +37,32 @@ func genView(url string, ctx server.Context, p *Page) *view {
 	if err := comms.Fetch(api.Get, url, nil, &data); err != nil {
 		panic(err)
 	}
+	if len(data) != len(web.StaticData.Modules) {
+		api.Log(api.LogError, "while querying modules at "+url+":")
+		api.Log(api.LogError, "number of received module configs does not match number of modules")
+	}
+
 	ret := newView()
 	for i := range web.StaticData.Modules {
+		if i >= len(data) {
+			break
+		}
 		m := &web.StaticData.Modules[i]
-		mView := newModule(m.Name)
 		mData := data[i]
+		if mData == nil {
+			continue
+		}
+
+		mView := newModule(m.Name)
+		if len(mData) != len(m.ConfigItems) {
+			api.Log(api.LogError,
+				"at module "+m.BasePath()+": received config length does not match config items of module.")
+		}
 		for j, item := range m.ConfigItems {
-			wasEnabled := !bytes.HasPrefix(mData[j], []byte("null"))
+			wasEnabled := false
+			if j < len(mData) {
+				wasEnabled = !bytes.HasPrefix(mData[j], []byte("null"))
+			}
 			ctrl := item.Constructor(ctx)
 			ui := newItem(ctrl, item.Name, wasEnabled, p)
 			ctrl.SetEditHandler(ui)
