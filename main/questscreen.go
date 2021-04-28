@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -172,7 +171,7 @@ func (qs *QuestScreen) loadTextures(path string) {
 					continue
 				}
 				qs.textures = append(qs.textures, resources.Resource{
-					Name: file.Name(), Location: &url.URL{Scheme: "file", Path: path}})
+					Name: file.Name(), Location: toFileUrl(path)})
 			}
 		}
 	}
@@ -370,7 +369,7 @@ func appendBySelector(rFiles []ownedResourceFile, basePath string,
 
 					rFiles = append(rFiles, ownedResourceFile{
 						Resource: resources.Resource{Name: file.Name(),
-							Location: &url.URL{Scheme: "file", Path: path}},
+							Location: toFileUrl(path)},
 						group: group, system: system})
 				}
 			}
@@ -383,7 +382,7 @@ func appendBySelector(rFiles []ownedResourceFile, basePath string,
 		if err == nil {
 			rFiles = append(rFiles, ownedResourceFile{
 				Resource: resources.Resource{Name: selector.Name,
-					Location: &url.URL{Scheme: "file", Path: path}},
+					Location: toFileUrl(path)},
 				group: group, system: system,
 			})
 		} else if !os.IsNotExist(err) {

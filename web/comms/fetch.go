@@ -51,9 +51,9 @@ func Fetch(method api.RequestMethod, url string, payload interface{}, target int
 		resp.Body.Close()
 	default:
 		content, _ := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		return errors.New(url + ": " + strconv.Itoa(resp.StatusCode) +
+		err = errors.New(url + ": " + strconv.Itoa(resp.StatusCode) +
 			": " + string(content))
+		resp.Body.Close()
 	}
-	return nil
+	return err
 }
