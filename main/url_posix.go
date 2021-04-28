@@ -4,7 +4,6 @@ package main
 
 import (
 	"net/url"
-	"path/filepath"
 )
 
 func toFileUrl(path string) *url.URL {

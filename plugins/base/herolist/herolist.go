@@ -8,8 +8,6 @@ import (
 	"github.com/QuestScreen/api/modules"
 	"github.com/QuestScreen/api/render"
 	"github.com/QuestScreen/api/server"
-
-	"github.com/veandco/go-sdl2/sdl"
 )
 
 type heroData struct {
@@ -60,7 +58,6 @@ type HeroList struct {
 	curHero                     int32
 	curXOffset, curYOffset      int32
 	contentWidth, contentHeight int32
-	mask                        *sdl.Texture
 	status                      heroStatus
 	alphaMod                    uint8
 }
@@ -100,14 +97,21 @@ func (l *HeroList) boxHeight(borderWidth int32) int32 {
 
 func (l *HeroList) buildHeroBox(r render.Renderer, h heroData) render.Image {
 	unit := r.Unit()
+	// boxWidth/boxHeight are with borders, CreateCanvas takes inner width/height
+	// so we substract the borders.
 	canvas, frame := r.CreateCanvas(l.boxWidth(unit)-unit,
 		l.boxHeight(unit)-2*unit, l.config.Background.Background,
 		render.North|render.East|render.South)
-	_, frame = frame.Carve(render.West, 2*unit)
+	// by positioning the content in the center, we'll have 2 units margin at
+	// each side (1 unit of those 2 is border, where applicable)
+	frame = frame.Position(l.contentWidth, l.contentHeight, render.Center,
+		render.Middle)
+	// render the text into textures
 	nameImg := r.RenderText(h.name, l.config.NameFont.Font)
 	defer r.FreeImage(&nameImg)
 	descrImg := r.RenderText(h.desc, l.config.DescrFont.Font)
 	defer r.FreeImage(&descrImg)
+	// print them into the box at top/bottom inside the margin
 	nameFrame := frame.Position(nameImg.Width, nameImg.Height, render.Left,
 		render.Top)
 	nameImg.Draw(r, nameFrame, 255)
