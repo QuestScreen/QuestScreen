@@ -1,9 +1,9 @@
-# Building Quest Screen on the Raspberry Pi
+# Building QuestScreen on the Raspberry Pi
 
 This how-to assumes you use Raspbian.
 
 **Important note for RPi 4 users**:
-Quest Screen uses SDL2's OpenGL backend.
+QuestScreen uses SDL2's OpenGL backend.
 You need to enable the experimental OpenGL driver (`raspi-config` -> `Advanced Options` -> `GL driver`).
 I suggest enabling the SSH daemon (`Interfacing Options` -> `SSH`) since you might not get a local terminal with the GL driver.
 4k@60Hz might not work.
@@ -16,13 +16,13 @@ You have two options:
 
 ### In a Desktop Environment
 
-If you want to use Quest Screen within a desktop environment, you can use the version supplied with the distribution:
+If you want to use QuestScreen within a desktop environment, you can use the version supplied with the distribution:
 
     sudo apt install libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
 
 ### Standalone using KMSDRM
 
-If you want to start Quest Screen without a desktop environment, you need to compile SDL2 yourself because the version in the distribution has this option disabled.
+If you want to start QuestScreen without a desktop environment, you need to compile SDL2 yourself because the version in the distribution has this option disabled.
 **Important**: Make sure you do not have Raspbian's libsdl2 installed!
 
 First, let's get the dependencies:
@@ -80,9 +80,9 @@ source .goenv
 
 If you want to do more things with go, you can put the two `export` lines into your `.bashrc` instead.
 
-## Quest Screen
+## QuestScreen
 
-Now, let's fetch one last build-time dependency and then the Quest Screen sources themselves:
+Now, let's fetch one last build-time dependency and then the QuestScreen sources themselves:
 
 ```bash
 go get github.com/go-bindata/go-bindata/...
@@ -91,7 +91,7 @@ go get -d github.com/QuestScreen/QuestScreen
 
 You will get a `can't load package:` warning here because Go's packaging system is badly designed.
 Ignore it.
-To build Quest Screen, do:
+To build QuestScreen, do:
 
 ```bash
 cd ~/go/src/github.com/QuestScreen/QuestScreen

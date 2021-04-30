@@ -76,7 +76,7 @@ func (d *Display) genWelcome(frame render.Rectangle, port uint16) error {
 	if d.owner.NumFontFamilies() > 0 {
 		fontFace := api.Font{FamilyIndex: 0, Size: api.LargeFont,
 			Style: api.RegularFont, Color: api.RGBA{R: 0, G: 0, B: 0, A: 255}}
-		titleTex := d.RenderText("Quest Screen", fontFace)
+		titleTex := d.RenderText("QuestScreen", fontFace)
 		defer d.FreeImage(&titleTex)
 		titleRow, frame := frame.Carve(render.North, titleTex.Height+4*d.r.unit)
 		texFrame := titleRow.Position(titleTex.Width, titleTex.Height,

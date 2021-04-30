@@ -1,4 +1,4 @@
-# Building Quest Screen on macOS
+# Building QuestScreen on macOS
 
 You will need the SDL2 library and the Go compiler.
 Assuming you have [Homebrew](https://brew.sh/) installed, just do
@@ -16,12 +16,12 @@ go get -d github.com/QuestScreen/QuestScreen
 
 You will get a `can't load package:` warning here because Go's packaging system is badly designed.
 Ignore it.
-To build Quest Screen, do:
+To build QuestScreen, do:
 
 ```bash
 cd ~/go/src/github.com/QuestScreen/QuestScreen
 make
 ```
 
-You can then launch Quest Screen via `./questscreen`.
+You can then launch QuestScreen via `./questscreen`.
 Currently, there's no support for building an app bundle.
