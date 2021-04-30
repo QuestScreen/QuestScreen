@@ -34,13 +34,17 @@ func (v View) IsChild() bool {
 type Page struct{}
 
 // Title returns "Home"
-func (p Page) Title() string {
+func (Page) Title() string {
 	return "Home"
 }
 
 // GenViews returns a view list containing the only view of the home page.
-func (p Page) GenViews() []site.ViewCollection {
+func (Page) GenViews() []site.ViewCollection {
 	return []site.ViewCollection{{Title: "", Items: []site.View{View{}}}}
+}
+
+func (Page) IconOffset() int {
+	return 1
 }
 
 // Register registers this page with the site.
@@ -67,8 +71,9 @@ func (c *viewContent) init(version string) {
 		c.groups.Append(NewChooseableGroup(group.Name, i))
 	}
 	for _, module := range web.StaticData.Modules {
+		p := web.StaticData.Plugins[module.PluginIndex]
 		c.Modules.Append(NewModule(
-			web.StaticData.Plugins[module.PluginIndex].Name, module.Name, module.ID))
+			p.Name, p.ID, module.Name, module.ID))
 	}
 	if len(web.StaticData.Messages) > 0 {
 		container := NewMessageContainer()

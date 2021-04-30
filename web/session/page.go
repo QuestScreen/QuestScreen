@@ -89,6 +89,10 @@ func (p *Page) GenViews() []site.ViewCollection {
 	return ret
 }
 
+func (*Page) IconOffset() int {
+	return 4
+}
+
 func (p *Page) loadState(data *shared.StateResponse) error {
 	site.UpdateSession(data.ActiveGroup, data.ActiveScene)
 	p.modules = data.Modules

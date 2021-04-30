@@ -71,6 +71,9 @@ type Page interface {
 	// If the returned list contains only a single view, the sidebar is left
 	// empty and only the title of the page is used in the title bar.
 	GenViews() []ViewCollection
+	// IconOffset defines the offset of the icon index used for the views of this
+	// page. The icon index for a view collection is selected based on its index.
+	IconOffset() int
 }
 
 // PageEditHandler is a callback that is used by commitable pages to indicate
@@ -208,6 +211,7 @@ func Refresh(id string) {
 		return
 	}
 
+	iconOffset := site.page().IconOffset()
 	var newSelectedEntry *pageMenuEntry
 	for cIndex, c := range viewColls {
 		coll := newSidebarColl(c.Title)
@@ -215,9 +219,9 @@ func Refresh(id string) {
 		for _, v := range c.Items {
 			var entry *pageMenuEntry
 			if v.IsChild() {
-				entry = newPageMenuEntry(v.Title(), parentName, v, cIndex+2)
+				entry = newPageMenuEntry(v.Title(), parentName, v, iconOffset+cIndex+1)
 			} else {
-				entry = newPageMenuEntry(v.Title(), "", v, cIndex+1)
+				entry = newPageMenuEntry(v.Title(), "", v, iconOffset+cIndex)
 				parentName = v.Title()
 			}
 			coll.items.Append(entry)

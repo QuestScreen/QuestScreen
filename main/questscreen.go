@@ -10,6 +10,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -277,6 +278,16 @@ func (qs *QuestScreen) ModuleAt(index shared.ModuleIndex) *modules.Module {
 	return qs.plugins[ref.pluginIndex].Modules[ref.moduleIndex]
 }
 
+// ModuleID build a unique identifier for a module, consisting of the plugin ID
+// and the module ID, separated via fullstop.
+func (qs *QuestScreen) ModuleID(index shared.ModuleIndex) string {
+	var b strings.Builder
+	b.WriteString(qs.PluginID(qs.ModulePluginIndex(index)))
+	b.WriteByte('.')
+	b.WriteString(qs.ModuleAt(index).ID)
+	return b.String()
+}
+
 // ModulePluginIndex returns the plugin the provides the module at the given index
 func (qs *QuestScreen) ModulePluginIndex(index shared.ModuleIndex) int {
 	return qs.modules[index].pluginIndex
@@ -420,8 +431,8 @@ func (qs *QuestScreen) loadModuleResources() {
 		descr := qs.ModuleAt(shared.ModuleIndex(i))
 		collections := make([][]ownedResourceFile, 0, 32)
 		selectors := descr.ResourceCollections
-		for i := range selectors {
-			collections = append(collections, qs.listFiles(descr.ID, selectors[i]))
+		for j := range selectors {
+			collections = append(collections, qs.listFiles(qs.ModuleID(shared.ModuleIndex(i)), selectors[j]))
 		}
 		qs.resourceCollections = append(qs.resourceCollections, collections)
 	}

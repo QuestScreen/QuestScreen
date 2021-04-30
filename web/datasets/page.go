@@ -140,6 +140,10 @@ func (p Page) GenViews() []site.ViewCollection {
 	return ret
 }
 
+func (Page) IconOffset() int {
+	return 1
+}
+
 // Register registers this page with the site.
 func Register() {
 	site.RegisterPage(site.DataPage, &Page{})

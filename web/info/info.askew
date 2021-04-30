@@ -4,10 +4,11 @@
 	<span a:assign="prop(textContent)=moduleName"></span>
 </a:macro>
 
-<a:component name="Module" params="plugin string, moduleName string, moduleID string" gen-new-init>
+<a:component name="Module" params="pluginName string, pluginID string, moduleName string, moduleID string" gen-new-init>
 	<tr>
-		<td a:assign="prop(textContent)=plugin"></td>
+		<td a:assign="prop(textContent)=pluginName"></td>
 		<td a:assign="prop(textContent)=moduleName"></td>
+		<td a:assign="prop(textContent)=pluginID+`.`+moduleID"></td>
 	</tr>
 </a:component>
 
@@ -62,7 +63,7 @@
 			<h4 class="qs-data-sheet-header"><i class="fas fa-film"></i> Loaded Modules</h4>
 			<table class="qs-module-list">
 				<thead>
-					<tr><th>Plugin</th><th>Module</th></tr>
+					<tr><th>Plugin</th><th>Module</th><th>Data Directory</th></tr>
 				</thead>
 				<tbody>
 					<a:embed list type="Module" name="Modules"></a:embed>

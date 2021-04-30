@@ -49,7 +49,7 @@ func genView(url string, ctx server.Context, p *Page) *view {
 		}
 		m := &web.StaticData.Modules[i]
 		mData := data[i]
-		if mData == nil {
+		if len(mData) == 0 {
 			continue
 		}
 
@@ -188,12 +188,16 @@ type Page struct {
 }
 
 // Title returns "Datasets"
-func (p Page) Title() string {
+func (*Page) Title() string {
 	return "Configuration"
 }
 
 func (p *Page) RegisterEditHandler(handler site.PageEditHandler) {
 	p.PageEditHandler = handler
+}
+
+func (*Page) IconOffset() int {
+	return 1
 }
 
 func (p *Page) Commit() {

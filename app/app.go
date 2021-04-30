@@ -20,6 +20,7 @@ type App interface {
 	PluginID(index int) string
 	NumModules() shared.ModuleIndex
 	ModuleAt(index shared.ModuleIndex) *modules.Module
+	ModuleID(index shared.ModuleIndex) string
 	ModulePluginIndex(index shared.ModuleIndex) int
 	ModuleFor(pluginID, moduleID string) shared.ModuleIndex
 	// ServerContext builds a server.Context with the given moduleIndex.

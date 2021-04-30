@@ -151,14 +151,6 @@ func findModule(owner app.App, id string) (*modules.Module, shared.ModuleIndex) 
 	return owner.ModuleAt(ref), ref
 }
 
-func moduleID(owner app.App, index shared.ModuleIndex) string {
-	var b strings.Builder
-	b.WriteString(owner.PluginID(owner.ModulePluginIndex(index)))
-	b.WriteByte('.')
-	b.WriteString(owner.ModuleAt(index).ID)
-	return b.String()
-}
-
 func configType(mod *modules.Module) reflect.Type {
 	defaultType := reflect.TypeOf(mod.DefaultConfig)
 	if defaultType.Kind() != reflect.Ptr ||
@@ -233,7 +225,7 @@ func (p Persistence) persistingModuleConfigs(heroes groups.HeroList,
 			}
 		}
 		if fields != nil {
-			ret[moduleID(p.d.owner, i)] = fields
+			ret[p.d.owner.ModuleID(i)] = fields
 		}
 	}
 	return ret
@@ -504,7 +496,7 @@ func (p Persistence) writeScene(g *group, value *scene) error {
 		Name: value.name, Modules: make(map[string]persistingSceneModule)}
 	for i := shared.FirstModule; i < p.d.owner.NumModules(); i++ {
 		moduleData := &value.modules[i]
-		data.Modules[moduleID(p.d.owner, i)] = persistingSceneModule{
+		data.Modules[p.d.owner.ModuleID(i)] = persistingSceneModule{
 			Enabled: moduleData.enabled, Config: moduleData.config}
 	}
 	dirPath := p.d.owner.DataDir("groups", g.id, "scenes", value.id)
@@ -800,8 +792,7 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 				for modName, modRaw := range sceneValue {
 					moduleFound := false
 					for j := shared.FirstModule; j < a.NumModules(); j++ {
-						module := a.ModuleAt(j)
-						if modName == module.ID {
+						if modName == p.d.owner.ModuleID(j) {
 							moduleFound = true
 							if !sceneDescr.UsesModule(j) {
 								log.Printf("Scene \"%s\": Data given for module %s"+
@@ -809,6 +800,7 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 								break
 							}
 
+							module := a.ModuleAt(j)
 							state, err := module.CreateState(&modRaw,
 								a.ServerContext(j), p.d.owner.MessageSenderFor(j))
 							if err != nil {
@@ -831,12 +823,11 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 						module := a.ModuleAt(j)
 						log.Printf(
 							"Scene \"%s\": Missing data for module %s, loading default\n",
-							sceneName, module.ID)
+							sceneName, p.d.owner.ModuleID(j))
 						state, err := module.CreateState(
 							nil, a.ServerContext(j), p.d.owner.MessageSenderFor(j))
 						if err != nil {
-							panic("Failed to create state with default values for module " +
-								module.ID)
+							panic("Failed to create state with default values")
 						}
 						sceneData[j] = state
 					}
@@ -863,7 +854,7 @@ func (p Persistence) LoadState(g Group, path string) (*State, error) {
 						p.d.owner.MessageSenderFor(j))
 					if err != nil {
 						panic("Failed to create state with default values for module " +
-							module.ID)
+							p.d.owner.ModuleID(j))
 					}
 					sceneData[j] = state
 				}
