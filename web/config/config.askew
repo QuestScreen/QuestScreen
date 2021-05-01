@@ -35,6 +35,9 @@
 </a:component>
 
 <a:component name="view" gen-new-init>
+	<a:data>
+		disabledModules []int
+	</a:data>
 	<article class="pure-form">
 		<a:embed list type="module" name="modules"></a:embed>
 	</article>

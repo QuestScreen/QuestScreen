@@ -49,9 +49,10 @@ func genView(url string, ctx server.Context, p *Page) *view {
 		}
 		m := &web.StaticData.Modules[i]
 		mData := data[i]
-		if len(mData) == 0 {
+		/*if len(mData) == 0 {
+			ret.disabledModules = append(ret.disabledModules, i)
 			continue
-		}
+		}*/
 
 		mView := newModule(m.Name)
 		if len(mData) != len(m.ConfigItems) {
@@ -202,9 +203,13 @@ func (*Page) IconOffset() int {
 
 func (p *Page) Commit() {
 	data := make([][]interface{}, len(web.StaticData.Modules))
+	index := 0
 	for i := 0; i < len(web.StaticData.Modules); i++ {
+		/*if i < len(p.curView.disabledModules) && i == p.curView.disabledModules[i-index] {
+			continue
+		}*/
 		m := web.StaticData.Modules[i]
-		mView := p.curView.modules.Item(i)
+		mView := p.curView.modules.Item(index)
 		data[i] = make([]interface{}, len(m.ConfigItems))
 		for j := 0; j < len(m.ConfigItems); j++ {
 			if mView.items.Item(j).enabled.Get() {
@@ -212,6 +217,7 @@ func (p *Page) Commit() {
 					&comms.ServerState{site.State(), ""})
 			}
 		}
+		index++
 	}
 	if err := comms.Fetch(api.Put, p.curUrl, data, nil); err != nil {
 		panic(err)

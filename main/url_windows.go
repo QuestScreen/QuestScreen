@@ -8,5 +8,5 @@ import (
 )
 
 func toFileUrl(path string) *url.URL {
-	return &url.URL{Scheme: "file", Path: "/" + filepath.ToSlash(path)}
+	return &url.URL{Scheme: "file", Path: filepath.ToSlash(path)}
 }
