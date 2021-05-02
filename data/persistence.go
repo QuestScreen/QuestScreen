@@ -874,7 +874,7 @@ func (s *State) buildYaml() ([]byte, error) {
 		data := make(map[string]interface{})
 		for j := shared.FirstModule; j < s.a.NumModules(); j++ {
 			if sceneDescr.UsesModule(j) {
-				data[s.a.ModuleAt(j).ID] =
+				data[s.a.ModuleID(j)] =
 					s.scenes[i][j].Persist(s.a.ServerContext(j))
 			}
 		}

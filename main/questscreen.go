@@ -122,7 +122,7 @@ func (qs *QuestScreen) AddPlugin(id string, plugin *app.Plugin) error {
 }
 
 func (qs *QuestScreen) loadConfig(path string, width int32, height int32,
-	port uint16, fullscreen bool) error {
+	msaa int, port uint16, fullscreen bool) error {
 	input, err := ioutil.ReadFile(path)
 	if err == nil {
 		decoder := yaml.NewDecoder(bytes.NewReader(input))
@@ -158,6 +158,11 @@ func (qs *QuestScreen) loadConfig(path string, width int32, height int32,
 	if port != 0 {
 		qs.appConfig.port = port
 	}
+	if msaa == 0 || msaa == 2 || msaa == 4 {
+		qs.appConfig.msaa = msaa
+	} else if msaa != -1 {
+		log.Printf("invalid MSAA value: %v\n", msaa)
+	}
 	return nil
 }
 
@@ -183,7 +188,7 @@ var specialDirs = [6]string{"base", "fonts", "textures", "plugins", "groups",
 
 // Init initializes the static data
 func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
-	events display.Events, port uint16, debug bool) {
+	msaa int, events display.Events, port uint16, debug bool) {
 	mc := messageCollector{owner: qs, moduleIndex: -1}
 
 	usr, _ := user.Current()
@@ -193,13 +198,19 @@ func (qs *QuestScreen) Init(fullscreen bool, width int32, height int32,
 		os.MkdirAll(qs.DataDir(item), 0755)
 	}
 	if err := qs.loadConfig(filepath.Join(qs.dataDir, "config.yaml"),
-		width, height, port, fullscreen); err != nil {
+		width, height, msaa, port, fullscreen); err != nil {
 		log.Printf("unable to read config. error was:\n  %s\n", err.Error())
 		return
 	}
 
 	setGLAttributes(debug)
 	sdl.GLSetAttribute(sdl.GL_DOUBLEBUFFER, 1)
+
+	if qs.appConfig.msaa > 0 {
+		sdl.GLSetAttribute(sdl.GL_MULTISAMPLEBUFFERS, 1)
+		sdl.GLSetAttribute(sdl.GL_MULTISAMPLESAMPLES, qs.appConfig.msaa)
+		log.Printf("using MSAA samples: %v\n", qs.appConfig.msaa)
+	}
 
 	// create window and renderer
 	var flags uint32 = sdl.WINDOW_OPENGL | sdl.WINDOW_ALLOW_HIGHDPI

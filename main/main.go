@@ -21,6 +21,7 @@ func main() {
 	port := getopt.Uint16Long("port", 'p', 0, "port to bind to")
 	width := getopt.Int32Long("width", 'w', 0, "width of the window (set w and h to start windowed)")
 	height := getopt.Int32Long("height", 'h', 0, "height of the window (set w and h to start windowed)")
+	msaa := getopt.IntLong("msaa", 'm', -1, "Anti-Aliasing (MSAA) samples")
 	debug := getopt.BoolLong("debug", 'd', "use an OpenGL debug context")
 	getopt.Parse()
 
@@ -37,7 +38,7 @@ func main() {
 
 	events := display.GenEvents()
 	var qs QuestScreen
-	qs.Init(*fullscreenFlag, *width, *height, events, *port, *debug)
+	qs.Init(*fullscreenFlag, *width, *height, *msaa, events, *port, *debug)
 
 	server, err := startServer(&qs, events, qs.appConfig.port)
 	if err != nil {

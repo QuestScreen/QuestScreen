@@ -68,7 +68,7 @@ func (t *Title) genTitleTexture(r render.Renderer, text string) render.Image {
 		resWidth = window.Width * 2 / 3
 	}
 	unit := r.Unit()
-	canvas, inner := r.CreateCanvas(resWidth+4*unit, resHeight,
+	canvas, inner := r.CreateCanvas(resWidth+4*unit, resHeight+4*unit,
 		t.Background.Background, render.West|render.East|render.South)
 	frame := inner.Position(
 		resWidth, resHeight, render.Center, render.Middle)

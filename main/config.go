@@ -12,8 +12,9 @@ type appConfig struct {
 	fullscreen bool
 	width      int32
 	height     int32
+	msaa       int
 	port       uint16
-	keyActions []display.KeyAction `yaml:"keyActions"`
+	keyActions []display.KeyAction
 }
 
 type tmpKeyAction struct {
@@ -26,13 +27,15 @@ type tmpConfig struct {
 	Fullscreen    bool
 	Width, Height int32
 	Port          uint16
-	KeyActions    []tmpKeyAction
+	MSAA          int            `yaml:"msaa"`
+	KeyActions    []tmpKeyAction `yaml:"keyActions"`
 }
 
 func (c *appConfig) MarshalYAML() (interface{}, error) {
 	ret := tmpConfig{
 		Fullscreen: c.fullscreen,
 		Width:      c.width, Height: c.height, Port: c.port,
+		MSAA:       c.msaa,
 		KeyActions: make([]tmpKeyAction, len(c.keyActions))}
 	for i := range c.keyActions {
 		a := c.keyActions[i]
@@ -52,9 +55,13 @@ func (c *appConfig) UnmarshalYAML(value *yaml.Node) error {
 	if tmp.Width == 0 || tmp.Height == 0 {
 		return fmt.Errorf("invalid size (w=%d, h=%d)", tmp.Width, tmp.Height)
 	}
+	if tmp.MSAA != 2 && tmp.MSAA != 4 {
+		return fmt.Errorf("invalid MSAA value %v", tmp.MSAA)
+	}
 
 	*c = appConfig{fullscreen: tmp.Fullscreen, width: tmp.Width, height: tmp.Height,
-		port: tmp.Port, keyActions: make([]display.KeyAction, len(tmp.KeyActions))}
+		port: tmp.Port, msaa: tmp.MSAA,
+		keyActions: make([]display.KeyAction, len(tmp.KeyActions))}
 
 	for i := range tmp.KeyActions {
 		ta := tmp.KeyActions[i]
@@ -74,7 +81,7 @@ func (c *appConfig) UnmarshalYAML(value *yaml.Node) error {
 
 func defaultConfig() appConfig {
 	return appConfig{
-		fullscreen: false, width: 800, height: 600, port: 8080,
+		fullscreen: false, width: 800, height: 600, port: 8080, msaa: 2,
 		keyActions: []display.KeyAction{{Key: sdl.K_ESCAPE, ReturnValue: 0,
 			Description: "Exit"}},
 	}
