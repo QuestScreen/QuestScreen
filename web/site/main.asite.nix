@@ -1,4 +1,4 @@
-<!doctype html>
+{flatten, ...}: plugins: with builtins; ''<!doctype html>
 <a:site lang="en" a:wasmexecpath="/static/wasm_exec.js" a:wasmpath="/static/main.wasm">
 	<a:import>
 		"github.com/QuestScreen/api/web/controls"
@@ -13,12 +13,7 @@
 		<link href="/static/api-color.css" rel="stylesheet"/>
 		<link href="/static/style.css" rel="stylesheet"/>
 		<link href="/static/color.css" rel="stylesheet"/>
-		{{- range .}}
-		{{- $id := index . "id" }}
-    {{- range index (index . "assets") "css" }}
-		<link href="/static/{{$id}}/{{.}}" rel="stylesheet"/>
-		{{- end }}
-		{{- end }}
+		${concatStringsSep "\n\t\t" (flatten (map (p: map (f: "<link href=\"/static/${p.id}/${f}\" rel=\"stylesheet\"/>") p.cssFiles) plugins))}
 
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
 		<meta charset="UTF-8"/>
@@ -50,3 +45,4 @@
 		</div>
 	</body>
 </a:site>
+''

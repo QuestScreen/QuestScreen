@@ -5,7 +5,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/QuestScreen/QuestScreen/assets"
+	"github.com/QuestScreen/QuestScreen/web/assets"
 	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/render"
 
@@ -61,7 +61,7 @@ func (d *Display) genWelcome(frame render.Rectangle, port uint16) error {
 
 	logoRow, frame := frame.Carve(render.North, frame.Height/3)
 	logoTex, err := d.LoadImageMem(
-		assets.MustAsset("android-chrome-512x512.png"), true)
+		assets.MustRead("android-chrome-512x512.png"), true)
 	if err != nil {
 		panic("while generating welcome screen: " + err.Error())
 	}

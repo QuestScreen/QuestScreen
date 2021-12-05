@@ -1,17 +1,18 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/QuestScreen/QuestScreen/assets"
+	"github.com/QuestScreen/QuestScreen/web/assets"
 	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/api/comms"
 	"github.com/QuestScreen/api/groups"
@@ -78,59 +79,25 @@ import (
 //        within the group with the id <group-id>.
 //   PUT: Updates said configuration.
 
-type staticResource struct {
-	contentType string
-	content     []byte
+type staticResourceHandler struct {
+	fileserver http.Handler
 }
 
-type staticResourceHandler struct {
-	resources map[string]staticResource
+type primaryFiles struct {
+	backing embed.FS
 }
 
 func (srh *staticResourceHandler) ServeHTTP(
 	w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Clacks-Overhead", "GNU Terry Pratchett")
-	method := parseMethod(r.Method)
-	if method != httpGet {
-		http.Error(w, fmt.Sprintf(
-			"[StaticResourceHandler] 405: Method not allowed (supports GET, got %s)",
-			method), http.StatusMethodNotAllowed)
-		return
-	}
-	res, ok := srh.resources[r.URL.Path[7:]]
-	if ok {
-		w.Header().Set("Content-Type", res.contentType)
-		w.Write(res.content)
-	} else {
-		http.NotFound(w, r)
-	}
+	srh.fileserver.ServeHTTP(w, r)
 }
 
-type primaryFileHandler struct {
-	resources map[string]staticResource
-}
-
-func (pfh *primaryFileHandler) ServeHTTP(
-	w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("X-Clacks-Overhead", "GNU Terry Pratchett")
-	method := parseMethod(r.Method)
-	if method != httpGet {
-		http.Error(w, fmt.Sprintf(
-			"[FileHandler] 405: Method not allowed (supports GET, got %s)",
-			method), http.StatusMethodNotAllowed)
-		return
+func (pf *primaryFiles) Open(name string) (fs.File, error) {
+	if name == "" || name == "index.html" || name == "favicon.ico" {
+		return pf.backing.Open(name)
 	}
-	var ok bool
-	var res staticResource
-	if r.URL.Path == "/" || r.URL.Path == "/index.html" || r.URL.Path == "/favicon.ico" {
-		res, ok = pfh.resources[r.URL.Path]
-	}
-	if ok {
-		w.Header().Set("Content-Type", res.contentType)
-		w.Write(res.content)
-	} else {
-		http.NotFound(w, r)
-	}
+	return nil, fs.ErrNotExist
 }
 
 type contentTypesS struct {
@@ -181,22 +148,13 @@ var contentTypes = contentTypesS{
 	OctetStream: "application/octet-stream",
 }
 
-func newStaticResourceHandler(qs *QuestScreen) *staticResourceHandler {
-	srh := &staticResourceHandler{
-		resources: make(map[string]staticResource)}
-
-	for _, assetName := range assets.AssetNames() {
-		res := staticResource{
-			contentType: contentTypes.get(filepath.Ext(assetName)),
-			content:     assets.MustAsset(assetName),
-		}
-		srh.resources["/"+assetName] = res
-		if assetName == "index.html" {
-			srh.resources["/"] = res
-		}
+func newStaticResourceHandler(qs *QuestScreen, primary bool) *staticResourceHandler {
+	if primary {
+		return &staticResourceHandler{
+			fileserver: http.FileServer(http.FS(&primaryFiles{assets.Data}))}
 	}
-
-	return srh
+	return &staticResourceHandler{
+		fileserver: http.FileServer(http.FS(assets.Data))}
 }
 
 type endpointEnv struct {
@@ -805,9 +763,10 @@ func startServer(owner *QuestScreen, events display.Events,
 	env := &endpointEnv{qs: owner, events: events}
 	mutex := &sync.Mutex{}
 
-	sep := newStaticResourceHandler(owner)
-	http.Handle("/static/", sep)
-	http.Handle("/", &primaryFileHandler{sep.resources})
+	http.Handle("/static/", http.StripPrefix(
+		"/static/", newStaticResourceHandler(owner, false)))
+	http.Handle("/", http.StripPrefix(
+		"/", newStaticResourceHandler(owner, true)))
 
 	reg("StaticDataHandler", "/static", mutex,
 		endpoint{httpGet, &staticDataEndpoint{env}})
