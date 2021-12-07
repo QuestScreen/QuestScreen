@@ -5,7 +5,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/QuestScreen/QuestScreen/web/assets"
+	"github.com/QuestScreen/QuestScreen/assets"
 	"github.com/QuestScreen/api"
 	"github.com/QuestScreen/api/render"
 

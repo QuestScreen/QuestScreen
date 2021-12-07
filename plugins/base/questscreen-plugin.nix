@@ -1,6 +1,7 @@
 {
 	name = "Base";
   description = "QuestScreen's base plugin, providing the standard modules.";
+  cssFiles = [ "style.css" ];
   modules = {
     background.configName = "backgroundConfig";
     herolist = {

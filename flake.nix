@@ -49,8 +49,8 @@
           scenes = plugin.meta.templates.scenes or {};
           
         in with builtins; {
-          inherit (plugin.meta) name description;
-          inherit (plugin) id importPath;
+          inherit (plugin.meta) name description cssFiles;
+          inherit (plugin) id importPath source;
           modules = native.lib.imap1 (mIndex: {name, value}: {
             inherit name;
             inherit (value) configName;
@@ -64,7 +64,6 @@
             groups = plugin.meta.groups or [];
             scenes = map (key: (getAttr key scenes) // {id = key;}) (attrNames scenes);
           };
-          cssFiles = []; # TODO
         };
       injectWeb = path: if native.lib.hasSuffix "/config" path then
         (native.lib.removeSuffix "/config" path) + "/web/config" else
@@ -80,13 +79,13 @@
       
       vendoredSources = native.stdenvNoCC.mkDerivation {
         name = "questscreen-vendored-sources";
-        src = self;
+        src = builtins.filterSource (path: type: !(builtins.foldl' (x: y: x || native.lib.hasSuffix y path) false [ ".nix" ".md" ".lock" ])) self;
         buildInputs = [ native.go ];
         phases = [ "unpackPhase" "configurePhase" "buildPhase" "installPhase" ];
         VERSIONINFO_CODE = ''
           package versioninfo
           
-          var CurrentVersion = "${self.shortRev or "dirty"}"
+          var CurrentVersion = "${self.shortRev or "dirty-${self.lastModifiedDate}"}"
           var Date = "${self.lastModifiedDate}"
         '';
         PLUGIN_CODE = pluginCode plugins;
@@ -137,17 +136,15 @@
         vendorSha256 = null;
         buildInputs = [ askew ] ++ (if wasm then [] else [ gopherJS ]);
         unpackPhase = "tar zxf $src";
+        ASITE_CODE = asiteCode plugins;
+        PLUGIN_CODE = pluginCode plugins;
         postConfigure = ''
-          cat <<'EOF' > web/site/main.asite
-          ${asiteCode plugins}
-          EOF
+          printenv ASITE_CODE > web/site/main.asite
           mkdir -p $GOPATH/bin
           ln -s ${goimports}/bin/goimports $GOPATH/bin/goimports
           ${askew}/bin/askew -o assets -b ${if wasm then "wasm" else "gopherjs"} \
             --exclude app,assets,build-doc,data,display,main,shared,vendor .
-          cat <<'EOF' > plugins/plugins.go
-          ${pluginCode plugins}
-          EOF
+          printenv PLUGIN_CODE > plugins/plugins.go
         '';
         buildPhase = if wasm then ''
           (cd web/main && env GOOS=js GOARCH=wasm ${native.go}/bin/go build -o main.wasm)
@@ -157,16 +154,18 @@
         doCheck = false;
         installPhase = if wasm then ''
           mkdir -p $out/web/assets
-          cp web/main/main.wasm "$(${native.go}/bin/go env GOROOT)/misc/wasm/wasm_exec.js" $out/web/assets/
+          cp -t $out/web/assets web/main/main.wasm assets/index.html \
+            "$(${native.go}/bin/go env GOROOT)/misc/wasm/wasm_exec.js"
         '' else ''
           mkdir -p $out/web/assets
-          cp web/main/main.js* $out/web/assets/
+          cp -t $out/web/assets web/main/main.js* assets/index.html
         '';
       };
       questscreen-builder = {pkgs, wasm, exeName ? "questscreen"}:
         let
           compiledWebUI = webui wasm;
           suffix = if pkgs.stdenv.hostPlatform.isWindows then ".exe" else "";
+          pluginAssets = plugin: ''cp -r -T ${plugin.source}/web/assets assets/${plugin.id}'';
         in pkgs.buildGo117Module {
           pname = exeName;
           version = self.shortRev or "dirty-${self.lastModifiedDate}";
@@ -181,10 +180,11 @@
           };
           unpackPhase = "tar xzf $src";
           postConfigure = ''
-            cp -r ${compiledWebUI}/* .
+            cp -t assets ${compiledWebUI}/web/assets/* vendor/github.com/QuestScreen/api/web/assets/* \
+              web/assets/*
+            ${builtins.concatStringsSep "\n" (map pluginAssets plugins)}
           '';
           preBuild = ''
-            echo "using go version $(go version)"
             export CGO_CFLAGS=$(pkg-config --cflags sdl2 sdl2_image sdl2_ttf)
           '';
           postBuild = ''

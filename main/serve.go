@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/QuestScreen/QuestScreen/web/assets"
+	"github.com/QuestScreen/QuestScreen/assets"
 	"github.com/QuestScreen/QuestScreen/shared"
 	"github.com/QuestScreen/api/comms"
 	"github.com/QuestScreen/api/groups"
@@ -94,7 +94,7 @@ func (srh *staticResourceHandler) ServeHTTP(
 }
 
 func (pf *primaryFiles) Open(name string) (fs.File, error) {
-	if name == "" || name == "index.html" || name == "favicon.ico" {
+	if name == "." || name == "index.html" || name == "favicon.ico" {
 		return pf.backing.Open(name)
 	}
 	return nil, fs.ErrNotExist
