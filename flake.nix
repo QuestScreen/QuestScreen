@@ -190,6 +190,10 @@
           postBuild = ''
             mv "$GOPATH/bin/main${suffix}" "$GOPATH/bin/questscreen${suffix}"
           '';
+          postInstall = ''
+            mkdir -p $out/share
+            cp -r -t $out/share resources/*
+          '';
         };
     in rec {
       packages = {

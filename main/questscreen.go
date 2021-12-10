@@ -279,7 +279,7 @@ func (qs *QuestScreen) defaultDir() string {
 		fmt.Printf("unable to query exectable's path, not loading default files: %v\n", err.Error())
 		return ""
 	} else {
-		return filepath.Join(filepath.Dir(exe), "resources", "default")
+		return filepath.Join(filepath.Dir(exe), "..", "share", "default")
 	}
 }
 
