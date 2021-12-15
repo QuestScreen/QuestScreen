@@ -28,40 +28,26 @@
         };
       };
       
-      # TODO: support additional plugins
-      pluginRefs = [ {id = "base"; source = "${self}/plugins/base"; importPath = "github.com/QuestScreen/QuestScreen/plugins/base"; } ];
-      pluginsMeta = builtins.map (v: v // {meta = import "${v.source}/questscreen-plugin.nix";}) pluginRefs;
+      basePlugin = import "${self}/plugins/base/metadata.nix" self;
       
-      configTypes = with builtins; let
-        moduleCfgPackages = module: native.lib.mapAttrsToList (k: v: v.package) (module.config or {});
-        pluginCfgPackages = plugin: let modules = plugin.modules or {}; in foldl'
-          (cur: new: cur ++ (moduleCfgPackages (getAttr new modules)))
-          [] (attrNames modules);
-        cfgPackages = foldl' (cur: new: cur ++ (pluginCfgPackages new.meta)) [] pluginsMeta;
-        value = foldl'
-          (cur: new: if hasAttr new cur then cur else
-            cur // {"${new}" = "cfg${toString ((length (attrNames cur)) + 1)}";})
-          {} cfgPackages;
-      in value;
-      
-      loadPlugin = pIndex: plugin:
+      loadPlugin = {index, plugin, id, configTypes}:
         let
-          scenes = plugin.meta.templates.scenes or {};
-          
+          scenes = plugin.templates.scenes or {};
         in with builtins; {
-          inherit (plugin.meta) name description cssFiles;
-          inherit (plugin) id importPath source;
+          inherit (plugin) name description cssFiles goImportPath;
+          inherit id;
+          source = plugin.outPath;
           modules = native.lib.imap1 (mIndex: {name, value}: {
             inherit name;
             inherit (value) configName;
             config = mapAttrs (k: v: v // {
               packageImportName = (getAttr v.package configTypes);
             }) (value.config or {});
-            importName = "p${toString pIndex}m${toString mIndex}";
-          }) (native.lib.mapAttrsToList (k: v: {name = k; value = v;}) plugin.meta.modules);
+            importName = "p${toString index}m${toString mIndex}";
+          }) (native.lib.mapAttrsToList (k: v: {name = k; value = v;}) plugin.modules);
           templates = {
-            systems = plugin.meta.systems or [];
-            groups = plugin.meta.groups or [];
+            systems = plugin.systems or [];
+            groups = plugin.groups or [];
             scenes = map (key: (getAttr key scenes) // {id = key;}) (attrNames scenes);
           };
         };
@@ -69,15 +55,14 @@
         (native.lib.removeSuffix "/config" path) + "/web/config" else
         throw "invalid config path (does not end with '/config'): ${path}";
       renderImports = prefix: plugins: let
-        importLine = plugin: module: ''${module.importName} "${plugin.importPath}/${prefix}${module.name}"'';
+        importLine = plugin: module: ''${module.importName} "${plugin.goImportPath}/${prefix}${module.name}"'';
         importLines = plugin: (builtins.foldl' (a: b: a + "\n\t" + (importLine plugin b)) "" plugin.modules);
       in builtins.foldl' (a: b: a + (importLines b)) "" plugins;
-      plugins = native.lib.imap1 loadPlugin pluginsMeta;
       pluginCode = (import plugins/plugins.go.nix) (native.lib // { inherit renderImports; });
       webPluginCode = (import web/main/plugins.go.nix) (native.lib // { inherit renderImports; });
       webConfigCode = (import web/configDescr.go.nix) (native.lib // { inherit injectWeb; });
       
-      vendoredSources = native.stdenvNoCC.mkDerivation {
+      vendoredSources = {plugins, configTypes}: native.stdenvNoCC.mkDerivation {
         name = "questscreen-vendored-sources";
         src = builtins.filterSource (path: type: !(builtins.foldl' (x: y: x || native.lib.hasSuffix y path) false [ ".nix" ".md" ".lock" ])) self;
         buildInputs = [ native.go ];
@@ -124,10 +109,10 @@
       };
       asiteCode = (import web/site/main.asite.nix) native.lib;
   
-      webui = wasm: buildGoModule {
+      questscreen-webui = {plugins, wasm, sources}: buildGoModule {
         pname = "questscreen-webui";
         version = self.shortRev or "dirty-${self.lastModifiedDate}";
-        src = builtins.trace "webui: using sources at ${vendoredSources}" vendoredSources;
+        src = sources;
         modRoot = "src";
         subPackages = [ "web/main" ];
         overrideModAttrs = old: {
@@ -161,15 +146,32 @@
           cp -t $out/web/assets web/main/main.js* assets/index.html
         '';
       };
-      questscreen-builder = {pkgs, wasm, exeName ? "questscreen"}:
+      questscreen-builder = {pkgs, wasm, exeName ? "questscreen", plugins}:
         let
-          compiledWebUI = webui wasm;
+          # enumerates all used config types
+          configTypes = with builtins; let
+            moduleCfgPackages = module: native.lib.mapAttrsToList (k: v: v.package) (module.config or {});
+            pluginCfgPackages = plugin: let modules = plugin.modules or {}; in foldl'
+              (cur: new: cur ++ (moduleCfgPackages (getAttr new modules)))
+              [] (attrNames modules);
+            cfgPackages = foldl' (cur: new: cur ++ (pluginCfgPackages plugins.${new})) []
+              (attrNames plugins);
+            value = foldl'
+              (cur: new: if hasAttr new cur then cur else
+                cur // {"${new}" = "cfg${toString ((length (attrNames cur)) + 1)}";})
+              {} cfgPackages;
+          in value;
+          loadedPlugins = native.lib.imap1
+            (index: id: loadPlugin {inherit index id configTypes; plugin = plugins.${id};})
+            (builtins.attrNames plugins);
+          sources = vendoredSources {inherit configTypes; plugins = loadedPlugins;};
+          compiledWebUI = questscreen-webui {inherit sources wasm; plugins = loadedPlugins;};
           suffix = if pkgs.stdenv.hostPlatform.isWindows then ".exe" else "";
           pluginAssets = plugin: ''cp -r -T ${plugin.source}/web/assets assets/${plugin.id}'';
         in pkgs.buildGo117Module {
           pname = exeName;
           version = self.shortRev or "dirty-${self.lastModifiedDate}";
-          src = vendoredSources;
+          src = sources;
           modRoot = "src";
           subPackages = [ "main" ];
           vendorSha256 = null;
@@ -182,7 +184,7 @@
           postConfigure = ''
             cp -t assets ${compiledWebUI}/web/assets/* vendor/github.com/QuestScreen/api/web/assets/* \
               web/assets/*
-            ${builtins.concatStringsSep "\n" (map pluginAssets plugins)}
+            ${builtins.concatStringsSep "\n" (map pluginAssets loadedPlugins)}
           '';
           preBuild = ''
             export CGO_CFLAGS=$(pkg-config --cflags sdl2 sdl2_image sdl2_ttf)
@@ -195,10 +197,21 @@
             cp -r -t $out/share resources/*
           '';
         };
+      addWithPlugins = f: origArgs: let
+        origRes = f origArgs;
+      in 
+        origRes // {
+          withPlugins = pluginList: addWithPlugins
+            (f (origArgs // {plugins = origArgs.plugins // pluginList;}));
+        };
     in rec {
       packages = {
-        questscreen = questscreen-builder {pkgs = native; wasm = true;};
-        questscreen-js = questscreen-builder {pkgs = native; wasm = false;};
+        questscreen = addWithPlugins questscreen-builder {
+          pkgs = native; wasm = true; plugins = {base = basePlugin;};
+        };
+        questscreen-js = addWithPlugins questscreen-builder {
+          pkgs = native; wasm = false; plugins = {base = basePlugin;};
+        };
       };
       defaultPackage = packages.questscreen;
     });

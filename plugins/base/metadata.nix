@@ -1,6 +1,9 @@
-{
+self: {
+  # emulates being a derivation, like all other plugins are
+  outPath = "${self}/plugins/base";
 	name = "Base";
   description = "QuestScreen's base plugin, providing the standard modules.";
+  goImportPath = "github.com/QuestScreen/QuestScreen/plugins/base";
   cssFiles = [ "style.css" ];
   modules = {
     background.configName = "backgroundConfig";
