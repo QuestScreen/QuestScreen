@@ -1,5 +1,5 @@
 {
-  description = "Heldendokument-Generator und Webinterface dazu";
+  description = "A kiosk application for use during pen & paper sessions, controlled via web interface";
   inputs = {
     nixpkgs.url = github:NixOS/nixpkgs/nixos-21.11;
     flake-utils.url = github:numtide/flake-utils;
