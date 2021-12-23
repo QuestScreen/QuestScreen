@@ -1,5 +1,5 @@
 {flatten, ...}: plugins: with builtins; ''<!doctype html>
-<a:site lang="en" a:wasmexecpath="/static/wasm_exec.js" a:wasmpath="/static/main.wasm">
+<a:site lang="en" a:wasmexecpath="/static/wasm_exec.js" a:wasmpath="/static/main.wasm" a:jspath="/static/main.js">
 	<a:import>
 		"github.com/QuestScreen/api/web/controls"
 	</a:import>

@@ -10,10 +10,16 @@
       buildGoModule = native.buildGo117Module;
       
       gopherJS = buildGoModule {
+        pname = "gopher-js";
+        version = "1.17.1+go1.17.3";
         src = native.fetchFromGitHub {
           owner = "gopherjs";
           repo = "gopherjs";
+          rev = "ed9a9b14a74738df4185b7627b276902ad07d06f";
+          sha256 = "sha256-YZFYqTQaLt4B0Hu/UznfGvQVjd0UaVlqjd1D+514xu0=";
         };
+        vendorSha256 = "sha256-gio7tA0VrzPOoDkIW5iFr65NFuDLMpbf4pR9rdU8p8Y=";
+        checkPhase = "true";
       };
       goimports = buildGoModule rec {
         pname = "goimports";
@@ -101,8 +107,8 @@
         src = native.fetchFromGitHub {
           owner = "flyx";
           repo = "askew";
-          rev = "6d94175d9696a7c13d7e331411a633848c8338d4";
-          sha256 = "3OOmyiqT8GUQFfQn7veHUiyGA0MHB+xewcqN5ymKpls=";
+          rev = "3986345cbbd3c5e52f91a1d6a08b62ed14088b45";
+          sha256 = "sha256-3NIghslhcLSgOIqPjbmfdpZvyJNiDgCTqqT+lGYcFGY=";
         };
         subPackages = [ "." ];
         vendorSha256 = "oQiZNhbjCpLBPSuzOssGYJoMEe0i7xVeqc3O1LJxMy0=";
@@ -127,20 +133,25 @@
           printenv ASITE_CODE > web/site/main.asite
           mkdir -p $GOPATH/bin
           ln -s ${goimports}/bin/goimports $GOPATH/bin/goimports
+          ln -s ${native.go_1_17}/bin/go $GOPATH/bin/go
           ${askew}/bin/askew -o assets -b ${if wasm then "wasm" else "gopherjs"} \
             --exclude app,assets,build-doc,data,display,main,shared,vendor .
           printenv PLUGIN_CODE > plugins/plugins.go
         '';
         buildPhase = if wasm then ''
-          (cd web/main && env GOOS=js GOARCH=wasm ${native.go}/bin/go build -o main.wasm)
+          (cd web/main && env GOOS=js GOARCH=wasm ${native.go_1_17}/bin/go build -o main.wasm)
         '' else ''
-          (cd web/main && env GOOS=linux ${gopherJS}/bin/gopherjs build)
+          mkdir home # gopherjs wants a home for… *something*
+          (cd web/main && env \
+            GOOS=linux HOME=$(pwd)/home \
+            GOPHERJS_GOROOT="$(${native.go_1_17}/bin/go env GOROOT)" \
+            ${gopherJS}/bin/gopherjs build)
         '';
         doCheck = false;
         installPhase = if wasm then ''
           mkdir -p $out/web/assets
           cp -t $out/web/assets web/main/main.wasm assets/index.html \
-            "$(${native.go}/bin/go env GOROOT)/misc/wasm/wasm_exec.js"
+            "$(${native.go_1_17}/bin/go env GOROOT)/misc/wasm/wasm_exec.js"
         '' else ''
           mkdir -p $out/web/assets
           cp -t $out/web/assets web/main/main.js* assets/index.html
@@ -165,7 +176,9 @@
             (index: id: loadPlugin {inherit index id configTypes; plugin = plugins.${id};})
             (builtins.attrNames plugins);
           sources = vendoredSources {inherit configTypes; plugins = loadedPlugins;};
-          compiledWebUI = questscreen-webui {inherit sources wasm; plugins = loadedPlugins;};
+          compiledWebUI = let
+            ui = questscreen-webui {inherit sources wasm; plugins = loadedPlugins;};
+          in builtins.trace "using UI at ${ui}" ui;
           suffix = if pkgs.stdenv.hostPlatform.isWindows then ".exe" else "";
           pluginAssets = plugin: ''cp -r -T ${plugin.source}/web/assets assets/${plugin.id}'';
         in pkgs.buildGo117Module {
