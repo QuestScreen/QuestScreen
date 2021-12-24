@@ -59,7 +59,7 @@ func LoadPlugins(a app.App) {
 			},'';
 			pluginCode = plugin:
 				''a.AddPlugin("${plugin.id}", &app.Plugin{
-		Name: ${toJSON plugin.name},
+		Name: ${toJSON plugin.label},
 		Modules: []*modules.Module{
 			${concatStringsSep "\n\t\t\t" (map (m: "&${m.importName}.Descriptor,") plugin.modules)}
 		},

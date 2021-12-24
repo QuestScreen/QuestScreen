@@ -1,7 +1,10 @@
-self: {
+self: rec {
   # emulates being a derivation, like all other plugins are
   outPath = "${self}/plugins/base";
-	name = "Base";
+	label = "Base";
+  pname = "questscreen-base";
+  version = self.shortRev or "dirty-${self.lastModifiedDate}";
+  name = "${pname}-${version}";
   description = "QuestScreen's base plugin, providing the standard modules.";
   goImportPath = "github.com/QuestScreen/QuestScreen/plugins/base";
   cssFiles = [ "style.css" ];

@@ -304,7 +304,7 @@ func (p Persistence) WriteSystem(s System) error {
 func (p Persistence) createSystem(tmpl *app.SystemTemplate) (*system, error) {
 	s, err := p.loadSystem(tmpl.ID, byteInput(tmpl.Config), "<template>")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while loading system template: %v", err)
 	}
 	if err = p.WriteSystem(s); err != nil {
 		return nil, err

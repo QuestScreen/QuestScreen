@@ -14,7 +14,7 @@
           scenes = plugin.templates.scenes or {};
           systems = plugin.templates.systems or {};
         in with builtins; {
-          inherit (plugin) name description cssFiles goImportPath;
+          inherit (plugin) name version label description cssFiles goImportPath;
           inherit id;
           source = plugin.outPath;
           modules = pkgs.lib.imap1 (mIndex: {name, value}: {
