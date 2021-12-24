@@ -47,9 +47,9 @@ func LoadPlugins(a app.App) {
 			groupTemplate = group: ''{
 				Name: ${toJSON group.name},
 				Description: ${toJSON group.description},
-				Config: []byte(`${group.config or ""}`);
+				Config: []byte(`${group.config or ""}`),
 				Scenes: []app.SceneTmplRef{
-					${concatLines (map sceneTemplateRefs group.scenes)}
+					${concatStringsSep "\n\t\t\t\t\t" (map sceneTemplateRefs group.scenes)}
 				},
 			},'';
 			sceneTemplate = scene: ''{

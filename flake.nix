@@ -25,8 +25,8 @@
             importName = "p${toString index}m${toString mIndex}";
           }) (pkgs.lib.mapAttrsToList (k: v: {name = k; value = v;}) plugin.modules);
           templates = {
-            systems = plugin.systems or [];
-            groups = plugin.groups or [];
+            systems = plugin.templates.systems or [];
+            groups = plugin.templates.groups or [];
             scenes = map (key: (getAttr key scenes) // {id = key;}) (attrNames scenes);
           };
         };
@@ -66,37 +66,39 @@
         };
       };
       
-      vendoredSources = {plugins, configTypes}: pkgs.stdenvNoCC.mkDerivation {
-        name = "questscreen-vendored-sources";
-        src = builtins.filterSource (path: type: !(builtins.foldl' (x: y: x || pkgs.lib.hasSuffix y path) false [ ".nix" ".md" ".lock" ])) self;
-        buildInputs = [ pkgs.go_1_17 ];
-        phases = [ "unpackPhase" "configurePhase" "buildPhase" "installPhase" ];
-        VERSIONINFO_CODE = ''
-          package versioninfo
-          
-          var CurrentVersion = "${self.shortRev or "dirty-${self.lastModifiedDate}"}"
-          var Date = "${self.lastModifiedDate}"
-        '';
-        PLUGIN_CODE = pluginCode plugins;
-        WEB_PLUGIN_CODE = webPluginCode plugins;
-        WEB_CONFIG_CODE = webConfigCode plugins configTypes;
-        configurePhase = ''
-          mkdir -p versioninfo
-          printenv VERSIONINFO_CODE > versioninfo/versioninfo.go
-          printenv PLUGIN_CODE > plugins/plugins.go
-          printenv WEB_PLUGIN_CODE > web/main/plugins.go
-          printenv WEB_CONFIG_CODE > web/configDescr.go
-        '';
-        buildPhase = ''
-          export GOCACHE=$TMPDIR/go-cache
-          export GOPATH="$TMPDIR/go"
-          ${pkgs.vend}/bin/vend
-        '';
-        installPhase = ''
-          ln -s . src
-          tar czf $out --exclude=src/src src/*
-        '';
-      };
+      vendoredSources = {plugins, configTypes}: let
+        drv = pkgs.stdenvNoCC.mkDerivation {
+          name = "questscreen-vendored-sources";
+          src = builtins.filterSource (path: type: !(builtins.foldl' (x: y: x || pkgs.lib.hasSuffix y path) false [ ".nix" ".md" ".lock" ])) self;
+          buildInputs = [ pkgs.go_1_17 ];
+          phases = [ "unpackPhase" "configurePhase" "buildPhase" "installPhase" ];
+          VERSIONINFO_CODE = ''
+            package versioninfo
+            
+            var CurrentVersion = "${self.shortRev or "dirty-${self.lastModifiedDate}"}"
+            var Date = "${self.lastModifiedDate}"
+          '';
+          PLUGIN_CODE = pluginCode plugins;
+          WEB_PLUGIN_CODE = webPluginCode plugins;
+          WEB_CONFIG_CODE = webConfigCode plugins configTypes;
+          configurePhase = ''
+            mkdir -p versioninfo
+            printenv VERSIONINFO_CODE > versioninfo/versioninfo.go
+            printenv PLUGIN_CODE > plugins/plugins.go
+            printenv WEB_PLUGIN_CODE > web/main/plugins.go
+            printenv WEB_CONFIG_CODE > web/configDescr.go
+          '';
+          buildPhase = ''
+            export GOCACHE=$TMPDIR/go-cache
+            export GOPATH="$TMPDIR/go"
+            ${pkgs.vend}/bin/vend
+          '';
+          installPhase = ''
+            ln -s . src
+            tar czf $out --exclude=src/src src/*
+          '';
+        };
+      in builtins.trace "generated sources derivation: ${drv}" drv;
       
       askew = pkgs.buildGo117Module {
         pname = "askew";
@@ -177,7 +179,7 @@
       sources = vendoredSources {inherit configTypes; plugins = loadedPlugins;};
       compiledWebUI = let
         ui = questscreen-webui {inherit sources wasm; plugins = loadedPlugins;};
-      in builtins.trace "using UI at ${ui}" ui;
+      in builtins.trace "WebUI derivation: ${ui}" ui;
       suffix = if pkgs.stdenv.hostPlatform.isWindows then ".exe" else "";
       pluginAssets = plugin: ''cp -r -T ${plugin.source}/web/assets assets/${plugin.id}'';
     in targetPkgs.buildGo117Module {
