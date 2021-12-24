@@ -12,6 +12,7 @@
       loadPlugin = {index, plugin, id, configTypes}:
         let
           scenes = plugin.templates.scenes or {};
+          systems = plugin.templates.systems or {};
         in with builtins; {
           inherit (plugin) name description cssFiles goImportPath;
           inherit id;
@@ -25,7 +26,7 @@
             importName = "p${toString index}m${toString mIndex}";
           }) (pkgs.lib.mapAttrsToList (k: v: {name = k; value = v;}) plugin.modules);
           templates = {
-            systems = plugin.templates.systems or [];
+            systems = map (key: (getAttr key systems) // {id = key;}) (attrNames systems);
             groups = plugin.templates.groups or [];
             scenes = map (key: (getAttr key scenes) // {id = key;}) (attrNames scenes);
           };
