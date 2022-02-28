@@ -71,8 +71,10 @@
               export CXX="${zig}/bin/zig c++ -target ${zigTarget}"
               export GOOS=${GOOS}
               export GOARCH=${GOARCH}
-              export CGO_CPPFLAGS=${CGO_CPPFLAGS}
-              export CGO_LDFLAGS=${CGO_LDFLAGS}
+              export CGO_CPPFLAGS="${CGO_CPPFLAGS}"
+              export CGO_LDFLAGS="${CGO_LDFLAGS}"
+              echo "CGO_CPPFLAGS=$CGO_CPPFLAGS"
+              echo "CGO_LDFLAGS=$CGO_LDFLAGS"
             '';
             overrideModAttrs = _: {};
           };
@@ -81,10 +83,12 @@
       msysPrefix = "https://mirror.msys2.org/mingw/clang64/" +
                    "mingw-w64-clang-x86_64-";
       rpiPrefix = "http://ftp.de.debian.org/debian/pool/main/libs/";
-      includeFlags = pkgsToInclude: builtins.concatStringsSep " "
-        (builtins.map (pkg: "-I${pkg}/usr/include") pkgsToInclude);
-      ldFlags = pkgsToLink: builtins.concatStringsSep " "
-        (builtins.map (pkg: "-L${pkg}/usr/lib/arm-linux-gnueabihf -l${pkg.name}")
+      includeFlags = pkgsToInclude: includeFolder: builtins.concatStringsSep " "
+        (builtins.map (pkg: "-I${pkg}${includeFolder} -I${pkg}${includeFolder}/SDL2") pkgsToInclude);
+      strippedName = name: if (builtins.substring 0 3 name) == "lib" then
+        builtins.substring 3 (builtins.stringLength name) name else name;
+      ldFlags = pkgsToLink: libFolder: builtins.concatStringsSep " "
+        (builtins.map (pkg: "-L${pkg}${libFolder} -l${strippedName pkg.name}")
         pkgsToLink);
     in {
       raspberryPi4 = platformConfig rec {
@@ -112,8 +116,8 @@
             sha256 = nixpkgs.lib.fakeSha256;
           }])
         ];
-        CGO_CPPFLAGS = includeFlags deps;
-        CGO_LDFLAGS  = ldFlags deps;
+        CGO_CPPFLAGS = includeFlags deps "/usr/include";
+        CGO_LDFLAGS  = ldFlags deps "/usr/lib/arm-linux-gnueabihf";
         GOOS = "linux";
         GOARCH = "arm";
       };
@@ -124,26 +128,31 @@
         in with builtins; map (
           line: let
             parts = elemAt (nixpkgs.lib.splitString " " line);
-            name = elemAt (split "(.*?)-[0-9].*" (parts 1)) 1;
+            name = elemAt (elemAt (split "^([^-]+)-" (parts 1)) 1) 0;
           in fromPacman name [{
             url = "${msysPrefix}${parts 1}";
             sha256 = parts 0;
           }]
         ) depLines;
-        CGO_CPPFLAGS = includeFlags deps;
-        CGO_LDFLAGS  = ldFlags deps;
+        CGO_CPPFLAGS = includeFlags deps "/clang64/include";
+        CGO_LDFLAGS  = ldFlags (builtins.filter
+          (dep: builtins.elem dep.name ["SDL2" "SDL2_ttf" "SDL2_image"]) deps)
+          "/clang64/lib";
         GOOS = "windows";
         GOARCH = "amd64";
         overrides = _: with builtins; {
+          postBuild = ''
+            mv "$GOPATH/bin/windows_amd64/main.exe" "$GOPATH/bin/windows_amd64/questscreen.exe"
+          '';
           postInstall = ''
-            cp -t $out/bin/windows_amd64 {${concatStringsSep "," (attrValues deps)}}/clang64/bin/*.dll
+            cp -t $out/bin/windows_amd64 {${concatStringsSep "," deps}}/clang64/bin/*.dll
           '';
         };
       };
     };
     buildQuestScreen = {
       system, pname, version, wasm ? true, exeName ? "questscreen", plugins ? {},
-      deps ? { inherit (go118pkgs system) SDL2 SDL2_ttf SDL2_image; },
+      deps ? with (go118pkgs system); [ SDL2 SDL2_ttf SDL2_image ],
       buildGoModuleOverrides ? _: {}
     }: let
       pkgs = go118pkgs system;
@@ -257,7 +266,7 @@
       };
       asiteCode = (import web/site/main.asite.nix) pkgs.lib;
       
-      questscreen-webui = {plugins, wasm, sources}: pkgs.buildGo117Module {
+      questscreen-webui = {plugins, wasm, sources}: pkgs.buildGo118Module {
         pname = "questscreen-webui";
         version = self.shortRev or "dirty-${self.lastModifiedDate}";
         src = sources;
@@ -324,34 +333,39 @@
       in builtins.trace "WebUI derivation: ${ui}" ui;
       suffix = if pkgs.stdenv.hostPlatform.isWindows then ".exe" else "";
       pluginAssets = plugin: ''cp -r -T ${plugin.source}/web/assets assets/${plugin.id}'';
-    in pkgs.buildGo118Module {
-      inherit pname version;
-      src = sources;
-      modRoot = "src";
-      subPackages = [ "main" ];
-      vendorSha256 = null;
-      nativeBuildInputs = [ pkgs.pkg-config ];
-      buildInputs = [ compiledWebUI ] ++ (builtins.attrValues deps);
-      overrideModAttrs = old: {
+      params = {
+        inherit pname version;
+        src = sources;
+        modRoot = "src";
+        subPackages = [ "main" ];
+        vendorSha256 = null;
+        nativeBuildInputs = [ pkgs.pkg-config ];
+        buildInputs = [ compiledWebUI ] ++ deps;
+        overrideModAttrs = old: {
+          unpackPhase = "tar xzf $src";
+        };
         unpackPhase = "tar xzf $src";
+        postConfigure = ''
+          cp -t assets ${compiledWebUI}/web/assets/* vendor/github.com/QuestScreen/api/web/assets/* \
+            web/assets/*
+          ${builtins.concatStringsSep "\n" (map pluginAssets loadedPlugins)}
+        '';
+        preBuild = ''
+          export CGO_CFLAGS=$(pkg-config --cflags sdl2 sdl2_image sdl2_ttf)
+        '';
+        postBuild = ''
+          mv "$GOPATH/bin/main${suffix}" "$GOPATH/bin/questscreen${suffix}"
+        '';
+        postInstall = ''
+          mkdir -p $out/share
+          cp -r -t $out/share resources/*
+        '';
       };
-      unpackPhase = "tar xzf $src";
-      postConfigure = ''
-        cp -t assets ${compiledWebUI}/web/assets/* vendor/github.com/QuestScreen/api/web/assets/* \
-          web/assets/*
-        ${builtins.concatStringsSep "\n" (map pluginAssets loadedPlugins)}
-      '';
-      preBuild = ''
-        export CGO_CFLAGS=$(pkg-config --cflags sdl2 sdl2_image sdl2_ttf)
-      '';
-      postBuild = ''
-        mv "$GOPATH/bin/main${suffix}" "$GOPATH/bin/questscreen${suffix}"
-      '';
-      postInstall = ''
-        mkdir -p $out/share
-        cp -r -t $out/share resources/*
-      '';
-    };
+    in pkgs.buildGo118Module (params // (buildGoModuleOverrides params));
+    buildQuestScreenRPi4 = params:
+      buildQuestScreen (params // (platforms params.system).raspberryPi4);
+    buildQuestScreenWin64 = params:
+      buildQuestScreen (params // (platforms params.system).win64);
   in with utils.lib; eachSystem allSystems (system: let
     pkgs = import nixpkgs { inherit system; };
   in rec {
@@ -366,6 +380,11 @@
         pname = "questscreen-js";
         version = self.shortRev or "dirty-${self.lastModifiedDate}";
         wasm = false;
+      };
+      questscreen-win64 = buildQuestScreenWin64 {
+        inherit system;
+        pname = "questscreen";
+        version = self.shortRev or "dirty-${self.lastModifiedDate}";
       };
     };
     defaultPackage = packages.questscreen;
