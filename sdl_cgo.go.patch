@@ -1,0 +1,9 @@
+--- vendor/github.com/veandco/go-sdl2/sdl/sdl_cgo.go
++++ vendor/github.com/veandco/go-sdl2/sdl/sdl_cgo.go
+@@ -2,6 +2,4 @@
+ 
+ package sdl
+ 
+-//#cgo windows LDFLAGS: -lSDL2
+-//#cgo linux freebsd darwin openbsd pkg-config: sdl2
+ import "C"

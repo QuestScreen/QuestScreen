@@ -1,0 +1,10 @@
+--- vendor/github.com/veandco/go-sdl2/ttf/sdl_ttf_cgo.go
++++ vendor/github.com/veandco/go-sdl2/ttf/sdl_ttf_cgo.go
+@@ -2,7 +2,4 @@
+ 
+ package ttf
+ 
+-//#cgo windows LDFLAGS: -lSDL2 -lSDL2_ttf
+-//#cgo linux freebsd darwin pkg-config: SDL2_ttf
+-//#cgo linux freebsd darwin LDFLAGS: -lSDL2_ttf
+ import "C"

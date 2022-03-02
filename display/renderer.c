@@ -202,7 +202,7 @@ static GLuint link_program(const char *vsrc, const char *fsrc) {
   }\
 } while(false)
 
-#ifndef __APPLE__
+#ifdef GL_DEBUG_TYPE_ERROR
 void APIENTRY debug_callback(GLenum source, GLenum type, GLuint id,
     GLenum severity, GLsizei length, const GLchar *message,
     const void *userParam) {
@@ -256,7 +256,7 @@ bool engine_init(engine_t *e, bool debug) {
     load(glDebugMessageCallback);
   }
 #endif
-#ifndef __APPLE__
+#ifdef GL_DEBUG_TYPE_ERROR
   if (debug) {
     glEnable(GL_DEBUG_OUTPUT);
     glDebugMessageCallback(&debug_callback, NULL);

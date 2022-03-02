@@ -82,9 +82,9 @@
       };
       msysPrefix = "https://mirror.msys2.org/mingw/clang64/" +
                    "mingw-w64-clang-x86_64-";
-      rpiPrefix = "http://ftp.de.debian.org/debian/pool/main/libs/";
+      rpiPrefix = "http://ftp.de.debian.org/debian/pool/main";
       includeFlags = pkgsToInclude: includeFolder: builtins.concatStringsSep " "
-        (builtins.map (pkg: "-I${pkg}${includeFolder} -I${pkg}${includeFolder}/SDL2") pkgsToInclude);
+        (builtins.map (pkg: "-I${pkg}${includeFolder} -I${pkg}${includeFolder}/SDL2 -I${pkg}${includeFolder}/arm-linux-gnueabihf") pkgsToInclude);
       strippedName = name: if (builtins.substring 0 3 name) == "lib" then
         builtins.substring 3 (builtins.stringLength name) name else name;
       ldFlags = pkgsToLink: libFolder: builtins.concatStringsSep " "
@@ -95,31 +95,57 @@
         zigTarget = "arm-linux-gnueabihf";
         deps = [
           (fromDebs "SDL2" [{
-            url = "${rpiPrefix}/libsdl2/libsdl2-2.0-0_2.0.14+dfsg2-3_armhf.deb";
-            sha256 = nixpkgs.lib.fakeSha256;
+            url = "${rpiPrefix}/libs/libsdl2/libsdl2-2.0-0_2.0.14+dfsg2-3_armhf.deb";
+            sha256 = "1z3bcjx225gp6lcbcd7h15cvhjik089y5pgivl2v3kfp61zm9wv4";
           } {
-            url = "${rpiPrefix}/libsdl2/libsdl2-dev_2.0.14+dfsg2-3_armhf.deb";
-            sha256 = nixpkgs.lib.fakeSha256;
+            url = "${rpiPrefix}/libs/libsdl2/libsdl2-dev_2.0.14+dfsg2-3_armhf.deb";
+            sha256 = "17d8qms1p7961kl0g7hgmkn0qx9avjnxwlmsvx677z5xb8vchl3y";
           }])
           (fromDebs "SDL2_ttf" [{
-            url = "${rpiPrefix}/libsdl2-ttf/libsdl2-ttf-2.0-0_2.0.15+dfsg1-1_armhf.deb";
-            sha256 = nixpkgs.lib.fakeSha256;
+            url = "${rpiPrefix}/libs/libsdl2-ttf/libsdl2-ttf-2.0-0_2.0.15+dfsg1-1_armhf.deb";
+            sha256 = "0csacsh7drv0a2pqnzcqc3wzfnx9x4x0h7wdh6z907pphgg7dwra";
           } {
-            url = "${rpiPrefix}/libsdl2-ttf/libsdl2-ttf-dev_2.0.15+dfsg1-1_armhf.deb";
-            sha256 = nixpkgs.lib.fakeSha256;
+            url = "${rpiPrefix}/libs/libsdl2-ttf/libsdl2-ttf-dev_2.0.15+dfsg1-1_armhf.deb";
+            sha256 = "06q8w8d2j5mxlibcy9qr1mld4flkilyml5bmn5addy35k6q0gfbr";
           }])
           (fromDebs "SDL2_image" [{
-            url = "${rpiPrefix}/libsdl2-image/libsdl2-image-2.0-0_2.0.5+dfsg1-2_armhf.deb";
-            sha256 = nixpkgs.lib.fakeSha256;
+            url = "${rpiPrefix}/libs/libsdl2-image/libsdl2-image-2.0-0_2.0.5+dfsg1-2_armhf.deb";
+            sha256 = "0p1yrdx4ywfvs9md4j45may4lflpryanzbsa94cybakmigdhwf4c";
           } {
-            url = "${rpiPrefix}/libsdl2-image/libsdl2-image-dev_2.0.5+dfsg1-2_armhf.deb";
-            sha256 = nixpkgs.lib.fakeSha256;
+            url = "${rpiPrefix}/libs/libsdl2-image/libsdl2-image-dev_2.0.5+dfsg1-2_armhf.deb";
+            sha256 = "1r8120d8fqdxscjcxgy427x55jmmsn7v5ydaxqblab5yja80xg6g";
+          }])
+          (fromDebs "X11" [{
+            url = "${rpiPrefix}/libx/libx11/libx11-6_1.7.2-1_armhf.deb";
+            sha256 = "0xl56pijxr61i8yjqhz2jy3xwpsvqkg0yf60d82ywym3fph7zmd2";
+          } {
+            url = "${rpiPrefix}/libx/libx11/libx11-dev_1.7.2-1_armhf.deb";
+            sha256 = "0n0r21z7lp582pk51fp8dwaymz3jz54nb26xmfwls7q4xbj5f7wz";
+          } {
+            url = "${rpiPrefix}/x/xorgproto/x11proto-dev_2020.1-1_all.deb";
+            sha256 = "1xb5ll2fg3as128m5vi6w5kwbcyc732hljy16i66dllsgmc8smnm";
+          }])
+          (fromDebs "GLESv2" [{
+            url = "${rpiPrefix}/libg/libglvnd/libgles-dev_1.3.2-1_armhf.deb";
+            sha256 = "0w82p5rwkbbsg86i2dgk69xf9s171lcfcdik0n4zi93b9vz0q9bz";
+          } {
+            url = "${rpiPrefix}/libg/libglvnd/libgl-dev_1.3.2-1_armhf.deb";
+            sha256 = "18x6p57i6rlqbdchh2560qfdm1zj9f8wfzci50rpdk28rs3pn1dq";
+          } {
+            url = "${rpiPrefix}/libg/libglvnd/libgles2_1.3.2-1_armhf.deb";
+            sha256 = "0s3f83j8dafanjsawxgilmmbfcxjnvqqq51lalwq27jx9bc7ivp1";
           }])
         ];
         CGO_CPPFLAGS = includeFlags deps "/usr/include";
         CGO_LDFLAGS  = ldFlags deps "/usr/lib/arm-linux-gnueabihf";
         GOOS = "linux";
         GOARCH = "arm";
+        overrides = old: with builtins; {
+          postBuild = ''
+            mv "$GOPATH/bin/linux_arm/main" "$GOPATH/bin/questscreen"
+            rmdir $GOPATH/bin/linux_arm
+          '';
+        };
       };
       win64 = platformConfig rec {
         zigTarget = "x86_64-windows-gnu";
@@ -244,6 +270,11 @@
             export GOCACHE=$TMPDIR/go-cache
             export GOPATH="$TMPDIR/go"
             ${pkgs.vend}/bin/vend
+            echo "in $(pwd)"
+            cat vendor/github.com/veandco/go-sdl2/sdl/sdl_cgo.go
+            patch -p0 <${./sdl_cgo.go.patch}
+            patch -p0 <${./sdl_image_cgo.go.patch}
+            patch -p0 <${./sdl_ttf_cgo.go.patch}
           '';
           installPhase = ''
             ln -s . src
@@ -352,6 +383,7 @@
         '';
         preBuild = ''
           export CGO_CFLAGS=$(pkg-config --cflags sdl2 sdl2_image sdl2_ttf)
+          export CGO_LDFLAGS=$(pkg-config --libs sdl2 sdl2_image sdl2_ttf)
         '';
         postBuild = ''
           mv "$GOPATH/bin/main" "$GOPATH/bin/questscreen"
@@ -382,6 +414,11 @@
         wasm = false;
       };
       questscreen-win64 = buildQuestScreenWin64 {
+        inherit system;
+        pname = "questscreen";
+        version = self.shortRev or "dirty-${self.lastModifiedDate}";
+      };
+      questscreen-rpi4 = buildQuestScreenRPi4 {
         inherit system;
         pname = "questscreen";
         version = self.shortRev or "dirty-${self.lastModifiedDate}";
