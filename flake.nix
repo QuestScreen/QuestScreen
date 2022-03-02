@@ -140,13 +140,14 @@
           "/clang64/lib";
         GOOS = "windows";
         GOARCH = "amd64";
-        overrides = _: with builtins; {
+        overrides = old: with builtins; {
           postBuild = ''
-            mv "$GOPATH/bin/windows_amd64/main.exe" "$GOPATH/bin/windows_amd64/questscreen.exe"
+            mv "$GOPATH/bin/windows_amd64/main.exe" "$GOPATH/bin/questscreen.exe"
+            rmdir $GOPATH/bin/windows_amd64
           '';
           postInstall = ''
-            cp -t $out/bin/windows_amd64 {${concatStringsSep "," deps}}/clang64/bin/*.dll
-          '';
+            cp -t $out/bin {${concatStringsSep "," deps}}/clang64/bin/*.dll
+          '' + old.postInstall;
         };
       };
     };
@@ -189,7 +190,7 @@
       webPluginCode = (import web/main/plugins.go.nix) (pkgs.lib // { inherit renderImports; });
       webConfigCode = (import web/configDescr.go.nix) (pkgs.lib // { inherit injectWeb; });
       
-      gopherJS = pkgs.buildGo118Module {
+      gopherJS = pkgs.buildGo117Module {
         pname = "gopher-js";
         version = "1.17.1+go1.17.3";
         src = pkgs.fetchFromGitHub {
@@ -266,7 +267,7 @@
       };
       asiteCode = (import web/site/main.asite.nix) pkgs.lib;
       
-      questscreen-webui = {plugins, wasm, sources}: pkgs.buildGo118Module {
+      questscreen-webui = {plugins, wasm, sources}: pkgs.buildGo117Module {
         pname = "questscreen-webui";
         version = self.shortRev or "dirty-${self.lastModifiedDate}";
         src = sources;
@@ -284,20 +285,20 @@
           printenv ASITE_CODE > web/site/main.asite
           mkdir -p $GOPATH/bin
           ln -s ${goimports}/bin/goimports $GOPATH/bin/goimports
-          ln -s ${pkgs.go_1_18}/bin/go $GOPATH/bin/go
+          ln -s ${pkgs.go_1_17}/bin/go $GOPATH/bin/go
           ${askew}/bin/askew -o assets -b ${if wasm then "wasm" else "gopherjs"} \
             --exclude app,assets,build-doc,data,display,main,shared,vendor .
           printenv PLUGIN_CODE > plugins/plugins.go
         '';
         buildPhase = if wasm then ''
           export GOCACHE=$TMPDIR/go-cache
-          (cd web/main && env GOOS=js GOARCH=wasm ${pkgs.go_1_18}/bin/go build -o main.wasm)
+          (cd web/main && env GOOS=js GOARCH=wasm ${pkgs.go_1_17}/bin/go build -o main.wasm)
         '' else ''
           mkdir -p home # gopherjs does not honor GOCACHE for some reason.
                         # therefore we redirect writes to the gopherjs cache here.
           (export HOME=$(pwd)/home && cd web/main && env \
             GOOS=linux \
-            GOPHERJS_GOROOT="$(${pkgs.go_1_18}/bin/go env GOROOT)" \
+            GOPHERJS_GOROOT="$(${pkgs.go_1_17}/bin/go env GOROOT)" \
             ${gopherJS}/bin/gopherjs build)
         '';
         doCheck = false;
@@ -331,7 +332,6 @@
       compiledWebUI = let
         ui = questscreen-webui {inherit sources wasm; plugins = loadedPlugins;};
       in builtins.trace "WebUI derivation: ${ui}" ui;
-      suffix = if pkgs.stdenv.hostPlatform.isWindows then ".exe" else "";
       pluginAssets = plugin: ''cp -r -T ${plugin.source}/web/assets assets/${plugin.id}'';
       params = {
         inherit pname version;
@@ -354,7 +354,7 @@
           export CGO_CFLAGS=$(pkg-config --cflags sdl2 sdl2_image sdl2_ttf)
         '';
         postBuild = ''
-          mv "$GOPATH/bin/main${suffix}" "$GOPATH/bin/questscreen${suffix}"
+          mv "$GOPATH/bin/main" "$GOPATH/bin/questscreen"
         '';
         postInstall = ''
           mkdir -p $out/share
